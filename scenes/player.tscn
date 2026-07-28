@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://4qitguyw7fjo"]
+
+[ext_resource type="Script" uid="uid://erl2vqq718b7" path="res://scripts/Gameplay/PlayerCharacter.cs" id="1_3vyb7"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
+radius = 0.3
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_qhqgy"]
+radius = 0.3
+
+[sub_resource type="BoxMesh" id="BoxMesh_dqkch"]
+size = Vector3(0.18, 0.18, 0.35)
+
+[node name="Player" type="CharacterBody3D" unique_id=1758580263]
+script = ExtResource("1_3vyb7")
+
+[node name="Collider" type="CollisionShape3D" parent="." unique_id=130366767]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape3D_g2els")
+
+[node name="Placeholder" type="MeshInstance3D" parent="." unique_id=1459937099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("CapsuleMesh_qhqgy")
+
+[node name="FacingMarker" type="MeshInstance3D" parent="." unique_id=1203586217]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -0.35)
+mesh = SubResource("BoxMesh_dqkch")
+
+[node name="CameraTargetParent" type="Node3D" parent="." unique_id=731108452]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+
+[node name="CameraTarget" type="Node3D" parent="CameraTargetParent" unique_id=853694725]
+unique_name_in_owner = true
