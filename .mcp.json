@@ -1,0 +1,15 @@
+{
+	"mcpServers": {
+		"godot-mcp-toolkit": {
+			"args": [
+				"-c",
+				"exec npx -y @npgamedev/godot-mcp-server"
+			],
+			"command": "zsh",
+			"env": {
+				"GODOT_MCP_CONFIG_VERSION": "1",
+				"GODOT_MCP_PROJECT_PATH": "/home/lucaslizama/repos/godot/the-first-day/the-first-day-godot"
+			}
+		}
+	}
+}
