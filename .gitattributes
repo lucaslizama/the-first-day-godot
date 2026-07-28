@@ -1,0 +1,29 @@
+# Normalize line endings for text files
+* text=auto eol=lf
+
+# Godot text resources
+*.tscn text eol=lf
+*.tres text eol=lf
+*.gd   text eol=lf
+*.cs   text eol=lf diff=csharp
+*.godot text eol=lf
+*.import text eol=lf
+
+# Binary assets
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.tga  binary
+*.psd  binary
+*.exr  binary
+*.hdr  binary
+*.ogg  binary
+*.wav  binary
+*.mp3  binary
+*.ttf  binary
+*.otf  binary
+*.glb  binary
+*.fbx  binary
+*.blend binary
+*.res  binary
+*.scn  binary
