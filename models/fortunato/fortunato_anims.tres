@@ -1,0 +1,24 @@
+[gd_resource type="AnimationLibrary" load_steps=10 format=3]
+
+[ext_resource type="Animation" path="res://models/fortunato/anims/idle.res" id="idle"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/walk.res" id="walk"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/run.res" id="run"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/jumpL.res" id="jumpL"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/jumpR.res" id="jumpR"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/jumpL1Frame.res" id="jumpL1Frame"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/jumpR1Frame.res" id="jumpR1Frame"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/fall.res" id="fall"]
+[ext_resource type="Animation" path="res://models/fortunato/anims/cry.res" id="cry"]
+
+[resource]
+_data = {
+&"idle": ExtResource("idle"),
+&"walk": ExtResource("walk"),
+&"run": ExtResource("run"),
+&"jumpL": ExtResource("jumpL"),
+&"jumpR": ExtResource("jumpR"),
+&"jumpL1Frame": ExtResource("jumpL1Frame"),
+&"jumpR1Frame": ExtResource("jumpR1Frame"),
+&"fall": ExtResource("fall"),
+&"cry": ExtResource("cry")
+}

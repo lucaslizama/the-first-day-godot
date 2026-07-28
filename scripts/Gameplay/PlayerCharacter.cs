@@ -62,7 +62,18 @@ public partial class PlayerCharacter : CharacterBody3D
     [Export]
     public NodePath CameraBasisPath { get; set; } = new();
 
+    /// <summary>Drives Fortunato's clips. Optional: movement works without it.</summary>
+    [Export]
+    public NodePath AnimationPlayerPath { get; set; } = new();
+
     private Node3D? _cameraBasis;
+    private AnimationPlayer? _animation;
+
+    /// <summary>
+    /// Alternates the take-off foot. The original tracked this with a LeftJump
+    /// animator bool, flipped by SetLeftJump/SetRightJump animation events.
+    /// </summary>
+    private bool _leftJump;
 
     public bool IsRunning { get; private set; }
 
@@ -76,10 +87,51 @@ public partial class PlayerCharacter : CharacterBody3D
     public override void _Ready()
     {
         _cameraBasis = GetNodeOrNull<Node3D>(CameraBasisPath);
+        _animation = GetNodeOrNull<AnimationPlayer>(AnimationPlayerPath);
 
         if (_cameraBasis is null)
         {
             GD.PushWarning($"{Name}: CameraBasisPath '{CameraBasisPath}' did not resolve; movement will use world axes.");
+        }
+
+        StripUnresolvableTracks();
+    }
+
+    /// <summary>
+    /// The clip FBXs were exported from a Maya rig, so every animation also carries
+    /// tracks for its IK/FK control hierarchy (Group/Main/MotionSystem/...). The base
+    /// model only contains the deformation skeleton, so those tracks resolve to
+    /// nothing and Godot warns about each one on every play — thousands of lines.
+    /// Skinning is unaffected; drop them once up front instead of muting the warning
+    /// project-wide, which would also hide genuine animation breakage later.
+    /// </summary>
+    private void StripUnresolvableTracks()
+    {
+        if (_animation is null)
+        {
+            return;
+        }
+
+        Node? root = _animation.GetNodeOrNull(_animation.RootNode);
+        if (root is null)
+        {
+            return;
+        }
+
+        foreach (string name in _animation.GetAnimationList())
+        {
+            Animation animation = _animation.GetAnimation(name);
+
+            for (int track = animation.GetTrackCount() - 1; track >= 0; track--)
+            {
+                // Bone tracks look like "Path/To/Skeleton3D:BoneName"; only the node
+                // portion needs to resolve.
+                var nodePath = new NodePath(animation.TrackGetPath(track).GetConcatenatedNames());
+                if (root.GetNodeOrNull(nodePath) is null)
+                {
+                    animation.RemoveTrack(track);
+                }
+            }
         }
     }
 
@@ -95,9 +147,56 @@ public partial class PlayerCharacter : CharacterBody3D
 
         Vector3 direction = GetDirection(input.CurrentDirection);
         ApplyRotation(direction, input.CurrentDirection, delta);
+
+        bool wasJumping = IsJumping;
         Velocity = BuildVelocity(direction, input.Jump, delta);
+
+        // Take-off happened this tick: swap the leading foot.
+        if (IsJumping && !wasJumping)
+        {
+            _leftJump = !_leftJump;
+        }
+
         MoveAndSlide();
         CheckForFall();
+        UpdateAnimation(input.CurrentDirection);
+    }
+
+    /// <summary>
+    /// Stands in for the "Fortunato Controller" animator. Its walk_run_tree blended
+    /// on MoveSpeed, but the keyboard path only ever set that to 0 or 1, so walk and
+    /// run are selected outright. The controller's damage and death states are not
+    /// reproduced: neither has a clip in the project, in FBX or .anim form.
+    /// </summary>
+    private void UpdateAnimation(WasDirection current)
+    {
+        if (_animation is null)
+        {
+            return;
+        }
+
+        string next;
+        if (IsFalling)
+        {
+            next = "fall";
+        }
+        else if (IsJumping)
+        {
+            next = _leftJump ? "jumpL" : "jumpR";
+        }
+        else if (current != WasDirection.NoInput)
+        {
+            next = IsRunning ? "run" : "walk";
+        }
+        else
+        {
+            next = "idle";
+        }
+
+        if (_animation.CurrentAnimation != next)
+        {
+            _animation.Play(next);
+        }
     }
 
     /// <summary>

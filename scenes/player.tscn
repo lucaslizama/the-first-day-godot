@@ -1,33 +1,29 @@
 [gd_scene format=3 uid="uid://4qitguyw7fjo"]
 
 [ext_resource type="Script" uid="uid://erl2vqq718b7" path="res://scripts/Gameplay/PlayerCharacter.cs" id="1_3vyb7"]
+[ext_resource type="PackedScene" uid="uid://wsvq8k2q1jlc" path="res://models/fortunato/fortunato.fbx" id="2_model"]
+[ext_resource type="AnimationLibrary" path="res://models/fortunato/fortunato_anims.tres" id="3_anims"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
 radius = 0.3
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_qhqgy"]
-radius = 0.3
-
-[sub_resource type="BoxMesh" id="BoxMesh_dqkch"]
-size = Vector3(0.18, 0.18, 0.35)
-
-[node name="Player" type="CharacterBody3D" unique_id=1758580263]
+[node name="Player" type="CharacterBody3D" unique_id=969548623]
 script = ExtResource("1_3vyb7")
+AnimationPlayerPath = NodePath("AnimationPlayer")
 
-[node name="Collider" type="CollisionShape3D" parent="." unique_id=130366767]
+[node name="Collider" type="CollisionShape3D" parent="." unique_id=594285596]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("CapsuleShape3D_g2els")
 
-[node name="Placeholder" type="MeshInstance3D" parent="." unique_id=1459937099]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-mesh = SubResource("CapsuleMesh_qhqgy")
+[node name="Model" parent="." unique_id=770356973 instance=ExtResource("2_model")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
 
-[node name="FacingMarker" type="MeshInstance3D" parent="." unique_id=1203586217]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -0.35)
-mesh = SubResource("BoxMesh_dqkch")
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=68606290]
+root_node = NodePath("../Model")
+libraries/ = ExtResource("3_anims")
 
-[node name="CameraTargetParent" type="Node3D" parent="." unique_id=731108452]
+[node name="CameraTargetParent" type="Node3D" parent="." unique_id=1894699775]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
 
-[node name="CameraTarget" type="Node3D" parent="CameraTargetParent" unique_id=853694725]
+[node name="CameraTarget" type="Node3D" parent="CameraTargetParent" unique_id=822124883]
 unique_name_in_owner = true
