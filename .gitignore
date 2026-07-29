@@ -34,3 +34,7 @@ obj/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python bytecode from the tools/ scripts
+__pycache__/
+*.pyc
