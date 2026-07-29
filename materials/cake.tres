@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; Replaces mat_torta on the cake at the end of the level.
+;
+; Every value here is a literal from the Shader Forge graph rather than a
+; material property: shader_torta declares no Properties at all. mat_torta's
+; stored _Color (white) and _speed (2) were ignored by Unity and are not carried
+; over - the coincidence that _speed and the graph's sine rate are both 2 is just
+; that, a coincidence.
+
+[ext_resource type="Shader" path="res://shaders/cake_glow.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "mat_torta"
+shader = ExtResource("1_shader")
+shader_parameter/rim_exponent = 10.0
+shader_parameter/rim_strength = 2.0
+shader_parameter/pulse_speed = 2.0
+shader_parameter/glow_tint = Color(1, 1, 1, 1)

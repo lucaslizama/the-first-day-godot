@@ -1,6 +1,8 @@
 shader_type spatial;
 render_mode unshaded;
 
+#include "res://shaders/unity_gamma.gdshaderinc"
+
 // Port of the Shader Forge shader "Custom/shader_ojos" (Fortunato's eyes,
 // MAT_Ojos) from the Unity original.
 //
@@ -26,16 +28,6 @@ uniform float fresnel_exponent = 5.0;
 
 // The multiplier the Fresnel was fed through before being inverted.
 uniform float fresnel_scale = 100000.0;
-
-vec3 to_gamma(vec3 c) {
-	c = max(c, vec3(0.0));
-	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
-}
-
-vec3 to_linear(vec3 c) {
-	c = max(c, vec3(0.0));
-	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
-}
 
 void fragment() {
 	float facing = max(0.0, dot(normalize(NORMAL), normalize(VIEW)));

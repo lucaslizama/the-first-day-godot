@@ -1,6 +1,8 @@
 shader_type spatial;
 render_mode ambient_light_disabled;
 
+#include "res://shaders/unity_gamma.gdshaderinc"
+
 // Port of the Shader Forge shaders "Custom/shader_personaje" (Fortunato's suit,
 // MAT_Kuro) and "Custom/shader_corbata" (his tie, MAT_Bluish) from the Unity
 // original.
@@ -53,19 +55,6 @@ uniform vec4 ambient_color : source_color = vec4(0.22352943, 0.23529413, 0.22352
 // highlight outright, since an omni light's attenuation is below 1 almost
 // everywhere.
 uniform bool hard_shadow_specular = false;
-
-// Inverse of the decode Godot's source_color hint applies, so the math below
-// runs on the same numbers Unity's gamma pipeline used. The exact sRGB curve
-// rather than a 2.2 approximation, to avoid a mismatched round trip.
-vec3 to_gamma(vec3 c) {
-	c = max(c, vec3(0.0));
-	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
-}
-
-vec3 to_linear(vec3 c) {
-	c = max(c, vec3(0.0));
-	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
-}
 
 vec3 shading_space(vec3 c) {
 	return gamma_space ? to_gamma(c) : c;
