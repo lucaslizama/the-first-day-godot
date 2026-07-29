@@ -30,36 +30,19 @@ STATIC = {
     "cable.fbx", "interruptor.fbx", "piezaParede.fbx",
 }
 
-# Doors that face the wrong way once placed, keyed by world position.
+# Per-door 180 degree corrections, keyed by world position. Currently empty.
 #
-# puerta.fbx has its panelled, knobbed face on local +Z; local -Z is a flat black
-# back. Ten of the twenty-one doors end up presenting that back to the building's
-# interior, so the player sees a black rectangle instead of a door.
+# An earlier attempt listed ten doors here, chosen because a hemisphere ray test
+# said they showed their unfinished back. Applying it made almost every door in
+# the level render semi-transparent, so it was reverted on request. The cause of
+# that transparency is not yet understood and the ray test is not trustworthy
+# until it is - do not repopulate this from tools/door_facing.gd without checking
+# the result in the editor first.
 #
-# This is not the mirror question: the list cuts across both groups, eight of
-# these have a negative scale and two do not, and eleven mirrored-or-not doors
-# are already correct. It is per-instance, so it is corrected per instance.
-#
-# Turning a door 180 degrees about Y is safe in a way that it is not for a
-# mirrored prop in general: the door stays in its doorway and simply presents its
-# other face.
-#
-# Re-derive with tools/door_facing.gd, which casts a fan over each hemisphere and
-# compares how enclosed the two sides are. Keyed by position rather than by node
-# name so regenerating props.json cannot silently move the corrections onto
-# different doors.
-FLIP_DOORS = {
-    (45.61, 11.41, -59.68),
-    (8.12, 2.87, 35.84),
-    (-25.34, 0.82, -25.82),
-    (-26.27, 3.74, -66.73),
-    (43.02, 11.41, -104.27),
-    (-56.49, 19.69, 22.16),
-    (34.07, 20.89, 50.53),
-    (-55.73, 14.72, -57.40),
-    (-24.17, 2.72, 34.83),
-    (22.72, 1.90, -43.84),
-}
+# The mechanism is kept because the generator is the right place for such a fix
+# if one turns out to be needed. Keyed by position rather than node name so
+# regenerating props.json cannot move corrections onto different doors.
+FLIP_DOORS = set()
 
 
 def wants_flip(pos):
