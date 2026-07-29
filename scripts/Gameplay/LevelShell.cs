@@ -20,7 +20,16 @@ namespace TheFirstDay.Gameplay;
 /// Collision: 53 mesh instances would need 53 _subresources entries in the
 /// .import file to generate bodies at import time. One create_trimesh_collision
 /// call each is less to get wrong, and keeps the .import files readable.
+///
+/// [Tool] so the materials also apply in the editor. Without it the shell keeps
+/// the raw lambert1/lambert2 materials the FBX shipped with whenever you are
+/// looking at the scene rather than running it, so the editor viewport shows
+/// something that is not what the game renders - which is exactly the sort of
+/// discrepancy that wastes an afternoon. Collision is still built at runtime
+/// only: generating it in the editor would add 53 StaticBody3D children to the
+/// scene every time it loads.
 /// </summary>
+[Tool]
 public partial class LevelShell : Node3D
 {
     /// <summary>Maps mesh node name to a slot-index -> material path table.</summary>
@@ -80,7 +89,9 @@ public partial class LevelShell : Node3D
                 GD.PushWarning($"{Name}: no material entry for mesh '{mesh.Name}'; it keeps its imported material.");
             }
 
-            if (GenerateCollision)
+            // Runtime only: in the editor this would add a StaticBody3D child per
+            // mesh every time the scene loads, and they would be saved with it.
+            if (GenerateCollision && !Engine.IsEditorHint())
             {
                 mesh.CreateTrimeshCollision();
                 collided++;
