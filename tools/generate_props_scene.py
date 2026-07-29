@@ -5,13 +5,19 @@ Run tools/extract_unity_transforms.py first to produce props.json, then:
 
     python3 tools/generate_props_scene.py <props.json> [out.tscn]
 
-Mirrored props are rewritten rather than reproduced literally. Several props -
-most of the doors - carry a negative X scale in Unity, which is how the artists
-flipped which side a door opens on. A negative determinant flips triangle
-winding, so Godot renders those meshes inside out. Replacing the mirror with a
-180 degree turn about Y keeps the determinant positive and looks the same: the
-two differ only by a flip along the prop's thin axis, which is imperceptible on
-a door and on the other props that use it.
+Transforms are reproduced exactly as Unity had them, negative scales included.
+
+Twelve doors carry a negative X scale, which is how the artists flipped which
+side a door opens on. Do NOT substitute a 180 degree turn about Y for that
+mirror: a mirror on X leaves the door's facing axis alone, while a Y turn
+negates it, so the substitution silently turns those doors to face backwards.
+That was tried and reverted. A mirror is not a rotation, and no combination of
+scale signs preserves both up and facing while making the determinant positive
+- diag(-1,-1,1) turns the door upside down and diag(-1,1,-1) is the Y turn that
+flips the facing.
+
+Godot renders negative-determinant transforms correctly, verified by rendering a
+mirrored door beside an unmirrored one, so nothing needs working around here.
 """
 
 import json
@@ -51,18 +57,13 @@ def determinant(bx, by, bz):
 
 
 def build_basis(rot, scale):
-    """Returns (columns, mirrored) with a guaranteed positive determinant."""
+    """Returns (columns, mirrored) reproducing Unity's transform exactly.
+
+    mirrored is reported for the summary only; the transform is emitted as-is so
+    each prop keeps the facing it had in Unity.
+    """
     bx, by, bz = quat_basis(rot)
     mirrored = (scale[0] * scale[1] * scale[2]) < 0.0
-
-    if mirrored:
-        # Turn 180 degrees about the prop's own Y by negating the X and Z
-        # columns, then take the scale magnitudes. Negating two columns leaves
-        # the determinant positive.
-        bx = [-c for c in bx]
-        bz = [-c for c in bz]
-        scale = [abs(s) for s in scale]
-
     cols = (
         [c * scale[0] for c in bx],
         [c * scale[1] for c in by],
@@ -97,9 +98,6 @@ def main():
         cols, mirrored = build_basis(p["rot"], p["scale"])
         if mirrored:
             mirrored_count += 1
-        det = determinant(*cols)
-        if det <= 0.0:
-            sys.exit("refusing to emit a negative-determinant transform for %s" % f)
 
         vals = list(cols[0]) + list(cols[1]) + list(cols[2]) + list(p["pos"])
         lines.append(
@@ -111,7 +109,7 @@ def main():
 
     open(out, "w").write("\n".join(lines))
     print("%s: %d instances across %d models" % (out, len(items), len(used)))
-    print("  mirrored props rewritten as a 180 deg turn: %d" % mirrored_count)
+    print("  mirrored props kept as Unity had them (negative determinant): %d" % mirrored_count)
     for k, v in counters.most_common():
         print("   %-18s %d" % (k, v))
 
