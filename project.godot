@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 
 MCPRuntimeServer="*res://addons/godot_mcp_toolkit/runtime/mcp_runtime_server.gd"
 PlayerInput="*res://scripts/Gameplay/PlayerInput.cs"
+GameManager="*res://scripts/Gameplay/GameManager.cs"
 
 [display]
 
