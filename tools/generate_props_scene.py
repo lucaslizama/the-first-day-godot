@@ -126,7 +126,19 @@ def main():
         if mirrored:
             mirrored_count += 1
 
-        vals = list(cols[0]) + list(cols[1]) + list(cols[2]) + list(p["pos"])
+        # Godot's 12-float Transform3D constructor is ROW-major, so the basis
+        # columns have to be written out transposed. Emitting them in column
+        # order instead silently transposes the matrix, and the transpose of a
+        # rotation is its inverse - every angled prop ended up rotated the wrong
+        # way, while ones near 0 or 180 degrees looked fine. Verified against the
+        # live editor: for Unity's -93.47 deg yaw on puerta_21, the column order
+        # produced +93.47.
+        bx, by, bz = cols
+        vals = [
+            bx[0], by[0], bz[0],
+            bx[1], by[1], bz[1],
+            bx[2], by[2], bz[2],
+        ] + list(p["pos"])
         lines.append(
             '[node name="%s_%02d" parent="." instance=ExtResource("%s")]'
             % (f[:-4], counters[f], ids[f])
