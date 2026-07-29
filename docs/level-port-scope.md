@@ -5,18 +5,57 @@ out of the project, not estimated. Source: `../the-first-day-unity`.
 
 ## What the level actually is
 
-A **corridor**, not an open space:
+A **large vertical structure**, measured from the imported geometry in Godot:
 
 | | |
 |---|---|
-| World extents | x `-0.3 … 8.4`, y `-0.3 … 2.8`, z `-67.2 … 3.9` |
-| Span | **8.7 × 3.2 × 71.1 m** |
-| Root objects | 11 |
+| `nivel.fbx` | 125.7 × 57.6 × 186.2 m |
+| `nivel_p2.fbx` | 51.0 × 40.5 × 77.2 m |
+| Assembled shell | 125.7 × 57.6 × **262.1 m**, z from −186.2 to +75.9 |
+| Import scale | `root_scale = 100` (Unity `globalScale: 100`) |
 
-Almost all of it runs along −Z. That shape matters more than any other fact
-here: it means the level can be ported and tested in **slices along Z**, one
-checkpoint stretch at a time, with the sandbox scene as the harness. Nothing
-requires the whole level standing up before any of it is playable.
+Corroborated against Unity: the `CheckPointZone` kill volume is scaled
+152 × 1 × 321, the checkpoints sit at y = 9.55 / 21.36, and a `plataforma`
+BoxCollider is 1.96 × 0.41 × 2.03 m. The player starts at (0, 0, 4.02) and the
+last Trigger Zone is at (−0.02, 11.97, −101.14), so play runs **downward in z
+and upward in y** — which is what the falling platforms are for.
+
+> **Correction.** An earlier revision of this document claimed a
+> "8.7 × 3.2 × 71.1 m corridor". That was wrong twice over: it sampled only the
+> 11 *root* transforms while 132 prefab instances are nested under containers,
+> and it merged mesh-local AABBs computed in `_initialize()`, where
+> `global_transform` returns identity and every mesh's own placement is
+> discarded. Measure bounds after the tree is live, or the numbers are
+> meaningless.
+
+The level can still be ported in **slices along z**, one checkpoint stretch at a
+time, with the sandbox scene as the harness — that part holds. Nothing requires
+the whole level standing up before any of it is playable.
+
+### Unity → Godot placement convention
+
+Positions transfer **unchanged**, including z. Established by measurement, not
+by reasoning about handedness: the last Trigger Zone is at Unity z = −101.14 and
+must lie inside the level, and Godot's imported `nivel` spans z ∈ [−110.4,
++75.9]. Unchanged puts it inside; negated puts it outside the geometry
+altogether. Godot's importer and Unity's agree numerically on these files, so
+the geometry needs no mirroring.
+
+**Rotations are the exception.** A Unity directional light shines along +Z while
+Godot's shines along −Z, so its basis needs its X and Z columns negated — a 180°
+turn about Y that keeps the determinant positive. This is the same correction
+Fortunato's model needed (`rotation.y = π`). Taking Unity's quaternion at face
+value points the sun *upward*.
+
+### Two authoring scale groups
+
+The models split in two, and mixing them up produces geometry off by 100×:
+
+- **`globalScale: 1`** — `book`, `cable`, `cake`, `interruptor`, `meta`, `pc`,
+  `pc2`, `puerta`, `puertaInicio`, `silla`, `table`. Already metre-scale: the
+  chair measures 1.33 m tall, the table 0.95 m.
+- **`globalScale: 100`** — `nivel`, `nivel_p2`, `plataforma`, `plataformaCae`,
+  `martillo`, `piezaParede`.
 
 ## Scene inventory
 
@@ -169,11 +208,15 @@ the port rather than after.
 
 ## Suggested order
 
-1. **`shader_general` + `shader_generalTransparencia`** — 84 of the level's
-   material references; nothing looks right until these exist.
-2. **Level shell** — `nivel.fbx` + `nivel_p2.fbx` with the 60 mesh colliders,
-   into a level scene, tested with the existing player.
+1. ~~**`shader_general` + `shader_generalTransparencia`**~~ — **done**, plus
+   `shader_torta`. See `shaders/level_lit.gdshader`, `level_fade.gdshader`,
+   `cake_glow.gdshader`.
+2. ~~**Level shell**~~ — **done**. `scenes/level.tscn` holds both halves with
+   trimesh collision on all 53 meshes and 73 per-surface materials applied from
+   `models/level/level_materials.json`. The player is not in it yet.
 3. **Static props** — chairs, doors, tables, PCs. Bulk instancing, low risk.
+   Remember these are the `globalScale: 1` group: import them at `root_scale = 1`,
+   not 100.
 4. **Platforms** — `plataforma_prefab` (18) and `plataformaCae` (8) plus
    `ParentPlayer`/`FallingPlatform`. First real gameplay work.
 5. **Coworkers** — sprite atlases, billboards, `RandomizeMonoAnimStart`, and
@@ -215,3 +258,14 @@ behavioural work is.
   conclusion during the GameManager port (the death system looked like dead
   code) and one here (Yelena looked enabled). Any further scene archaeology has
   to read overrides, not just documents.
+- **Materials are assigned per renderer-slot, not per material name.** The same
+  FBX material resolves differently in different places: `lambert1` is
+  `mat_generalTransparencia` on `nivel`'s `pPlane*` meshes but `mat_general` on
+  its `polySurface` slot 1, and `nivel_p2` reverses the `polySurface` mapping.
+  Godot's importer keys external materials by name and **cannot express this**,
+  which is why the shell needs `LevelShell.cs` and a data table rather than
+  import settings. Expect the same for the props.
+- **One table entry targets a non-mesh node.** Unity had a renderer on `pPlane30`;
+  Godot imports it as a plain `Node3D` whose `polySurface*` children hold the
+  geometry and their own materials. Harmless, and reported as an informational
+  line rather than a warning — but it means 73 of 74 assignments apply.

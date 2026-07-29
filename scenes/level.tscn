@@ -1,0 +1,41 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://models/level/nivel.fbx" id="1_nivel"]
+[ext_resource type="PackedScene" path="res://models/level/nivel_p2.fbx" id="2_nivel_p2"]
+[ext_resource type="Script" path="res://scripts/Gameplay/LevelShell.cs" id="3_shell"]
+
+[sub_resource type="Environment" id="Environment_level"]
+background_mode = 1
+background_color = Color(0.05, 0.05, 0.06, 1)
+ambient_light_source = 0
+
+[node name="Level" type="Node3D"]
+
+[node name="Environment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_level")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866002, 0.000003, -0.500040, -0.463367, -0.375905, 0.802488, -0.187965, 0.926658, 0.325535, 0, 3, 0)
+light_color = Color(1, 0.95686275, 0.8392157, 1)
+light_energy = 1.0
+shadow_enabled = true
+
+[node name="PointLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.373, 2.194, 4.014)
+light_color = Color(0.75086504, 0.7719484, 0.9117647, 1)
+light_energy = 2.39
+omni_range = 20.0
+
+[node name="Shell" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0, 0)
+script = ExtResource("3_shell")
+ModelKey = "nivel.fbx"
+
+[node name="nivel" parent="Shell" instance=ExtResource("1_nivel")]
+
+[node name="ShellP2" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
+script = ExtResource("3_shell")
+ModelKey = "nivel_p2.fbx"
+
+[node name="nivel_p2" parent="ShellP2" instance=ExtResource("2_nivel_p2")]

@@ -1,0 +1,188 @@
+{
+ "nivel.fbx": {
+  "pPlane29": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane30": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane31": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane32": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane33": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane34": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane35": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane36": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane37": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane38": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane39": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane40": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane41": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane42": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane43": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane44": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane45": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane46": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane47": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane48": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "pPlane49": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface1": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface2": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface3": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface33": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface4": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface5": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  }
+ },
+ "nivel_p2.fbx": {
+  "polySurface10": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface11": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface12": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface13": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface14": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface15": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface16": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface17": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface18": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface19": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface20": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface21": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface22": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface23": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface24": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface25": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface26": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface27": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface28": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface29": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface30": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface31": {
+   "0": "res://materials/level_transparent.tres"
+  },
+  "polySurface32": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface34": {
+   "0": "res://materials/level_transparent.tres",
+   "1": "res://materials/level_general.tres"
+  },
+  "polySurface6": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface7": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  },
+  "polySurface9": {
+   "0": "res://materials/level_general.tres",
+   "1": "res://materials/level_transparent.tres"
+  }
+ }
+}
