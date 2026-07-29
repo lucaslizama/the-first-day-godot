@@ -1,0 +1,22 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; Replaces MAT_Kuro. Values taken from
+; ../the-first-day-unity/Assets/Materials/MAT_Kuro.mat, which drove
+; Custom/shader_personaje. The material also stored _Metallic, _OutlineColor,
+; _Glossiness, _EmissionColor, _node_2018 and _node_2018_copy; all are orphaned
+; Shader Forge and Standard-shader debris that shader_personaje never declared,
+; so none of them are carried over.
+
+[ext_resource type="Shader" path="res://shaders/character_lit.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "MAT_Kuro"
+shader = ExtResource("1_shader")
+shader_parameter/gamma_space = true
+shader_parameter/albedo_color = Color(0.029411793, 0.029411793, 0.029411793, 1)
+shader_parameter/specular_color = Color(0.1029412, 0.1029412, 0.1029412, 1)
+shader_parameter/gloss = 0.311
+shader_parameter/light_wrap_color = Color(1, 0, 0, 1)
+shader_parameter/diffuse_power = 0.5
+shader_parameter/ambient_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
+shader_parameter/hard_shadow_specular = false

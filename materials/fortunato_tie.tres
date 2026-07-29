@@ -1,0 +1,24 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; Replaces MAT_Bluish. Values taken from
+; ../the-first-day-unity/Assets/Materials/MAT_Bluish.mat, which drove
+; Custom/shader_corbata.
+;
+; shader_corbata is shader_personaje without the light-wrapping term and with a
+; diffuse power of 1.0, so it shares character_lit.gdshader: a black
+; light_wrap_color zeroes the wrap and diffuse_power = 1.0 restores the plain
+; Lambert falloff. MAT_Bluish declared no _LightWrappingColor of its own.
+
+[ext_resource type="Shader" path="res://shaders/character_lit.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "MAT_Bluish"
+shader = ExtResource("1_shader")
+shader_parameter/gamma_space = true
+shader_parameter/albedo_color = Color(0, 0.046941806, 0.6102941, 1)
+shader_parameter/specular_color = Color(0.1029412, 0.1029412, 0.1029412, 1)
+shader_parameter/gloss = 0.2222222
+shader_parameter/light_wrap_color = Color(0, 0, 0, 1)
+shader_parameter/diffuse_power = 1.0
+shader_parameter/ambient_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
+shader_parameter/hard_shadow_specular = false
