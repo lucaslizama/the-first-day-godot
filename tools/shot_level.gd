@@ -10,11 +10,14 @@ var _frame := 0
 var _shot := 0
 var _shots: Array = []
 
+var _ready_done := false
+
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
 		_out = args[0]
 
+func _build() -> void:
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(1200, 800)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -66,6 +69,12 @@ func _meshes(node: Node) -> Array[MeshInstance3D]:
 
 func _process(_delta: float) -> bool:
 	_frame += 1
+	# Built here rather than in _initialize: global_transform returns identity
+	# before the tree is live, so bounds measured there are meaningless and the
+	# camera framing derived from them is wrong.
+	if _frame == 2:
+		_build()
+		return false
 	if _frame < 150:
 		return false
 	if (_frame - 150) % 8 != 0:

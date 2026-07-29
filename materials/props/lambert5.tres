@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; Ported from lambert5.mat, which used Unity's Standard shader (metallic workflow).
+; Roughness is 1 - _Glossiness. Unity ran in Gamma colour space while Godot is
+; linear, so this matches the albedo exactly but the shading response only
+; approximately - unlike the hand-written shaders, Standard is a full PBR model
+; and reproducing it term-by-term is not worth it for prop surfaces.
+
+[resource]
+resource_name = "lambert5"
+albedo_color = Color(0.054, 0.04177537, 0.036342, 1.0)
+metallic = 0
+roughness = 0.5

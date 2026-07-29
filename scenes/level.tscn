@@ -1,13 +1,16 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" path="res://models/level/nivel.fbx" id="1_nivel"]
 [ext_resource type="PackedScene" path="res://models/level/nivel_p2.fbx" id="2_nivel_p2"]
 [ext_resource type="Script" path="res://scripts/Gameplay/LevelShell.cs" id="3_shell"]
+[ext_resource type="PackedScene" path="res://scenes/props.tscn" id="4_props"]
 
 [sub_resource type="Environment" id="Environment_level"]
 background_mode = 1
 background_color = Color(0.05, 0.05, 0.06, 1)
-ambient_light_source = 0
+ambient_light_source = 2
+ambient_light_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
+ambient_light_energy = 1.0
 
 [node name="Level" type="Node3D"]
 
@@ -39,3 +42,5 @@ script = ExtResource("3_shell")
 ModelKey = "nivel_p2.fbx"
 
 [node name="nivel_p2" parent="ShellP2" instance=ExtResource("2_nivel_p2")]
+
+[node name="Props" parent="." instance=ExtResource("4_props")]
