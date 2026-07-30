@@ -189,6 +189,36 @@ Two lights only, plus flat ambient:
 This is already encoded in `shaders/character_lit.gdshader`'s `ambient_color`
 default, so the character and the level will agree by construction.
 
+Both lights are ported and the ambient matches, so the level's lighting is faithful.
+**The skybox is not, and it matters far more than its one reference suggests** — see
+below.
+
+#### The missing skybox is an ending-area problem, not a detail
+
+`scenes/level.tscn` sets `background_mode = 1`, a flat near-black colour, because
+`mat_skyboxFernandito` is unported. Inside the office that is invisible: walls and
+ceilings fill the frame, so nothing ever shows sky.
+
+The far end of the level is **exterior**. Past roughly z = −152 the geometry opens
+into a forest of tower blocks with a long central walkway between them, platforms off
+to the sides, and coworkers standing on the tower tops — 13 meshes spanning x ∈ [−22,
+22], y ∈ [−20, 20.5], z ∈ [−186.2, −152], with the last checkpoint and trigger zone at
+y ≈ 13. With no sky, everything around and above those towers is pure black, so the
+whole climax of the level currently reads as unlit void rather than a city.
+
+So `mat_skyboxFernandito`'s "1 reference" is misleading in the same way the collider
+counts were: one reference, but it is the backdrop of the entire final section. Treat
+it as ending-area work alongside step 7, not as a one-line material.
+
+Screenshots of the area, for reference when porting it, can be regenerated with:
+
+    xvfb-run -a godot-mono --path . --script tools/shot_at.gd -- \
+        /tmp/far.png 0 15 -184 0 13 -155
+
+`shot_at.gd` takes an optional eighth argument for the scene, and asserts it actually
+owns the viewport before writing — it used to ignore its camera arguments entirely,
+which is why this area went unlooked-at for so long.
+
 ## Remaining work
 
 ### 1. Materials and shaders
@@ -202,7 +232,7 @@ Fortunato (gamma-space math, `LIGHT_COLOR / PI`, `ALBEDO = vec3(1.0)`):
 | `shader_general` | `mat_general` | 27 |
 | `shader_torta` | `mat_torta` | 1 |
 | `shader_fade` | UI fade | — |
-| skybox | `mat_skyboxFernandito` | 1 |
+| skybox | `mat_skyboxFernandito` | 1 — but it is the entire ending area's backdrop; see Lighting |
 
 Plus `MAT_Platic`, `MAT_Screen`, `lambert2`, `lambert3` (likely plain
 `StandardMaterial3D`), and four tutorial-key materials (`wasd`, `space_key_l`,
@@ -526,7 +556,12 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
 7. **Ending and UI** — `meta.fbx`, cake, confetti, `Credits`, `PauseMenu`,
-   `TimerZone`.
+   `TimerZone`, the five tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`,
+   `Tutorial`, on Unity's built-in cube mesh), `Door` for `puertaInicio`, and
+   **`mat_skyboxFernandito`**. The skybox belongs in this step rather than with the
+   materials: the ending area is exterior, so without it the level's whole climax
+   renders against black. See "The missing skybox is an ending-area problem" under
+   Lighting.
 
 Steps 2–4 are mostly mechanical volume. Steps 5–6 are where the real
 behavioural work is.
