@@ -14,6 +14,8 @@ rediscover them:
       scripts/
         unity_space.py               generic axis conjugation, configurable
         check_axes.gd                statistical axis-convention prober
+        PropCollision.cs             per-instance collision toggle, drop-in
+        verify_template.gd           headless verifier skeleton
 
 It is a Claude Code skill, so an agent working on any Unity→Godot task picks it up
 automatically from its description; no need to point at this file. It is
