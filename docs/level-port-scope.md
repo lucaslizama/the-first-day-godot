@@ -137,12 +137,12 @@ arrives through prefab instances.
 | 5 | `Models/table.fbx` | tables |
 | 4 | `tablePcs` | desk + PCs |
 | 2 each | `Models/pc.fbx`, `Models/pc2.fbx`, `Trigger Zone`, `coworkers_group 1` | |
+| 1 each | `nivel.fbx`, `nivel_p2.fbx`, `meta.fbx`, `cake.fbx`, `cable.fbx`, `interruptor.fbx`, `piezaParede.fbx`, `Fortunato`, `Yelena`, `UI`, `InputManager`, `CheckPointZone`, `Timer Zone`, `puertaInicio`, `coworkers_group3`, `particleSys_conffeti` | |
 
 `tablePcs` is not one model but four on one node — a `table`, a `pc`, a `pc2` and a
 `book`, 11 meshes in all — with the table flattened into the prefab root as
 `pPlane23`–`pPlane27`. Counting it as a single prop is what let the static-props
 pass skip it.
-| 1 each | `nivel.fbx`, `nivel_p2.fbx`, `meta.fbx`, `cake.fbx`, `cable.fbx`, `interruptor.fbx`, `piezaParede.fbx`, `Fortunato`, `Yelena`, `UI`, `InputManager`, `CheckPointZone`, `Timer Zone`, `puertaInicio`, `coworkers_group3`, `particleSys_conffeti` | |
 
 `nivel.fbx` + `nivel_p2.fbx` are the level shell. `Yelena` is the **disabled**
 leftover prototype — do not port it. Its `m_IsActive: 0` is a prefab-instance
@@ -189,26 +189,59 @@ Two lights only, plus flat ambient:
 This is already encoded in `shaders/character_lit.gdshader`'s `ambient_color`
 default, so the character and the level will agree by construction.
 
-Both lights are ported and the ambient matches, so the level's lighting is faithful.
-**The skybox is not, and it matters far more than its one reference suggests** — see
-below.
+Both lights are ported, the ambient matches, and the skybox is ported too, so the
+level's lighting and its backdrop are faithful.
 
-#### The missing skybox is an ending-area problem, not a detail
+#### The skybox was an ending-area problem, not a detail — **done**
 
-`scenes/level.tscn` sets `background_mode = 1`, a flat near-black colour, because
-`mat_skyboxFernandito` is unported. Inside the office that is invisible: walls and
-ceilings fill the frame, so nothing ever shows sky.
+`scenes/level.tscn` used to set `background_mode = 1`, a flat near-black colour,
+because `mat_skyboxFernandito` was unported. Inside the office that is invisible:
+walls and ceilings fill the frame, so nothing ever shows sky.
 
 The far end of the level is **exterior**. Past roughly z = −152 the geometry opens
 into a forest of tower blocks with a long central walkway between them, platforms off
 to the sides, and coworkers standing on the tower tops — 13 meshes spanning x ∈ [−22,
 22], y ∈ [−20, 20.5], z ∈ [−186.2, −152], with the last checkpoint and trigger zone at
-y ≈ 13. With no sky, everything around and above those towers is pure black, so the
-whole climax of the level currently reads as unlit void rather than a city.
+y ≈ 13. With no sky, everything around and above those towers was pure black, so the
+whole climax read as unlit void rather than a city. `mat_skyboxFernandito`'s "1
+reference" was misleading in the same way the per-asset collider counts were: one
+reference, but the backdrop of the entire final section.
 
-So `mat_skyboxFernandito`'s "1 reference" is misleading in the same way the collider
-counts were: one reference, but it is the backdrop of the entire final section. Treat
-it as ending-area work alongside step 7, not as a one-line material.
+Now `background_mode = 2` with `materials/sky_fernandito.tres`. Unity used the
+built-in **Skybox/6 Sided** shader (`fileID: 104`) with six 1016×1016 faces, and Godot
+has no six-sided sky material, so `tools/build_skybox_panorama.py` resamples them into
+one 4096×2048 equirectangular panorama for `PanoramaSkyMaterial`. Tint
+`(0.5, 0.5, 0.5, 0.5)` and exposure 1 are that shader's neutral values and rotation is
+0, so no colour correction is applied.
+
+Two independent mappings had to be right, and both invert easily:
+
+- **Face assignment.** Unity's inspector labels are Front `[+Z]`, Back `[-Z]`, Left
+  `[+X]`, Right `[-X]` — Left really does mean +X. The material then *crosses* the
+  horizontal pair (`_LeftTex` = `right.tif`), and the `diag(-1, 1, 1)` conjugation
+  crosses them back, so the filenames end up matching Godot's axes. Two independent
+  facts that happen to cancel; do not "simplify" either away.
+- **Inside vs outside.** Skybox faces are painted to be seen from *inside* the cube,
+  while OpenGL cubemap faces are defined from *outside* — a horizontal mirror on all
+  four sides. Using the GL formulas gives a sky that is **continuous but mirrored**,
+  and seam continuity cannot detect that, because a mirrored sky is exactly as
+  continuous. Derived instead from `r = cross(f, up)`, checked against the one case
+  Godot fixes for us: its camera looks along −Z with +X to the right, and
+  `cross(-Z, +Y) = +X`. So looking along +Z puts +X on the **left**.
+
+Verified three ways. Seam continuity across the four vertical seams fell from ~9.0 to
+**≤1.19** of 255 once the mirror was right. The two pole faces have no derivable up
+vector, so their orientation was *measured* against the derived sides — both land on
+`rot180`, with clear margins (0.33 vs 0.92, and 1.00 vs 2.17). And `front.tif`'s glow
+lands at the panorama's wrap edges, which is exactly +Z, where that face belongs.
+
+**Ambient deliberately stays flat colour.** Unity's `m_AmbientMode: 3` is Flat at
+`(0.2235, 0.2353, 0.2235)`, so `ambient_light_source` remains 2 (Color), not Sky.
+Deriving ambient from the sky would relight the entire level off a backdrop Unity never
+lit with. Reflections are a separate question and go the other way: Unity's
+`m_DefaultReflectionMode: 0` **is** Skybox at intensity 1, so Godot taking reflections
+from the sky is faithful. That is the only reason the interior changed at all — 0.2%
+RMSE from an identical camera.
 
 Screenshots of the area, for reference when porting it, can be regenerated with:
 
@@ -232,7 +265,7 @@ Fortunato (gamma-space math, `LIGHT_COLOR / PI`, `ALBEDO = vec3(1.0)`):
 | `shader_general` | `mat_general` | 27 |
 | `shader_torta` | `mat_torta` | 1 |
 | `shader_fade` | UI fade | — |
-| skybox | `mat_skyboxFernandito` | 1 — but it is the entire ending area's backdrop; see Lighting |
+| ~~skybox~~ | `mat_skyboxFernandito` | **done** — `materials/sky_fernandito.tres`; it was the whole ending area's backdrop, see Lighting |
 
 Plus `MAT_Platic`, `MAT_Screen`, `lambert2`, `lambert3` (likely plain
 `StandardMaterial3D`), and four tutorial-key materials (`wasd`, `space_key_l`,
@@ -557,11 +590,10 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    See "Hazards and the respawn chain" above.
 7. **Ending and UI** — `meta.fbx`, cake, confetti, `Credits`, `PauseMenu`,
    `TimerZone`, the five tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`,
-   `Tutorial`, on Unity's built-in cube mesh), `Door` for `puertaInicio`, and
-   **`mat_skyboxFernandito`**. The skybox belongs in this step rather than with the
-   materials: the ending area is exterior, so without it the level's whole climax
-   renders against black. See "The missing skybox is an ending-area problem" under
-   Lighting.
+   `Tutorial`, on Unity's built-in cube mesh) and `Door` for `puertaInicio`.
+   `mat_skyboxFernandito` was part of this step and is **done** — the ending area is
+   exterior, so without it the whole climax rendered against black. See "The skybox
+   was an ending-area problem" under Lighting.
 
 Steps 2–4 are mostly mechanical volume. Steps 5–6 are where the real
 behavioural work is.

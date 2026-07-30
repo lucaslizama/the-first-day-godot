@@ -13,10 +13,21 @@
 [ext_resource type="Script" path="res://scripts/Gameplay/ThirdPersonCamera.cs" id="11_camera"]
 [ext_resource type="Script" path="res://scripts/UI/FadeOverlay.cs" id="12_fade"]
 [ext_resource type="Script" path="res://scripts/Gameplay/RespawnChain.cs" id="13_chain"]
+[ext_resource type="Sky" path="res://materials/sky_fernandito.tres" id="14_sky"]
 
+; background_mode 2 is Sky. It was 1, a flat near-black colour, while
+; mat_skyboxFernandito was unported - invisible indoors, where walls fill the frame,
+; but the level's ending is exterior, so the whole climax rendered against void.
+;
+; ambient_light_source stays 2 (Color) rather than becoming Sky. Unity used Flat
+; ambient at (0.2235, 0.2353, 0.2235), which is what these numbers are and what
+; shaders/character_lit.gdshader's ambient_color default matches. Deriving ambient
+; from the sky instead would relight the entire level off a backdrop Unity never used
+; for lighting, so the sky here changes what you see and deliberately not how
+; anything is lit.
 [sub_resource type="Environment" id="Environment_level"]
-background_mode = 1
-background_color = Color(0.05, 0.05, 0.06, 1)
+background_mode = 2
+sky = ExtResource("14_sky")
 ambient_light_source = 2
 ambient_light_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
 
