@@ -1,0 +1,21 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://models/props/table.fbx" id="1_table"]
+[ext_resource type="PackedScene" path="res://models/props/pc2.fbx" id="2_pc2"]
+[ext_resource type="PackedScene" path="res://models/props/pc.fbx" id="3_pc"]
+[ext_resource type="PackedScene" path="res://models/props/book.fbx" id="4_book"]
+[ext_resource type="Script" path="res://scripts/Gameplay/PropCollision.cs" id="5_collision"]
+
+[node name="TablePcs" type="Node3D"]
+script = ExtResource("5_collision")
+
+[node name="table" parent="." instance=ExtResource("1_table")]
+
+[node name="pc2" parent="." instance=ExtResource("2_pc2")]
+transform = Transform3D(0.135179, 0.000000, -0.990821, 0.000000, 1.000000, 0.000000, 0.990821, 0.000000, 0.135179, 0.190880, 1.060000, 0.502270)
+
+[node name="pc" parent="." instance=ExtResource("3_pc")]
+transform = Transform3D(-0.036331, 0.000000, -0.999340, 0.000000, 1.000000, 0.000000, 0.999340, 0.000000, -0.036331, -0.155910, 1.081000, -0.886250)
+
+[node name="book" parent="." instance=ExtResource("4_book")]
+transform = Transform3D(-0.398571, 0.000000, -0.917138, 0.000000, 1.000000, 0.000000, 0.917138, 0.000000, -0.398571, -0.542170, 1.081558, 0.336820)

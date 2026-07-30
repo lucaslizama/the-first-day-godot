@@ -28,7 +28,28 @@ from collections import Counter
 STATIC = {
     "silla.fbx", "puerta.fbx", "table.fbx", "pc.fbx", "pc2.fbx",
     "cable.fbx", "interruptor.fbx", "piezaParede.fbx",
+    "tablePcs.prefab",
 }
+
+# Where each entry's PackedScene lives. Models resolve to models/props by name;
+# tablePcs is a cluster of four models rather than one, so it has its own scene.
+# It was missed by the first static-props pass precisely because this set used to
+# hold only .fbx names.
+RESOURCE = {
+    "tablePcs.prefab": "res://scenes/table_pcs.tscn",
+}
+
+# The tablePcs instances that are solid, keyed by world position the way
+# FLIP_DOORS is, so regenerating props.json cannot move the flag onto a different
+# desk. Collision is per-instance in Unity: of the four clusters only this one -
+# the desk beside the player's spawn at (0, 0, 4.02) - carries MeshColliders, and
+# the other three are walk-through. Adding physics to the models at import time
+# would wrongly solidify all four. See scripts/Gameplay/PropCollision.cs.
+#
+# In GODOT space, so X is negated relative to Unity's -2.0: props.json is
+# conjugated by diag(-1, 1, 1) on the way out of the extractor. The count check
+# below caught this when the conjugation landed, which is what it is for.
+SOLID_CLUSTERS = {(2.0, 0.0, 4.93)}
 
 # Per-door 180 degree corrections, keyed by world position. Currently empty.
 #
@@ -47,6 +68,15 @@ FLIP_DOORS = set()
 
 def wants_flip(pos):
     return (round(pos[0], 2), round(pos[1], 2), round(pos[2], 2)) in FLIP_DOORS
+
+
+def stem(name):
+    """Node-name stem for an entry: drops .fbx or .prefab."""
+    return name.rsplit(".", 1)[0]
+
+
+def is_solid(pos):
+    return (round(pos[0], 2), round(pos[1], 2), round(pos[2], 2)) in SOLID_CLUSTERS
 
 
 def quat_basis(q):
@@ -103,19 +133,20 @@ def main():
 
     items = [p for p in json.load(open(src)) if p["prefab"] in STATIC]
     used = sorted({p["prefab"] for p in items})
-    ids = {f: "%d_%s" % (i + 1, f[:-4]) for i, f in enumerate(used)}
+    ids = {f: "%d_%s" % (i + 1, stem(f)) for i, f in enumerate(used)}
 
     lines = ["[gd_scene load_steps=%d format=3]" % (len(used) + 1), ""]
     for f in used:
         lines.append(
-            '[ext_resource type="PackedScene" path="res://models/props/%s" id="%s"]'
-            % (f, ids[f])
+            '[ext_resource type="PackedScene" path="%s" id="%s"]'
+            % (RESOURCE.get(f, "res://models/props/%s" % f), ids[f])
         )
     lines += ["", '[node name="Props" type="Node3D"]', ""]
 
     counters = Counter()
     mirrored_count = 0
     flipped_count = 0
+    solid_count = 0
     for p in items:
         f = p["prefab"]
         counters[f] += 1
@@ -141,17 +172,23 @@ def main():
         ] + list(p["pos"])
         lines.append(
             '[node name="%s_%02d" parent="." instance=ExtResource("%s")]'
-            % (f[:-4], counters[f], ids[f])
+            % (stem(f), counters[f], ids[f])
         )
         lines.append("transform = Transform3D(%s)" % ", ".join("%.6f" % v for v in vals))
+        if f == "tablePcs.prefab" and is_solid(p["pos"]):
+            lines.append("GenerateCollision = true")
+            solid_count += 1
         lines.append("")
 
     open(out, "w").write("\n".join(lines))
     print("%s: %d instances across %d models" % (out, len(items), len(used)))
     print("  mirrored props kept as Unity had them (negative determinant): %d" % mirrored_count)
     print("  doors turned 180 deg to stop showing their back: %d of %d" % (flipped_count, len(FLIP_DOORS)))
+    print("  tablePcs clusters made solid: %d of %d" % (solid_count, len(SOLID_CLUSTERS)))
     if flipped_count != len(FLIP_DOORS):
         sys.exit("FLIP_DOORS has %d entries but %d matched; positions have drifted" % (len(FLIP_DOORS), flipped_count))
+    if solid_count != len(SOLID_CLUSTERS):
+        sys.exit("SOLID_CLUSTERS has %d entries but %d matched; positions have drifted" % (len(SOLID_CLUSTERS), solid_count))
     for k, v in counters.most_common():
         print("   %-18s %d" % (k, v))
 

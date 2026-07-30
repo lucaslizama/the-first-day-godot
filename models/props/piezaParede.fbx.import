@@ -46,6 +46,43 @@ _subresources={
 "use_external/fallback_path": "res://materials/props/lambert1.tres",
 "use_external/path": "res://materials/props/lambert1.tres"
 }
+},
+"nodes": {
+"PATH:piezaParedes/pCube1": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube2": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube21": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube3": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube4": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube5": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+},
+"PATH:piezaParedes/pCube6": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+}
 }
 }
 fbx/importer=0
