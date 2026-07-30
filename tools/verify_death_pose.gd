@@ -16,7 +16,10 @@
 #     Scapula_L 45.7 deg, MiddleFinger1_L 31.9 deg, Scapula_R 25.9 deg
 #
 # A 45.7 degree scapula moves the whole arm, which is why dying looked wrong sometimes and
-# not others. tools/complete_clip_bones.gd fills the gaps with each bone's rest rotation.
+# not others. tools/restore_clip_bones.gd fills the gaps with Unity's OWN values for those
+# bones, converted by (x, -y, -z, w). An earlier attempt filled them with the bone's rest
+# rotation instead, which made the pose deterministic but not Unity's - Unity's Scapula_R in
+# this clip is 72.7 degrees away from rest.
 #
 # This drives the same comparison so it cannot come back: reach the death pose from three
 # different prior clips and require the result to be identical.
@@ -81,23 +84,41 @@ func _capture(prior: String) -> void:
 	poses[prior] = snap
 
 
-## Every bone must be specified, or the pose depends on history by construction.
+## The death clip must specify every bone that ANY clip animates, since only those can
+## vary and therefore only those can leak in from a previous clip.
+##
+## Deliberately not "every bone in the skeleton". The rig has 51 bones and Unity's clips
+## animate 43; the other 8 - ToesEnd_R/L, EyeEnd_R/L, HeadEnd_M, Jaw_M, MiddleFinger2_R/L -
+## are leaf tips no clip touches, so they sit at rest permanently and cannot carry a stale
+## pose. An earlier version of this check demanded all 51 and failed on exactly those 8
+## while the pose was provably history-independent, which is a false alarm rather than a
+## finding.
 func _check_coverage() -> void:
 	checks += 1
+	var animated := {}
+	for name in anim.get_animation_list():
+		var a := anim.get_animation(name)
+		for i in a.get_track_count():
+			var p := String(a.track_get_path(i))
+			if a.track_get_type(i) == Animation.TYPE_ROTATION_3D and ":" in p:
+				animated[p.split(":")[1]] = true
+
 	var clip := anim.get_animation(DEATH_CLIP)
 	var have := {}
 	for i in clip.get_track_count():
 		var path := String(clip.track_get_path(i))
 		if clip.track_get_type(i) == Animation.TYPE_ROTATION_3D and ":" in path:
 			have[path.split(":")[1]] = true
+
 	var missing: Array[String] = []
-	for i in skel.get_bone_count():
-		if not have.has(skel.get_bone_name(i)):
-			missing.append(skel.get_bone_name(i))
+	for bone in animated:
+		if not have.has(bone):
+			missing.append(bone)
 	if missing.is_empty():
-		_ok("'%s' specifies all %d bones" % [DEATH_CLIP, skel.get_bone_count()])
+		_ok("'%s' specifies all %d bones any clip animates (of %d in the rig)" % [
+			DEATH_CLIP, animated.size(), skel.get_bone_count()])
 	else:
-		_fail("'%s' leaves %d bones unspecified, so its pose depends on history: %s" % [
+		_fail("'%s' leaves %d animatable bones unspecified, so its pose depends on history: %s" % [
 			DEATH_CLIP, missing.size(), str(missing)])
 
 

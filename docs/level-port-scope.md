@@ -816,34 +816,22 @@ behavioural work is.
 - **`damage` is the only clipless animator state.** Its motion guid resolves to nothing
   in FBX or `.anim` form, and nothing calls it — `Fortunato.Die` uses the `Death`
   trigger, not `damage`. Nothing to port.
-- **`jumpR1Frame` is a degenerate export, and it is OUR export that is degenerate.**
+- **`jumpR1Frame` was a degenerate export, and it was OURS — now restored.**
 
-  > **Correction.** This said the degeneracy was "a pre-existing defect in the jam
-  > project" and that "Unity had exactly the same behaviour", so the descent holding the
-  > take-off pose was faithful. **Unity's `jumpR1Frame.anim` animates all 43 deformation
-  > bones.** Ours carries **2** rotation tracks. The clip that is short of data is the one
-  > in this repo, not Unity's, so the descent holding leftovers is a port defect that was
-  > rationalised as a feature. It is the same mistake this document has now made three
-  > times: explaining away a measurement instead of chasing it.
+  > **Correction.** This once said the degeneracy was "a pre-existing defect in the jam
+  > project" and that "Unity had exactly the same behaviour", so the descent holding
+  > leftovers was faithful. **Unity's `jumpR1Frame.anim` animates all 43 deformation
+  > bones.** Ours carried **2**: `Hip_L` and `Scapula_L`. A body pose where only those two
+  > bones differ is not plausible, so it was missing source data, not compression - and it
+  > had been rationalised as a feature rather than chased.
 
-  Unity's coverage, counted from the `.anim` files — every clip has all 43 deformation
-  bones except `jumpL`, which has 25. Ours ranges from 2 to 43. Left alone for now
-  because the airborne poses have been confirmed to look right in play and filling them
-  would change behaviour nobody is complaining about; recorded as outstanding work
-  instead.
-
-### The airborne clips — what `LeftJump` actually selects
-
-Reconstructed from `Fortunato Controller.controller` after the jump was reported as
-playing a death animation. The `jump_land` sub-machine holds six states in two sets:
-
-| `LeftJump` | ascending | descending | landing |
-|---|---|---|---|
-| `false` (default state) | `jump` → **jumpR** | `fall` → **jumpR1Frame** | `land` → **jumpR1Frame** |
-| `true` (entry transition) | `jump_moving` → **jumpL** | `fall_moving` → **jumpL1Frame** | `land_moving` → **jumpL1Frame** |
-
-Three traps in that table:
-
+  Restored from Unity's own values by `tools/restore_clip_bones.gd`. The outcome is the
+  best kind: the restored descent pose is **identical to 0.00°** to the take-off pose the
+  degenerate clip used to leave behind, so **nothing changed visually** — Unity's
+  `jumpR1Frame` genuinely *is* the jump-end pose, and the "airborne tuck" was Unity's
+  intent arrived at by accident. What changed is that the descent no longer depends on
+  what played before it: measured 0.00° whether the player arrives from `jumpR`, `walk` or
+  `idle`, where previously 41 bones were inherited.
 - **The `_moving` suffix is a misnomer.** Nothing in those states tests movement. The
   sub-machine's entry transition is the **only** use of `LeftJump` anywhere in the
   controller — `grep` the file, there is exactly one condition on it — and it selects
@@ -1003,16 +991,28 @@ Measured on the death pose, reached after walking versus after idling:
 | `Scapula_R` | 25.9° |
 
 A 45.7° scapula moves the whole arm, which is why dying looked wrong in one situation and
-fine in another. `tools/complete_clip_bones.gd` fills each listed clip's missing bones with
-the bone's **rest** rotation — what a track removed for being immutable held — taking
-`fall` from 31 rotation tracks to 51 and `cry` from 36 to 51. History dependence goes from
-3 bones at 45.7° to **0 at 0.04°**.
+fine in another. History dependence is now **0 at 0.04°**.
 
-Deliberately only `fall` and `cry`: both are entered and then *held* — `fall` for the three
-seconds until the screen is black — so leftovers sit on screen for a long time. The
-airborne clips are **not** filled even though `jumpR1Frame` is far worse (2 tracks against
-Unity's 43), because the port currently relies on it holding the take-off pose and that has
-been confirmed to look right in play. See the `jumpR1Frame` correction above.
+> **Correction.** The first fix filled the gaps with each bone's **rest** rotation. That
+> made the pose deterministic, which cured the reported symptom, but it was not Unity's
+> pose: Unity's `Scapula_R` in this clip is **72.7° away from rest**. Rest is only right
+> when the missing track was removed for being immutable *and* its constant happened to be
+> the rest value, and that assumption was never checked. `tools/restore_clip_bones.gd`
+> replaced it, using Unity's own values.
+
+**The conversion is measurable, not guessable.** A Unity bone-local quaternion becomes
+`(x, −y, −z, w)` in ours — the same `diag(-1, 1, 1)` conjugation the whole port uses,
+expressed on a quaternion. Established by comparing the **35 bones** our `jumpL1Frame`
+shares with Unity's, where it reproduces every one (allowing for `q ≡ −q`).
+`restore_clip_bones.gd` re-validates it on every shared bone of every clip it touches and
+refuses to write if agreement breaks, because a silent coordinate error here would put
+limbs in arbitrary places. Worst residual across all nine clips is **2.42°**, on `run`'s
+`Hip_R` — a *moving* bone, where `animation/trimming` means our t = 0 is not Unity's first
+key. That is why the threshold is 5° rather than a fraction of one: it must clear
+legitimate trimming offsets while still catching the 42–72° errors rest-filling produced.
+
+Applied to all nine clips: `fall` +12 bones, `cry` +7, `jumpR1Frame` +41, `jumpL1Frame` +8,
+`idle` +4, `jumpL`/`jumpR`/`walk` +1 each, `run` already complete.
 
 Separately, `Die` now **blends over 0.1 s**, which is the `Any State -> death` transition's
 `m_TransitionDuration`. The port cut instantly. `Cry` deliberately does not blend — its
