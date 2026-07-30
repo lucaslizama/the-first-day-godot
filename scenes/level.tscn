@@ -16,6 +16,7 @@
 [ext_resource type="Sky" path="res://materials/sky_fernandito.tres" id="14_sky"]
 [ext_resource type="Script" path="res://scripts/UI/Credits.cs" id="15_credits"]
 [ext_resource type="Script" path="res://scripts/Gameplay/TimerZone.cs" id="16_timer"]
+[ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
 
 ; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
@@ -178,10 +179,19 @@ Delay = 5.0
 PlayerPath = NodePath("../Player")
 FadePath = NodePath("../UI/FadeOverlay")
 CreditsPath = NodePath("../UI/Credits")
+ConfettiPath = NodePath("../Confetti")
 
 [node name="Collider" type="CollisionShape3D" parent="TimerZone"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
 shape = SubResource("BoxShape3D_timer")
+
+; particleSys_conffeti, 4 m above the FINISH banner. Unity had it at
+; (-0.02, 16.22, -183.531) turned 90 degrees about X, conjugated here to negate X; the
+; quaternion (0.7071068, 0, 0, 0.7071068) is unchanged by the conjugation because its
+; y and z are zero. That turn aims the emitter's local +Z straight down, so the
+; confetti rains onto the finish line. Hand-authored, so outside unity_space.py.
+[node name="Confetti" parent="." instance=ExtResource("17_confetti")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.02, 16.22, -183.531)
 
 ; The UnityEvent graph that used to live across three prefabs. See RespawnChain.cs.
 [node name="RespawnChain" type="Node" parent="."]

@@ -1,0 +1,116 @@
+[gd_scene load_steps=7 format=3]
+
+; Port of particleSys_conffeti, the confetti at the finish line. Unity's only
+; ParticleSystem, and Godot has no direct equivalent, so every module was read out of
+; the prefab and mapped by hand. The mapping, and the three places it is not a
+; one-to-one translation:
+;
+;   Unity                                     Godot
+;   lengthInSec 2, looping 0                  one_shot, see explosiveness below
+;   EmissionModule rate 50/s, no bursts       amount 100 = 50/s x 2 s
+;   startLifetime 10 (constant)               lifetime 10
+;   startSpeed 0.5 (constant)                 initial_velocity_min/max 0.5
+;   startSize random 0 .. 0.04                scale_min 0, scale_max 0.04 on a 1 m quad
+;   startRotation random 0 .. pi rad          angle_min 0, angle_max 180 deg
+;   gravityModifier 0.5                       gravity (0, -4.905, 0) = 0.5 x -9.81
+;   maxNumParticles 1000                      not needed; 100 are emitted
+;   ShapeModule Cone, radius 1, angle 25      Ring emission r=1 + spread 25 deg
+;   startColor 5-key gradient                 color_initial_ramp, sampled per particle
+;   ColorModule alpha 0/1/1/0                 color_ramp
+;   Renderer billboard, mat_conffeti          QuadMesh + billboarded material
+;
+; 1. EMISSION WINDOW. Godot emits `amount` particles spread over `lifetime`, so a
+;    2-second burst of 10-second particles cannot be expressed by those two numbers
+;    alone. explosiveness compresses emission into lifetime x (1 - explosiveness), so
+;    0.8 gives 2 s of emission out of a 10 s life - Unity's 50/s for 2 s exactly.
+;
+; 2. START COLOUR. Unity's startColor is a 5-key gradient (minMaxState 1), not the
+;    two-colour mode its leftover minColor/maxColor fields suggest: red #FF0000,
+;    blue #000CFF, green #00FF41, purple #A81FFF, yellow #DCFF00 at t = 0, 0.265,
+;    0.591, 0.797, 0.988. A five-colour rainbow as a *start* colour only makes sense
+;    sampled randomly per particle, which is exactly what color_initial_ramp does.
+;    Evaluating it at t=0 instead would make every piece of confetti red.
+;
+; 3. BLEND MODE. mat_conffeti's active shader is a Unity built-in referenced only by
+;    fileID 203, which cannot be resolved without Unity's builtin resource manifest,
+;    and the material carries orphaned properties from two different shaders - Standard
+;    (_Metallic, _Mode, _SrcBlend) alongside the legacy particle ones (_TintColor,
+;    _InvFade). Its _MainTex is empty and _TintColor is the neutral default. Alpha
+;    blending was chosen over additive on two grounds: the ColorModule alpha curve
+;    (fade in over the first 4.7%, out over the last 12.6%) is what an alpha-blended
+;    material is for, and additive would blow the saturated palette out to white
+;    wherever pieces overlap, which reads as sparks rather than paper. If it should be
+;    additive, that is blend_mode = 1 on the material below and nothing else.
+;
+; playOnAwake is 1 in the prefab and the scene does NOT override m_IsActive, so in
+; Unity this also fires once the moment the level loads, 187 m from the player and
+; invisible. `emitting = true` with one_shot reproduces that rather than hiding it.
+; TimerZone calls Restart() for the real one at the ending.
+
+[sub_resource type="Gradient" id="Gradient_initial"]
+; The five confetti colours, at Unity's own key times. sRGB values straight from the
+; source hex so they stay traceable.
+offsets = PackedFloat32Array(0, 0.265, 0.591, 0.797, 0.988)
+colors = PackedColorArray(1, 0, 0, 1, 0, 0.047, 1, 1, 0, 1, 0.255, 1, 0.659, 0.122, 1, 1, 0.863, 1, 0, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_initial"]
+gradient = SubResource("Gradient_initial")
+
+[sub_resource type="Gradient" id="Gradient_lifetime"]
+; ColorModule: colour stays white, alpha 0 -> 1 by 4.7% of life, held to 87.4%, out by
+; the end. Unity's alpha keys were at 0, 0.047, 0.874, 1.
+offsets = PackedFloat32Array(0, 0.047, 0.874, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_lifetime"]
+gradient = SubResource("Gradient_lifetime")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_confetti"]
+; Unity's cone shape: a radius-1 disc emitting into a 25 degree cone about local +Z.
+; Godot has no cone emission shape, so it is a ring with no inner radius - a disc -
+; whose axis is +Z, plus spread for the cone half-angle. Unity particle systems emit
+; along local +Z too, and Z transfers unchanged between the two spaces, so the node's
+; 90 degree turn about X aims both of them downward.
+emission_shape = 6
+emission_ring_axis = Vector3(0, 0, 1)
+emission_ring_height = 0.0
+emission_ring_radius = 1.0
+emission_ring_inner_radius = 0.0
+direction = Vector3(0, 0, 1)
+spread = 25.0
+initial_velocity_min = 0.5
+initial_velocity_max = 0.5
+angle_min = 0.0
+angle_max = 180.0
+gravity = Vector3(0, -4.905, 0)
+scale_min = 0.0
+scale_max = 0.04
+color_ramp = SubResource("GradientTexture1D_lifetime")
+color_initial_ramp = SubResource("GradientTexture1D_initial")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_confetti"]
+; Billboarded, unshaded, alpha blended, and tinted per particle - hence
+; vertex_color_use_as_albedo, which is how the process material's colours reach it.
+; Two-sided because the pieces spin: culling would blink half of them out.
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 1, 1, 1)
+cull_mode = 2
+billboard_mode = 1
+billboard_keep_scale = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_confetti"]
+; 1 m so that scale_min/scale_max read directly as metres: Unity's startSize is a
+; world size, not a multiplier.
+size = Vector2(1, 1)
+material = SubResource("StandardMaterial3D_confetti")
+
+[node name="Confetti" type="GPUParticles3D"]
+emitting = true
+amount = 100
+lifetime = 10.0
+one_shot = true
+explosiveness = 0.8
+process_material = SubResource("ParticleProcessMaterial_confetti")
+draw_pass_1 = SubResource("QuadMesh_confetti")

@@ -116,7 +116,7 @@ The models split in two, and mixing them up produces geometry off by 100×:
 | MeshFilter / MeshRenderer | 9 / 9 |
 | BoxCollider | 2 |
 | Light | 2 |
-| ParticleSystem | 1 |
+| ParticleSystem | 1 — **done**, `scenes/confetti.tscn` |
 | Camera / AudioListener | 1 / 1 |
 
 Only 9 MeshRenderers sit directly in the scene — effectively all geometry
@@ -588,9 +588,9 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
-7. **Ending and UI** — remaining: `particleSys_conffeti`, `PauseMenu`, the five
-   tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`, `Tutorial`, on Unity's
-   built-in cube mesh) and `Door` for `puertaInicio`.
+7. **Ending and UI** — remaining: `PauseMenu`, the five tutorial key props (`WASD`,
+   `WASD (1)`, `Spacebar`, `Shift`, `Tutorial`, on Unity's built-in cube mesh) and
+   `Door` for `puertaInicio`.
 
    Done so far in this step:
    - `mat_skyboxFernandito` — the ending area is exterior, so without it the whole
@@ -599,6 +599,64 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    - **`meta.fbx` and `cake.fbx`** — see "The ending pair" below.
    - **`TimerZone`, `Credits` and `UnityEventContainer`** — the ending chain now
      runs end to end. See "The ending chain" below.
+   - **`particleSys_conffeti`** — see "The confetti" below.
+
+### The confetti — `particleSys_conffeti`
+
+Unity's only `ParticleSystem`, and Godot has no equivalent object, so every module was
+read out of the prefab and mapped by hand into `scenes/confetti.tscn`. It sits 4 m above
+the FINISH banner at Unity `(-0.02, 16.22, -183.531)`, conjugated to negate X, turned 90°
+about X — which aims the emitter's local +Z straight down, verified as `(0, -1, 0)` in
+world space — so the confetti rains onto the finish line.
+
+| Unity | Godot |
+|---|---|
+| `lengthInSec` 2, `looping` 0 | `one_shot`, plus `explosiveness` — see below |
+| `EmissionModule` rate 50/s, no bursts | `amount` 100 = 50/s × 2 s |
+| `startLifetime` 10 constant | `lifetime` 10 |
+| `startSpeed` 0.5 constant | `initial_velocity_min/max` 0.5 |
+| `startSize` random 0–0.04 | `scale_min` 0, `scale_max` 0.04 on a 1 m quad |
+| `startRotation` random 0–π rad | `angle_min` 0, `angle_max` 180° |
+| `gravityModifier` 0.5 | `gravity` (0, −4.905, 0) = 0.5 × −9.81 |
+| `ShapeModule` Cone, radius 1, angle 25° | Ring emission r = 1 + `spread` 25° |
+| `startColor` 5-key gradient | `color_initial_ramp` |
+| `ColorModule` alpha 0/1/1/0 | `color_ramp` |
+| Renderer billboard, `mat_conffeti` | `QuadMesh` + billboarded material |
+
+Three places it is **not** a one-to-one translation, all documented in the scene:
+
+1. **The emission window.** Godot emits `amount` particles spread over `lifetime`, so a
+   2-second burst of 10-second particles cannot be expressed by those two numbers alone.
+   `explosiveness` compresses emission into `lifetime × (1 − explosiveness)`, so 0.8
+   gives exactly 2 s of emission at 50/s out of a 10 s life. Verified: 2.00 s, 50.0/s.
+2. **The start colour is a five-colour rainbow, not two colours.** `minMaxState` is 1
+   (Gradient) with keys red `#FF0000`, blue `#000CFF`, green `#00FF41`, purple
+   `#A81FFF`, yellow `#DCFF00` at t = 0, 0.265, 0.591, 0.797, 0.988. The material's
+   leftover `minColor`/`maxColor` (cyan and red) are unused in that mode and are a trap.
+   A five-colour rainbow as a *start* colour only makes sense sampled randomly per
+   particle, which is what `color_initial_ramp` does; evaluating it at t = 0 instead
+   would make every piece red.
+3. **The blend mode is a judgement call.** `mat_conffeti`'s active shader is a Unity
+   built-in referenced only by `fileID: 203`, which cannot be resolved without Unity's
+   builtin resource manifest, and the material carries orphaned properties from two
+   shaders at once — Standard (`_Metallic`, `_Mode`, `_SrcBlend`) alongside the legacy
+   particle ones (`_TintColor`, `_InvFade`). Its `_MainTex` is empty and `_TintColor` is
+   the neutral default. Alpha blending was chosen over additive on two grounds: the
+   `ColorModule` alpha curve (in over the first 4.7%, out over the last 12.6%) is what
+   alpha blending is for, and additive would blow the saturated palette out to white
+   wherever pieces overlap, reading as sparks rather than paper. **If it should be
+   additive, that is `blend_mode = 1` on the material and nothing else.**
+
+**It also fires once at level load, and that is faithful.** `playOnAwake` is 1 in the
+prefab and the scene does **not** override `m_IsActive`, so Unity fires it the moment the
+level starts — 187 m from the player, invisible. `emitting = true` with `one_shot`
+reproduces that rather than hiding it; `TimerZone` calls `Restart()` for the real one.
+
+The shower is brief by construction: 4.2 m from emitter to banner under 4.905 m/s²
+gravity is about 1.2 s, after which the pieces fall past the walkway edge. Screenshots
+therefore have to be taken early — around frame 70 of a fresh load — or the confetti has
+already gone. Pieces are 0–4 cm, so they read as small specks rather than paper, which
+is what `startSize` says.
 
 ### The ending chain — `TimerZone`, `Credits`
 
