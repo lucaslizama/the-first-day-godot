@@ -1124,3 +1124,55 @@ three checks.
   Godot imports it as a plain `Node3D` whose `polySurface*` children hold the
   geometry and their own materials. Harmless, and reported as an informational
   line rather than a warning — but it means 73 of 74 assignments apply.
+- **A prefab instance can override a CHILD's transform, and the FBX-instanced shell
+  will not have it.** Reported in play as "something is wrong with `nivel_p2`, the
+  geometry is not where it should be": a long platform floating in the middle of
+  the moving platforms, plus two platforms missing from the end of the level, which
+  made it unbeatable. **One cause, both symptoms.** `nivelEscena` moves two of
+  `nivel_p2`'s children after instancing it, and instancing the FBX directly gets
+  the positions Maya exported instead:
+
+  | mesh | FBX exports it at | `nivelEscena` puts it at |
+  | --- | --- | --- |
+  | `polySurface16` | (51.791214, 50.000011, 40.291302) | (37.26, 48.98, −0.23) |
+  | `polySurface17` | (51.791214, 50.000011, 50.000000) | (−46.13, 50.54, 9.94) |
+
+  Both slabs were 40 m further along +Z than they belong — present where nothing
+  should be, absent where the player needs them. Note the node positions say almost
+  nothing about where the geometry lands: these meshes' vertices carry a large baked
+  offset, so the actual footprints move from world x ≈ 0, z ≈ −113 (dead centre of
+  the platform run, which spans z −132…−18, and 1 m higher — exactly "slightly high
+  up, in the middle of the platforms") to z ≈ −154…−157 with their tops at y ≈ 3–4.5,
+  past the end of the run at ground level. Fixed as node overrides on the instance in
+  `level.tscn`; `tools/verify_level_shells.gd` now requires every one of the 53 shell
+  meshes to be at the FBX's transform *except* these two, so a reimport that
+  renumbers children cannot move the overrides onto the wrong meshes.
+
+  `nivel`'s instance carries overrides too, but every one of them is inert:
+  `m_RootOrder` and `m_StaticEditorFlags` (neither places geometry), plus a
+  `m_LocalPosition` on `mesa` and an `m_Enabled` on `pPlane20`, which are objects only
+  an **older export** of `nivel.fbx` contained. They are dead in Unity as well.
+
+> **Correction.** While diagnosing the above I also reported that four `nivel_p2`
+> materials were wrong — `polySurface17`/`18` painted opaque and `polySurface30`/`31`
+> painted transparent. **That was not a real bug.** It came from my own bad mapping of
+> Unity's renderer fileIDs to mesh names. I had assumed `2300000 + 2j` indexes the FBX's
+> **Model record order**; it does not. Unity's renderer order for `nivel_p2` is
+> `polySurface6, 10, 11, … 31, 7, 9, 32, 34` — Maya's export order and Unity's import
+> order disagree, and 7 and 9 land at the *end*. Regenerating the table from the correct
+> mapping reproduces the shipped `level_materials.json` **exactly, all 74 entries across
+> both shells**. The materials were right all along.
+>
+> The authority for the mapping is the FBX's **`.meta` file**, which carries a
+> `fileIDToRecycleName:` table naming the object behind every fileID Unity minted. Two
+> cautions: it is a *recycle* table, so it retains names from earlier exports —
+> `nivel.fbx`'s lists 53 renderers where the current FBX has 27 — so its size says
+> nothing about what the FBX contains; and a retained fileID stays bound to its old
+> name, which is how `mesa` above was identified as gone rather than renamed.
+>
+> The mapping is now cross-checked against something it cannot influence: a mesh has a
+> second material slot only if it has a second submesh, so the names carrying a slot 1
+> must be exactly the meshes Godot imports with 2 surfaces. They are — 6 for `nivel`,
+> 14 for `nivel_p2`. The Model-order guess fails this check, which is what exposed it.
+> `tools/extract_level_materials.py` regenerates the table; it had no generator in the
+> repo before, so it could not be re-derived or audited at all.

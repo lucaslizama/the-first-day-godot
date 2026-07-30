@@ -75,6 +75,34 @@ ModelKey = "nivel_p2.fbx"
 
 [node name="nivel_p2" parent="ShellP2" unique_id=1113251813 instance=ExtResource("2_nivel_p2")]
 
+; nivelEscena moved two of nivel_p2's children after instancing it, and those two
+; per-child transform overrides are the whole of the level's scene-side edits to either
+; shell - nivel's remaining overrides all target objects an older export of nivel.fbx had
+; and the shipped one does not, so they are dead in Unity too.
+;
+; Left unapplied, both slabs stayed at the position Maya exported: 40 m further along +Z
+; than they belong. One bug, both symptoms reported in play - a long platform sitting in
+; the middle of the moving platforms where nothing should be, and two platforms absent
+; from the end of the level, which made it unbeatable.
+;
+; Positions are Unity's with X negated, the usual diag(-1, 1, 1) conjugation:
+;   polySurface16  (-37.26, 48.98, -0.23)  was (51.791214, 50.000011, 40.291302)
+;   polySurface17   (46.13, 50.54,  9.94)  was (51.791214, 50.000011, 50.000000)
+[node name="polySurface16" parent="ShellP2/nivel_p2/Nivel_p2" index="9"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.26, 48.98, -0.23)
+
+; The only rotated one. Unity's m_LocalRotation overrides x, y and w but not z, so z keeps
+; the FBX's 0 - and the three given components already norm to 1.000000000, which confirms
+; that is right rather than assumed. Conjugating a rotation negates y and z, so Unity's
+; y = 0.31972805 becomes -0.31972805 and the basis below is Basis(Quaternion(0,
+; -0.31972805, 0, 0.94750935)), a -37.293 degree turn about Y.
+;
+; Unity also stores m_LocalEulerAnglesHint.y = 37.555, which disagrees with its own
+; quaternion by a quarter of a degree. The hint is editor bookkeeping and can go stale;
+; the quaternion is what the engine used. Do not "fix" this to 37.555.
+[node name="polySurface17" parent="ShellP2/nivel_p2/Nivel_p2" index="10"]
+transform = Transform3D(0.795548, 0, -0.605891, 0, 1, 0, 0.605891, 0, 0.795548, -46.13, 50.54, 9.94)
+
 [node name="Props" parent="." unique_id=1592056883 instance=ExtResource("4_props")]
 
 [node name="Platforms" parent="." instance=ExtResource("5_platforms")]
