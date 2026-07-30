@@ -300,19 +300,34 @@ Rotation is *not* emitted: `YBillboardFollow` overwrote it every frame, so what 
 artists authored never reached the screen, and re-emitting it would only tilt the
 coworkers whose basis carried pitch.
 
-> **Correction.** This said "only 10 of 74 have any collision geometry below" and
-> explained it away as background figures in open space. The real cause was the
-> unconjugated X: the coworkers were mirrored relative to the shell. After the fix
-> **50 of 74 stand over geometry** and only 24 do not. The alarming raycast pass was
-> right; the explanation was wrong. Treat "most of them have nothing beneath them"
-> as a symptom to chase, not a property to rationalise.
+> **Correction, twice over.** This said "only 10 of 74 have any collision geometry
+> below" and explained it away as background figures standing in open space. The
+> number was an artefact of **two** independent mistakes, and the reassuring
+> explanation was wrong both times:
+>
+> 1. **The placements were mirrored on X.** See the placement convention section.
+> 2. **One-sided trimesh collision was hiding the floors.** `verify_coworkers.gd`'s
+>    own docstring asserted that enabling `backface_collision` "changes nothing" —
+>    but the script never set it. The claim was never tested in code. Setting it
+>    takes the count with nothing beneath them from 24 to **1**.
+>
+> After both fixes, **73 of 74 coworkers have collision geometry beneath them.**
+> Confirmed visually afterwards: every coworker stands on or above visible scenery,
+> none floating. So the alarming raycast result was right twice and the rationalisation
+> was wrong twice. Do not let a support probe argue that placement is fine, and do not
+> let an explanation stand in for setting the flag and re-running.
 
-Twenty-four coworkers still have nothing beneath them. Those are the background
-figures standing in open space or behind the outer wall, seen through the
-transparent windows. What corroborates the placement beyond the raycast count is
-precision: coworkers land on floor planes at gaps of exactly 0.0000 m, and direct
-instances ground at the same rate as group children — which is what ruled out the
-group composition as the culprit. `tools/verify_coworkers.gd` reports the
+Current state, with two-sided collision enabled: 73 of 74 have a surface beneath
+them, 38 within 0.35 m, 5 flush within 2 cm. The remaining 35 sit further above
+their nearest collision surface — consistent with figures on upper levels and behind
+the outer wall around x = −60, seen through the transparent windows — and one has
+nothing beneath it at all. A visual pass found none of them floating, so this is not
+tracked as a defect; but the probe measures **collision coverage as much as
+placement**, so do not read its gaps as placement error without looking.
+
+What corroborates the placement beyond the raycast count is precision: coworkers land
+on floor planes at gaps of exactly 0.0000 m, and direct instances ground at the same
+rate as group children — which is what ruled out the group composition as the culprit. `tools/verify_coworkers.gd` reports the
 distribution rather than scoring it, for exactly that reason.
 
 The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of WAV to 197 KB of

@@ -22,12 +22,24 @@ extends SceneTree
 ## a ray fired from exactly there, or from below it, reports no hit at all - which is
 ## how this check first concluded that 72 of 74 coworkers were floating in the void.
 ##
-## What the measurement actually shows, and why it is not a pass/fail check: only
-## ten of the 74 have any collision geometry beneath them at all. Most coworkers are
-## background silhouettes standing in open space or behind the outer wall around
-## x = -60, where they are seen through the transparent windows. Turning on
-## backface_collision for all 53 trimeshes changes nothing, so this is not one-sided
-## collision hiding floors - the originals simply are not floor-aligned.
+## CORRECTION. This said "only ten of the 74 have any collision geometry beneath
+## them", explained it as background silhouettes standing in open space, and asserted
+## that "turning on backface_collision for all 53 trimeshes changes nothing, so this
+## is not one-sided collision hiding floors". Both halves were wrong, and they had two
+## separate causes:
+##
+##   * The placements were mirrored on X. Fixed by conjugating every world transform;
+##     see the placement convention section of docs/level-port-scope.md.
+##   * One-sided collision really was hiding the floors. This script never actually
+##     set backface_collision - the claim that it changes nothing was never tested in
+##     code. Setting it, as _enable_backfaces below now does, takes the count with
+##     nothing beneath them from 24 to 1.
+##
+## So the alarming raycast result was right twice over and the reassuring explanation
+## was wrong twice over. Visually confirmed afterwards: every coworker stands on or
+## above visible scenery. A support probe measures collision coverage as much as it
+## measures placement - do not let it argue that the level is fine, and do not let a
+## rationalisation stand in for setting the flag and re-running.
 ##
 ## The evidence that the placement is nevertheless right is the precision of the ones
 ## that do land: three sit at a gap of exactly 0.0000 m on floor planes and three more
@@ -77,8 +89,25 @@ func _physics_process(_d: float) -> bool:
 	quit()
 	return true
 
+## Trimesh shapes are one-sided by default, so a floor whose triangles wind away from
+## a downward ray reports nothing and a correctly placed coworker scores as floating.
+## This is not cosmetic: it was the whole of the "most of them have nothing beneath
+## them" result.
+func _enable_backfaces(node: Node) -> int:
+	var n := 0
+	if node is CollisionShape3D:
+		var shape := (node as CollisionShape3D).shape
+		if shape is ConcavePolygonShape3D:
+			(shape as ConcavePolygonShape3D).backface_collision = true
+			n += 1
+	for child in node.get_children():
+		n += _enable_backfaces(child)
+	return n
+
+
 func _report() -> void:
 	var space := _level.get_viewport().find_world_3d().direct_space_state
+	print("two-sided collision enabled on %d trimeshes before probing" % _enable_backfaces(_level))
 	var standing := 0
 	var flush := 0
 	var floating: Array[String] = []
