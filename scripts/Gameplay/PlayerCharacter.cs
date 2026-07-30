@@ -51,6 +51,12 @@ public partial class PlayerCharacter : CharacterBody3D
     private const string CryClip = "cry";
 
     /// <summary>
+    /// The Any State -> death transition's m_TransitionDuration. Unity blended into the
+    /// death pose over this; the cry transition's is 0, so only death gets a blend.
+    /// </summary>
+    private const float DeathBlendSeconds = 0.1f;
+
+    /// <summary>
     /// The eight movement directions in camera space, using Godot's -Z forward.
     /// Indexed by <see cref="WasDirection"/>.
     /// </summary>
@@ -279,7 +285,11 @@ public partial class PlayerCharacter : CharacterBody3D
 
         IsDead = true;
         _requestedClip = DeathClip;
-        _animation?.Play(DeathClip);
+
+        // 0.1 s blend, which is the Any State -> death transition's m_TransitionDuration
+        // in the Fortunato Controller. The port used to cut instantly. Note the cry
+        // transition's duration is 0, so Cry deliberately does NOT blend.
+        _animation?.Play(DeathClip, DeathBlendSeconds);
     }
 
     /// <summary>

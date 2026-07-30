@@ -816,13 +816,21 @@ behavioural work is.
 - **`damage` is the only clipless animator state.** Its motion guid resolves to nothing
   in FBX or `.anim` form, and nothing calls it — `Fortunato.Die` uses the `Death`
   trigger, not `damage`. Nothing to port.
-- **`jumpR1Frame` is a degenerate export** — 23 tracks (2 skeletal) against
-  `jumpL1Frame`'s 221 in Unity, and 2 against 41 in Godot. A pre-existing defect in the
-  jam project, not caused by the rig strip. It matters less than it looks: the animator
-  uses it for the *stationary* `fall`/`land` states, and because the un-animated bones
-  simply hold their previous values, the descent keeps the take-off pose from `jumpR`.
-  That reads as an airborne tuck, so the faithful mapping looks correct rather than
-  broken. Unity had exactly the same behaviour.
+- **`jumpR1Frame` is a degenerate export, and it is OUR export that is degenerate.**
+
+  > **Correction.** This said the degeneracy was "a pre-existing defect in the jam
+  > project" and that "Unity had exactly the same behaviour", so the descent holding the
+  > take-off pose was faithful. **Unity's `jumpR1Frame.anim` animates all 43 deformation
+  > bones.** Ours carries **2** rotation tracks. The clip that is short of data is the one
+  > in this repo, not Unity's, so the descent holding leftovers is a port defect that was
+  > rationalised as a feature. It is the same mistake this document has now made three
+  > times: explaining away a measurement instead of chasing it.
+
+  Unity's coverage, counted from the `.anim` files — every clip has all 43 deformation
+  bones except `jumpL`, which has 25. Ours ranges from 2 to 43. Left alone for now
+  because the airborne poses have been confirmed to look right in play and filling them
+  would change behaviour nobody is complaining about; recorded as outstanding work
+  instead.
 
 ### The airborne clips — what `LeftJump` actually selects
 
@@ -973,6 +981,47 @@ a `MeshCollider`), that the trigger is not parented to the leaf, that the door s
 closed, that it ends at **−106.32°**, and that a second trigger does not replay the clip.
 The final-angle assertion is deliberately signed: the magnitude comes from the clip and
 the sign from the conjugation, and the sign is the part most likely to be wrong.
+
+### The death pose — why dying looked wrong
+
+Not the clip choice. The animator's `death` state really does use `fall.anim`, ours *is*
+that clip at the same 0.300 s, and the other similarly named file — `falling.anim` — turns
+out to be **empty**: 0 curve paths, referenced by no state. A dead asset, and a red
+herring by name.
+
+The cause was **missing data producing a history-dependent pose**. Unity's clips animate
+all 43 deformation bones and every animator state has `m_WriteDefaultValues: 1`, so
+entering `death` there always produced the same pose. Our imported clips do not:
+`animation/remove_immutable_tracks` drops any track that never changes, so bones the clip
+holds still have **no track at all** and retain whatever the previous clip left them at.
+Measured on the death pose, reached after walking versus after idling:
+
+| bone | difference |
+|---|---|
+| `Scapula_L` | **45.7°** |
+| `MiddleFinger1_L` | 31.9° |
+| `Scapula_R` | 25.9° |
+
+A 45.7° scapula moves the whole arm, which is why dying looked wrong in one situation and
+fine in another. `tools/complete_clip_bones.gd` fills each listed clip's missing bones with
+the bone's **rest** rotation — what a track removed for being immutable held — taking
+`fall` from 31 rotation tracks to 51 and `cry` from 36 to 51. History dependence goes from
+3 bones at 45.7° to **0 at 0.04°**.
+
+Deliberately only `fall` and `cry`: both are entered and then *held* — `fall` for the three
+seconds until the screen is black — so leftovers sit on screen for a long time. The
+airborne clips are **not** filled even though `jumpR1Frame` is far worse (2 tracks against
+Unity's 43), because the port currently relies on it holding the take-off pose and that has
+been confirmed to look right in play. See the `jumpR1Frame` correction above.
+
+Separately, `Die` now **blends over 0.1 s**, which is the `Any State -> death` transition's
+`m_TransitionDuration`. The port cut instantly. `Cry` deliberately does not blend — its
+transition's duration is 0.
+
+`tools/verify_death_pose.gd` asserts all three: the clip specifies every bone, the pose is
+identical from three different prior clips, and the blend matches Unity's transition.
+Confirmed to catch the original bug — restoring the pre-fix `fall.res` fails two of its
+three checks.
 
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
