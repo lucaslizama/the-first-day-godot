@@ -1,0 +1,67 @@
+[gd_scene load_steps=6 format=3]
+
+; Port of martillo_prefab, the swinging hammer - 5 instances in nivelEscena.
+;
+; Unity's structure was:
+;
+;   martillo_prefab (Animator: martillo_controller -> martillo_anim)
+;   +-- martillo (local (0, 8, 0), mesh + two BoxColliders, rotation animated)
+;
+; So the pivot is 8 m above the instance origin and the 7 m hammer hangs below it,
+; swinging from -80 to +80 degrees about Z and back over 2.6333 s. The head is the
+; bottom 2 m.
+;
+; Note what is NOT here: no trigger, no damage, no script. Both of Unity's colliders
+; are solid, so the hammer does not hurt the player - it shoves them, and the fall
+; into the CheckPointZone kill volume is what kills. That is why this hazard needs no
+; health system to be faithful, and it is why the arm has to be an AnimatableBody3D
+; with sync_to_physics: that is what gives a moving body the velocity that pushes a
+; CharacterBody3D, the same mechanism the platforms use to carry the player.
+;
+; Its one surface is mat_generalTransparencia, like the platform columns, so the
+; hammer wobbles and fades along its vertex-red gradient rather than being solid.
+
+[ext_resource type="PackedScene" path="res://models/props/martillo.fbx" id="1_model"]
+[ext_resource type="Animation" path="res://models/props/hammer_swing.tres" id="2_swing"]
+
+; Unity's two BoxColliders on the animated node: the 7 m shaft, and the head at the
+; bottom. Sizes and centres are Unity's, unchanged.
+[sub_resource type="BoxShape3D" id="BoxShape3D_shaft"]
+size = Vector3(2, 7.0000005, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_head"]
+size = Vector3(2.23, 1.93, 2)
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_hammer"]
+_data = {
+&"swing": ExtResource("2_swing")
+}
+
+[node name="Hammer" type="Node3D"]
+
+; The pivot. 8 m up, because that is where Unity's animated node sat, and the
+; rotation is applied at that node's origin with the geometry hanging below it.
+[node name="Arm" type="AnimatableBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+sync_to_physics = true
+
+; The FBX's own mesh node also sits 8 m up - the same offset Unity's prefab used -
+; so the instance is pulled down by 8 to hang from the pivot instead of above it.
+; Same cancellation as the sliding platform's 5 m.
+[node name="Model" parent="Arm" instance=ExtResource("1_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -8, 0)
+
+[node name="Shaft" type="CollisionShape3D" parent="Arm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.5, 0)
+shape = SubResource("BoxShape3D_shaft")
+
+[node name="Head" type="CollisionShape3D" parent="Arm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6, 0)
+shape = SubResource("BoxShape3D_head")
+
+; Physics callback mode, as with the platforms: sync_to_physics only reports a
+; velocity for a transform updated inside the physics step.
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries/ = SubResource("AnimationLibrary_hammer")
+autoplay = "swing"
+callback_mode_process = 0

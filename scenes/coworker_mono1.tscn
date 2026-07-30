@@ -26,6 +26,13 @@
 ; frames the animation does NOT use, the mono1_00NN take, are alignment: 0 instead,
 ; so checking the pivot on the wrong file gives the wrong answer.
 ;
+; The atlas is imported lossless with mipmaps. Godot's detect_3d turns any texture
+; used in 3D over to VRAM compression automatically, which is the wrong trade here:
+; block compression puts visible artifacts on hard-edged silhouette alpha, and the
+; whole cast is 175 KB, so there is nothing to save. The mipmaps that conversion also
+; enables are worth keeping - most of these coworkers are seen at a distance, where
+; an unmipmapped 128 px frame aliases badly.
+;
 ; Sprite defaults are left as they are - unshaded, alpha blended, no alpha cut -
 ; which is what Unity's sprite material did. If overlapping coworkers sort badly,
 ; alpha_cut is the lever, but the original had the same sorting to contend with.

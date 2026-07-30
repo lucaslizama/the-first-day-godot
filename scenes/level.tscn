@@ -6,6 +6,13 @@
 [ext_resource type="PackedScene" path="res://scenes/props.tscn" id="4_props"]
 [ext_resource type="PackedScene" path="res://scenes/platforms.tscn" id="5_platforms"]
 [ext_resource type="PackedScene" path="res://scenes/coworkers.tscn" id="6_coworkers"]
+[ext_resource type="PackedScene" path="res://scenes/hammers.tscn" id="7_hammers"]
+[ext_resource type="PackedScene" path="res://scenes/zones.tscn" id="8_zones"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="9_player"]
+[ext_resource type="Script" path="res://scripts/Gameplay/PlayerCharacter.cs" id="10_player_script"]
+[ext_resource type="Script" path="res://scripts/Gameplay/ThirdPersonCamera.cs" id="11_camera"]
+[ext_resource type="Script" path="res://scripts/UI/FadeOverlay.cs" id="12_fade"]
+[ext_resource type="Script" path="res://scripts/Gameplay/RespawnChain.cs" id="13_chain"]
 
 [sub_resource type="Environment" id="Environment_level"]
 background_mode = 1
@@ -48,3 +55,53 @@ ModelKey = "nivel_p2.fbx"
 [node name="Platforms" parent="." instance=ExtResource("5_platforms")]
 
 [node name="Coworkers" parent="." instance=ExtResource("6_coworkers")]
+
+[node name="Hammers" parent="." instance=ExtResource("7_hammers")]
+
+[node name="Zones" parent="." instance=ExtResource("8_zones")]
+
+; Unity's Fortunato start, unchanged. Check Point 1 sits at (-0.17, 1.25, 4.29), a
+; metre above it, because respawning drops the player rather than placing them
+; standing.
+[node name="Player" type="CharacterBody3D" parent="." groups=["player"] instance=ExtResource("9_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.018)
+script = ExtResource("10_player_script")
+CameraBasisPath = NodePath("../Camera")
+AnimationPlayerPath = NodePath("AnimationPlayer")
+
+[node name="Camera" type="Camera3D" parent="."]
+script = ExtResource("11_camera")
+TargetPath = NodePath("../Player/CameraTargetParent/CameraTarget")
+IgnoreBodyPath = NodePath("../Player")
+
+; The fade, with GUIFadeEffect's own numbers: 1 s before fading out, 2 s to black at
+; 0.5 alpha/s, 1 s before fading back, 0.667 s at 1.5 alpha/s. It starts opaque and
+; fades in, as GUIFadeEffect.Start did, so the level opens out of black. The respawn
+; chain speeds later fade-ins up to the values Unity set on its first completion.
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="FadeOverlay" type="ColorRect" parent="UI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+script = ExtResource("12_fade")
+FadeInSpeed = 1.5
+FadeOutSpeed = 0.5
+FadeInDelay = 1.0
+FadeOutDelay = 1.0
+FadeInOnReady = true
+
+; The UnityEvent graph that used to live across three prefabs. See RespawnChain.cs.
+[node name="RespawnChain" type="Node" parent="."]
+script = ExtResource("13_chain")
+KillVolumePath = NodePath("../Zones/KillVolume")
+FadePath = NodePath("../UI/FadeOverlay")
+PlayerPath = NodePath("../Player")
+CameraTargetPath = NodePath("../Player/CameraTargetParent/CameraTarget")
+FirstZonePath = NodePath("../Zones/TriggerZone1")
+FirstZoneCheckpointPath = NodePath("../Zones/Checkpoint2")
+SecondZonePath = NodePath("../Zones/TriggerZone2")
+SecondZoneCheckpointPath = NodePath("../Zones/Checkpoint3")

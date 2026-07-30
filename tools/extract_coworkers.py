@@ -103,13 +103,21 @@ def split(text):
 
 
 class PrefabFile:
-    """A prefab's internal hierarchy: transforms, names and per-object components."""
+    """A prefab's internal hierarchy: transforms, names and per-object components.
+
+    Shared with extract_zones.py, which needs the same instance-plus-internal-tree
+    composition for the kill volume's checkpoint children.
+    """
 
     def __init__(self, path):
         self.transforms = {}
         self.names = {}
         self.components = {}
         self.root = None
+        ## First BoxCollider found, and whether it is a trigger. Enough for the
+        ## volumes in this project, which have one box each.
+        self.box = None
+        self.is_trigger = None
         text = open(path, errors="ignore").read()
         for d in split(text):
             m = re.match(r"--- !u!(\d+) &(\d+)", d)
@@ -137,6 +145,13 @@ class PrefabFile:
                 ctrl = re.search(r"m_Controller: \{fileID: \d+, guid: (\w+)", d)
                 if go and ctrl:
                     self.components.setdefault("controller", {})[go.group(1)] = ctrl.group(1)
+            elif cid == "65" and self.box is None:
+                self.box = {
+                    "size": v3(d, "m_Size") or [1.0, 1.0, 1.0],
+                    "center": v3(d, "m_Center") or [0.0, 0.0, 0.0],
+                }
+                t = re.search(r"m_IsTrigger: (\d)", d)
+                self.is_trigger = t.group(1) == "1" if t else None
             elif cid == "114":
                 go = re.search(r"m_GameObject: \{fileID: (\d+)\}", d)
                 s = re.search(r"m_Script: \{fileID: \d+, guid: (\w+)", d)

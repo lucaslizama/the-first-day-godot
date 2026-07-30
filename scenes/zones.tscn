@@ -1,0 +1,55 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/Gameplay/CheckpointTeleport.cs" id="1_teleport"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kill"]
+size = Vector3(152.392610, 1.000000, 321.637200)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zone1"]
+size = Vector3(1.000000, 1.000000, 1.000000)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zone2"]
+size = Vector3(1.000000, 1.000000, 1.000000)
+
+[node name="Zones" type="Node3D"]
+
+; The kill volume: a 152 x 1 x 322 m slab under the whole level. Falling into it
+; is the only way to die, which is why the hammers need no damage of their own.
+[node name="KillVolume" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.282750, -8.300000, -54.100000)
+script = ExtResource("1_teleport")
+CheckpointPath = NodePath("../Checkpoint1")
+RespawnDelay = 2.0
+
+[node name="Shape" type="CollisionShape3D" parent="KillVolume"]
+shape = SubResource("BoxShape3D_kill")
+
+; Check Point 1
+[node name="Checkpoint1" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.174430, 1.250000, 4.286800)
+
+; Check Point 2
+[node name="Checkpoint2" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.174430, 1.370000, -66.978350)
+
+; Check Point 3
+[node name="Checkpoint3" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.069400, 13.060000, -173.823010)
+
+; Trigger Zone 1. Its collider is not a trigger in the prefab; every instance overrides
+; m_IsTrigger to 1, so the zone does fire - the prefab default alone would mean
+; the checkpoint never moved past the first one.
+[node name="TriggerZone1" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.340000, 1.380000, -67.210000)
+
+[node name="Shape" type="CollisionShape3D" parent="TriggerZone1"]
+shape = SubResource("BoxShape3D_zone1")
+
+; Trigger Zone 2. Its collider is not a trigger in the prefab; every instance overrides
+; m_IsTrigger to 1, so the zone does fire - the prefab default alone would mean
+; the checkpoint never moved past the first one.
+[node name="TriggerZone2" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.360000, 13.350000, -168.350000)
+
+[node name="Shape" type="CollisionShape3D" parent="TriggerZone2"]
+shape = SubResource("BoxShape3D_zone2")

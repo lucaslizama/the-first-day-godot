@@ -170,21 +170,21 @@ Everything left is small. Largest is 78 lines.
 
 | Lines | Script | Instances | Notes |
 |---|---|---|---|
-| 78 | `Fortunato.cs` | 1 | `Die`/`Revive`; blocks the respawn chain |
-| 55 | `FadeUI.cs` | — | overlaps the ported `FadeOverlay` |
+| 78 | `Fortunato.cs` | 1 | **done** — `Die`/`Revive` on `PlayerCharacter` |
+| 55 | `FadeUI.cs` | — | superseded: the level uses `GUIFadeEffect`, already ported as `FadeOverlay` |
 | 51 | `ParentPlayer.cs` | — | **not ported**, and not needed — see below |
 | 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
-| 43 | `TriggerZone.cs` | 2 | enter/exit/stay UnityEvents |
+| 43 | `TriggerZone.cs` | 2 | **done** — wired directly in `RespawnChain.cs`, not as a generic emitter |
 | 39 | `SoundAttenuationByDeath.cs` | 7 on clusters | **done**, `WhisperEmitter.cs` |
 | 34 | `Credits.cs` | 1 | |
-| 31 | `FortunatoAnimFunctions.cs` | — | the missing animation events |
+| 31 | `FortunatoAnimFunctions.cs` | — | `Die`/`Cry` have no clips to fire from; the footstep events remain |
 | 30 | `TimerZone.cs` | 1 | |
 | 30 | `PauseMenu.cs` | — | |
 | 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
 | 23 | `YBillboardFollow.cs` | **74** | **done** — a billboard mode, no script |
 | 23 | `Door.cs` | 1 | |
 | 20 | `CamControllerFunctionAccess.cs` | 1 | |
-| 19 | `ResetLocalPosition.cs` | 1 | |
+| 19 | `ResetLocalPosition.cs` | 1 | **done** — it sat on Camera Target; `RespawnChain` resets it |
 | 7 | `UnityEventContainer.cs` | 1 | |
 
 ### 3. The coworkers are 2D sprites — **done**
@@ -277,6 +277,71 @@ which the script's own comment says is not the intent. And the stagger is a rand
 start position rather than `PlayDelayed` of a random offset; both desynchronise the
 seven emitters, but Unity's leaves each silent for up to 14 seconds first.
 
+## Hazards and the respawn chain
+
+**The hammers do no damage.** Both of `martillo_prefab`'s box colliders are solid,
+not triggers, and the prefab carries no script — only an Animator. The hammer shoves
+the player, and the fall into the kill volume is what kills. So the level needs no
+health or damage system at all, which is why `Fortunato`'s clipless `damage` state
+never mattered. Five of them hang in a row at z = −73 to −94.5, pivoting 8 m above
+the floor with a 7 m arm, swinging −80° to +80° and back over 2.6333 s.
+
+The swing is baked at Unity's own 30 fps rather than transcribed as nine keys:
+Unity stores a Hermite spline per quaternion component and Godot's `rotation_3d`
+tracks offer neither those tangents nor a way to express them. Note the track
+format — six floats per key, `time, transition, x, y, z, w`. Five is silently
+rejected with only `Condition vcount % ROTATION_TRACK_SIZE is true` to go on, and
+the animation then does nothing.
+
+**The kill volume is a 152 × 1 × 322 m slab** at y = −8.3, under everything. Its
+three checkpoints are children of it, and because the root is scaled, their local
+offsets are in scaled space: Check Point 1's local x of −0.003 is 0.46 m and its
+local z of 0.18153 is 58 m. Composed properly, Check Point 1 lands at
+(−0.17, 1.25, 4.29) — a metre above Unity's player start of (0, 0, 4.018), which is
+what confirms the composition is right.
+
+The two Trigger Zones move the checkpoint on and reset the death count. Their
+collider is **not** a trigger in the prefab (`m_IsTrigger: 0`); every instance
+overrides it to 1. Taking the prefab at face value would give a level where the
+checkpoint never advances past the first one.
+
+### The chain was never code
+
+None of the death sequence existed as a script. It was a UnityEvent graph across
+three prefabs, with every target and half the method names stored as
+prefab-instance overrides. Recovered, it is:
+
+| Fires | Calls |
+|---|---|
+| `onCheckPointCollision` | `CanValidateInput = false`, `Fortunato.Die()`, reparent to "Temporal Target Parent", `UI.FadeOut()`, `SumarMuerte()`, a `SetActive` on a null target |
+| `OnFadeOutComplete` | unparent, `UI.FadeIn()`, `Camera Target.ResetPosition()`, `Fortunato.Revive()`, `TransportPlayer()` |
+| `OnFadeInComplete` | `CanValidateInput = true`, `SetFadeInSpeed(2)`, `SetFadeInDelay(0.5)` |
+
+`RespawnChain.cs` reproduces it in that order, because the order is the behaviour:
+the teleport happens while the screen is black and after `Revive` has cleared the
+fall speed. Three calls have no counterpart — the two reparenting calls existed to
+undo `ParentPlayer`'s platform parenting, which this port never does, and the
+`SetActive` had a null target in Unity too.
+
+**This settles the `respawnDelay` question.** The real timing is the fade's:
+1 s `fadeOutDelay`, 2 s to black at 0.5 alpha/s, then the teleport, then 1 s and
+0.667 s back at 1.5 alpha/s — and the last two calls above speed every later
+fade-in up to 0.5 s. Measured end to end in `tools/verify_respawn.gd`: death to
+black is 3.00 s, teleport on the same tick as full black, control back 1 s later.
+`respawnDelay` is 2 in the prefab and read by nothing.
+
+A quirk worth knowing: a fade already running swallows further requests, in the
+original and in the port. Dying during the level's opening fade-in therefore drops
+the fade-out and the sequence never starts. It cannot happen in play — the player
+stands on solid ground with input disabled until that fade finishes — but it does
+mean a test has to wait for the level to open before it can kill anyone.
+
+`Die` has no animation to play. The `damage` and `death` states have no clip
+anywhere in the project, so it plays the fall clip: the closest thing the project
+owns, and correct for the only way the player dies. `Revive` clears the velocity,
+standing in for `charController.Move(Vector3.zero)` — without it the fall speed
+survives the teleport and drops the player straight back through the floor.
+
 ## Platforms
 
 Both platform prefabs are the same single box: **2 × 20 × 2 m, top face at
@@ -344,10 +409,13 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74 plus the
    7 whisper emitters, which closes the death-constant loop `GameManager` was
    ported for. See "Coworkers" above.
-6. **Hazards and the respawn chain** — hammers, `Fortunato.Die`/`Revive`,
-   `FortunatoAnimFunctions` animation events, wiring `CheckpointTeleport`
-   through the fade. This completes what the GameManager port deliberately left
-   open.
+6. **Hazards and the respawn chain** — hammers, `Fortunato.Die`/`Revive` and the
+   fade wiring are **done**; see "Hazards and the respawn chain" above. What is
+   left is the `FortunatoAnimFunctions` footstep events: `step.wav` still needs
+   vendoring, and `PlayStepSound`/`RandomizePitch` need method tracks at the
+   footfall frames of the walk and run clips. Those frames have to be measured
+   off the rig — the ankle bones' low points — rather than assumed at 0% and 50%
+   of the cycle, which is why they are not in yet.
 7. **Ending and UI** — `meta.fbx`, cake, confetti, `Credits`, `PauseMenu`,
    `TimerZone`.
 

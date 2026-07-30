@@ -21,6 +21,9 @@ public partial class PlayerCharacter : CharacterBody3D
 
     private const int TicksToWaitForFall = 5;
 
+    /// <summary>Stands in for the animator's clipless death state. See <see cref="Die"/>.</summary>
+    private const string DeathSubstituteClip = "fall";
+
     /// <summary>
     /// The eight movement directions in camera space, using Godot's -Z forward.
     /// Indexed by <see cref="WasDirection"/>.
@@ -80,6 +83,13 @@ public partial class PlayerCharacter : CharacterBody3D
     public bool IsJumping { get; private set; }
 
     public bool IsFalling { get; private set; }
+
+    /// <summary>
+    /// Set between <see cref="Die"/> and <see cref="Revive"/>. Control is stopped by
+    /// PlayerInput.CanValidateInput rather than by this, exactly as in the original -
+    /// the respawn chain disables input in the same breath as calling Die.
+    /// </summary>
+    public bool IsDead { get; private set; }
 
     private bool _checkingForFall;
     private int _fallCheckTicks;
@@ -163,6 +173,47 @@ public partial class PlayerCharacter : CharacterBody3D
     }
 
     /// <summary>
+    /// Port of Fortunato.Die. The original pulled the animator's "Death" trigger and
+    /// disabled input; the input half is the respawn chain's first call, so only the
+    /// animation is here.
+    ///
+    /// **There is no death animation.** The controller's damage and death states have
+    /// no clip anywhere in the project, in FBX or .anim form - confirmed while porting
+    /// the animations, and the reason this needed a substitute at all. Unity's animator
+    /// would have entered a state with nothing to play and held whatever pose it had.
+    ///
+    /// The substitute is the fall clip, which is the closest thing the project owns and
+    /// reads correctly for the only way the player dies: falling into the kill volume.
+    /// Nothing else is invented - no ragdoll, no fresh animation.
+    /// </summary>
+    public void Die()
+    {
+        if (IsDead)
+        {
+            return;
+        }
+
+        IsDead = true;
+        _animation?.Play(DeathSubstituteClip);
+    }
+
+    /// <summary>
+    /// Port of Fortunato.Revive: the "Revive" trigger plus charController.Move(zero).
+    /// The zero move existed to flush the controller's accumulated motion, which is
+    /// Velocity here - without clearing it, the fall speed built up on the way into the
+    /// kill volume survives the teleport and the player drops straight through the
+    /// checkpoint floor.
+    /// </summary>
+    public void Revive()
+    {
+        IsDead = false;
+        IsFalling = false;
+        IsJumping = false;
+        _checkingForFall = false;
+        Velocity = Vector3.Zero;
+    }
+
+    /// <summary>
     /// Stands in for the "Fortunato Controller" animator. Its walk_run_tree blended
     /// on MoveSpeed, but the keyboard path only ever set that to 0 or 1, so walk and
     /// run are selected outright. The controller's damage and death states are not
@@ -171,6 +222,14 @@ public partial class PlayerCharacter : CharacterBody3D
     private void UpdateAnimation(WasDirection current)
     {
         if (_animation is null)
+        {
+            return;
+        }
+
+        // While dead the clip is Die's business. Without this the per-tick selection
+        // below would immediately overwrite it, since the player is usually still
+        // falling at the moment they die.
+        if (IsDead)
         {
             return;
         }
