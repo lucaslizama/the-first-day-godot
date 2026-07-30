@@ -263,7 +263,7 @@ Fortunato (gamma-space math, `LIGHT_COLOR / PI`, `ALBEDO = vec3(1.0)`):
 |---|---|---|
 | `shader_generalTransparencia` | `mat_generalTransparencia` | **57** |
 | `shader_general` | `mat_general` | 27 |
-| `shader_torta` | `mat_torta` | 1 |
+| ~~`shader_torta`~~ | `mat_torta` | **done** — `shaders/cake_glow.gdshader`, on the cake's `GEO_Torta` |
 | `shader_fade` | UI fade | — |
 | ~~skybox~~ | `mat_skyboxFernandito` | **done** — `materials/sky_fernandito.tres`; it was the whole ending area's backdrop, see Lighting |
 
@@ -588,12 +588,55 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
-7. **Ending and UI** — `meta.fbx`, cake, confetti, `Credits`, `PauseMenu`,
+7. **Ending and UI** — remaining: `particleSys_conffeti`, `Credits`, `PauseMenu`,
    `TimerZone`, the five tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`,
    `Tutorial`, on Unity's built-in cube mesh) and `Door` for `puertaInicio`.
-   `mat_skyboxFernandito` was part of this step and is **done** — the ending area is
-   exterior, so without it the whole climax rendered against black. See "The skybox
-   was an ending-area problem" under Lighting.
+
+   Done so far in this step:
+   - `mat_skyboxFernandito` — the ending area is exterior, so without it the whole
+     climax rendered against black. See "The skybox was an ending-area problem"
+     under Lighting.
+   - **`meta.fbx` and `cake.fbx`** — see "The ending pair" below.
+
+### The ending pair — `meta.fbx` and `cake.fbx`
+
+Both are `globalScale: 1`, so `root_scale = 1`, and both are plain solid meshes in
+Unity: no `MonoBehaviour`, no trigger, no animator on the instances. So they are static
+props in `scenes/props.tscn` and the ending's *behaviour* stays with `TimerZone` and
+`Credits`, which are still unported.
+
+| | `meta_01` | `cake_01` |
+|---|---|---|
+| world position | (−0.03, 12.0, −182.54) | (−0.078, 11.989, −184.986) |
+| scale | 1 | 0.91587 uniform |
+| world size | 2.84 × 3.13 × 0.64 m | 1.07 × 0.43 × 1.07 m |
+| meshes | `GEO_Cartel`, `GEO_Soportes`, `GEO_Liston`, `typeMesh1` | `GEO_Plate`, `GEO_Torta`, `GEO_Trozo5`, `GEO_Trozos` |
+| solid | `GEO_Cartel`, `GEO_Soportes` | `GEO_Plate` |
+
+`meta` is the finish line: a FINISH banner on two poles, with a cut red ribbon
+(`GEO_Liston`) and the lettering as its own mesh (`typeMesh1`). The cake sits 2.4 m
+behind it. Every material they need was already ported — `MAT_Cartel`, `MAT_Barras`,
+`MAT_Liston`, `lambert5`, `MAT_Platic`, `MAT_Chocolate` — so both `.import` files just
+map them externally.
+
+**Which sub-meshes are solid was resolved, not guessed.** Unity references collided
+meshes by fileID, and an FBX's meshes are `4300000 + 2i` in the order they appear in
+the file. That order was read out of the binary FBX (the names sit in the Objects
+section at even ~520-byte spacing) and matches Godot's imported child order exactly.
+The same convention is independently confirmed by the cake's material override, which
+targets MeshRenderer `2300002` — index 1, `GEO_Torta` — the one mesh whose native
+material `lambert1` is what `mat_torta` sensibly replaces. Two routes, same answer, so
+the collider mapping is trustworthy rather than plausible.
+
+**The cake body is deliberately not a solid cake.** `mat_torta` on `GEO_Torta` is
+`shaders/cake_glow.gdshader`, an emission-only additive pulsing rim glow — the ported
+`shader_torta`, which declares no properties at all. So the cake renders as a glowing
+outline that fades in and out, while the plate and the chocolate crumbs are ordinary
+opaque surfaces. This is faithful to the shader as ported, and it is easy to mistake
+for a bug: the first screenshot of it caught `sin(2·TIME)` negative at frame 160
+(t ≈ 2.67 s, sin ≈ −0.81), where the clamp makes the body vanish entirely. If the cake
+was in fact meant to be solid, the thing to re-examine is the `shader_torta` port, not
+the material mapping — the mapping is confirmed above by fileID.
 
 Steps 2–4 are mostly mechanical volume. Steps 5–6 are where the real
 behavioural work is.
@@ -662,9 +705,9 @@ behavioural work is.
     `generate_props_scene.py` keys it by world position and the generator exits
     non-zero if it stops matching.
 
-  Still unported, both under "Ending and UI": the 5 colliders on Unity's built-in
-  cube mesh belong to the **tutorial key props** (`WASD`, `WASD (1)`, `Spacebar`,
-  `Shift`, `Tutorial`), and `meta` (2) and `cake` (1) come with those models.
+  Still unported, under "Ending and UI": the 5 colliders on Unity's built-in cube mesh
+  belong to the **tutorial key props** (`WASD`, `WASD (1)`, `Spacebar`, `Shift`,
+  `Tutorial`). `meta` (2) and `cake` (1) are **done** — see "The ending pair".
 - **The two importers disagree by a mirror on X, per model.** Unity's `tablePcs`
   flattens `table.fbx`, so the prefab holds `pPlane23`–`pPlane27` as direct
   children — and their positions are Godot's imported positions with X negated, to

@@ -29,6 +29,10 @@ STATIC = {
     "silla.fbx", "puerta.fbx", "table.fbx", "pc.fbx", "pc2.fbx",
     "cable.fbx", "interruptor.fbx", "piezaParede.fbx",
     "tablePcs.prefab",
+    # The ending pair, at the far end around z = -183. Both are plain solid meshes
+    # in Unity - no MonoBehaviour, no trigger - so they are static props here and the
+    # ending's behaviour stays with TimerZone and Credits.
+    "meta.fbx", "cake.fbx",
 }
 
 # Where each entry's PackedScene lives. Models resolve to models/props by name;

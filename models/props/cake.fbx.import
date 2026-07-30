@@ -1,0 +1,71 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://prmjlqeqhd6"
+path="res://.godot/imported/cake.fbx-4bbc4376e84ab6c7200cef8c18c97be2.scn"
+
+[deps]
+
+source_file="res://models/props/cake.fbx"
+dest_files=["res://.godot/imported/cake.fbx-4bbc4376e84ab6c7200cef8c18c97be2.scn"]
+
+[params]
+
+nodes/root_type=""
+nodes/root_name=""
+nodes/root_script=null
+mesh_library/use_node_names_as_mesh_names=false
+array_mesh/deduplicate_surfaces=true
+nodes/apply_root_scale=true
+nodes/root_scale=1.0
+nodes/import_as_skeleton_bones=false
+nodes/use_name_suffixes=true
+nodes/use_node_type_suffixes=true
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/create_shadow_meshes=true
+meshes/light_baking=1
+meshes/lightmap_texel_size=0.2
+meshes/force_disable_compression=false
+skins/use_named_skins=true
+animation/import=true
+animation/fps=30
+animation/trimming=true
+animation/remove_immutable_tracks=true
+animation/import_rest_as_RESET=false
+import_script/path=""
+materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
+_subresources={
+"materials": {
+"MAT_Chocolate": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/props/mat_chocolate.tres",
+"use_external/path": "res://materials/props/mat_chocolate.tres"
+},
+"MAT_Platic": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/props/mat_platic.tres",
+"use_external/path": "res://materials/props/mat_platic.tres"
+},
+"lambert1": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/cake.tres",
+"use_external/path": "res://materials/cake.tres"
+}
+},
+"nodes": {
+"PATH:geo/GEO_Plate": {
+"generate/physics": true,
+"physics/body_type": 0,
+"physics/shape_type": 2
+}
+}
+}
+fbx/importer=0
+fbx/allow_geometry_helper_nodes=false
+fbx/embedded_image_handling=1
+fbx/naming_version=2
