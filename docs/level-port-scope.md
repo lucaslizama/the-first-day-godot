@@ -829,6 +829,29 @@ hold the same single-frame clip briefly on touchdown before handing to `idle` or
 from falling to grounded. Since the land states use the same clip as the fall states the
 visible difference is small, and the exit timing was not recovered — worth doing if the
 landing ever needs to read as a distinct beat.
+- **The cursor is captured by the level, not by the camera asset.** The
+  AdvancedUtilities camera's own `CursorComponent` has `Enabled = 0`, which reads as
+  "this game never locks the cursor" and is why the camera port originally recorded
+  exactly that. It is wrong: `GameManager.Start` invokes `onGameStart`, which the scene
+  wires to `BloquearCursor` on the manager itself — `Cursor.lockState = Locked`,
+  `Cursor.visible = false`. Godot's equivalent is `MouseMode.Captured`.
+
+  The call has to come from something **level-scoped**. Unity's GameManager was a scene
+  object, so its `Start` meant "a level began"; here it is an autoload whose `_Ready`
+  fires when the *process* starts, before the main menu, whose buttons need a cursor. So
+  `ThirdPersonCamera._Ready` calls `GameManager.StartGame()` — one per level, and the
+  node the capture exists for — and `MainMenu._Ready` calls `ReleaseMouse()`, without
+  which the menu is unclickable on the second visit because the credits return there
+  with the mouse still captured. `StartGame` previously had **no caller anywhere in the
+  project**, so the mouse was never captured at all.
+
+  **This cannot be verified headlessly.** The dummy display server ignores
+  `Input.MouseMode` and reports Visible throughout, so a headless check passes while the
+  game is broken. Under `xvfb-run` the transitions are menu Visible → level Captured →
+  menu Visible.
+
+  `PauseMenu`, still unported, toggled the lock in Unity (`Locked` ↔ `None` with
+  visibility flipped). `GameManager.CaptureMouse`/`ReleaseMouse` are the hooks for it.
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth

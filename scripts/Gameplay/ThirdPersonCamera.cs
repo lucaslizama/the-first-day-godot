@@ -11,7 +11,10 @@ namespace TheFirstDay.Gameplay;
 ///   Zoom (scroll)  DesiredDistance = MinZoom = MaxZoom = 6, so scrolling cannot
 ///                  change the distance. The distance *smoothing* below is the
 ///                  live half of that component.
-///   Cursor         Enabled = 0, so the cursor is never locked or hidden.
+///   Cursor         Enabled = 0 on THIS component - but the cursor is still locked,
+///                  by GameManager.BloquearCursor, which the scene wires to the
+///                  manager's own onGameStart. So the camera asset does not capture
+///                  the mouse and the game does. See _Ready.
 ///   ScreenShake    Enabled = 0.
 ///   AutoRotation   Enabled = 1, but nothing ever calls AutoRotate(), so
 ///                  UpdateAutoRotate() returns immediately every frame.
@@ -115,6 +118,17 @@ public partial class ThirdPersonCamera : Camera3D
         _yawDegrees = InitialYawDegrees;
         _pitchDegrees = InitialPitchDegrees;
         _currentDistance = DesiredDistance;
+
+        // Unity's GameManager.Start invoked onGameStart, wired to BloquearCursor on
+        // itself, which locked and hid the cursor. That manager was a scene object, so
+        // its Start meant "a level began". Here GameManager is an autoload and its
+        // _Ready fires when the *process* starts - before the main menu, whose buttons
+        // need a cursor - so the call has to come from something level-scoped instead.
+        //
+        // This camera is that: exactly one per level, and the node the capture exists
+        // for. Without this the mouse was never captured at all; StartGame had no
+        // caller anywhere in the project.
+        GameManager.Instance?.StartGame();
 
         UpdateCamera(0.0);
     }

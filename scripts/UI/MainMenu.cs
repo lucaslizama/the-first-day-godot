@@ -17,6 +17,12 @@ public partial class MainMenu : Control
 
     public override void _Ready()
     {
+        // The level captures the mouse, and the credits come back here, so without
+        // this the menu would be unclickable on the second visit - the cursor would
+        // still be captured from the run that just finished. Unity had the same shape:
+        // BloquearCursor ran when a level began, and only the level ever locked it.
+        Gameplay.GameManager.Instance?.ReleaseMouse();
+
         _startButton = GetNode<Button>("%StartButton");
         _exitButton = GetNode<Button>("%ExitButton");
         _fade = GetNode<FadeOverlay>("%FadeOverlay");
