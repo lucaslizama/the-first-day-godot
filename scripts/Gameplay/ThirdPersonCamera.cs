@@ -80,8 +80,24 @@ public partial class ThirdPersonCamera : Camera3D
     [Export]
     public float SensitivityVertical { get; set; } = 2.0f;
 
+    /// <summary>
+    /// Whether to flip the vertical look, relative to Godot's raw mouse axis.
+    ///
+    /// Unity's scene sets Invert.Vertical = 1, and this port copied that flag straight
+    /// across - which double-inverted it, because the two engines' vertical mouse axes
+    /// already run opposite ways: Unity's "Mouse Y" is positive when the mouse moves
+    /// UP, Godot's InputEventMouseMotion.Relative.Y is positive when it moves DOWN.
+    ///
+    /// So Unity's flag existed to make the camera behave normally. In the asset,
+    /// RotateVertically(degrees) does Rotate(CameraTransform.Right, degrees), where
+    /// positive pitches the camera down; inverting the input therefore gave
+    /// mouse-up = look-up. Copying the flag on top of Godot's already-flipped axis
+    /// produced aeroplane controls instead, which is how it was reported.
+    ///
+    /// false here is the setting that reproduces the original's feel.
+    /// </summary>
     [Export]
-    public bool InvertVertical { get; set; } = true;
+    public bool InvertVertical { get; set; }
 
     /// <summary>
     /// Unity's "Mouse X"/"Mouse Y" axes scaled raw pixel delta by 0.1 before the
@@ -135,8 +151,8 @@ public partial class ThirdPersonCamera : Camera3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        // The original read mouse deltas unconditionally: no cursor lock and no
-        // hold-to-rotate button.
+        // The original read mouse deltas unconditionally - no hold-to-rotate button.
+        // The cursor IS locked, just not by this component; see the header and _Ready.
         if (@event is InputEventMouseMotion motion)
         {
             _pendingMouseDelta += motion.Relative;

@@ -126,6 +126,17 @@ public partial class PlayerCharacter : CharacterBody3D
     /// <summary>Set by <see cref="Cry"/>; see the guard in UpdateAnimation.</summary>
     private bool _crying;
 
+    /// <summary>
+    /// The clip last asked for, which is NOT the same as AnimationPlayer.CurrentAnimation.
+    /// Godot clears CurrentAnimation when a non-looping clip finishes, so comparing
+    /// against it re-triggered the clip on the very next tick and kept doing so for as
+    /// long as the state held - the jump clips are 0.167 s against an ascent of about
+    /// 0.23 s, so a single jump replayed its take-off several times. Only walk, run and
+    /// idle loop (Unity's m_LoopTime); everything else is meant to end and hold its last
+    /// pose, which is what tracking the request rather than the playhead gives.
+    /// </summary>
+    private string _requestedClip = string.Empty;
+
     public bool IsRunning { get; private set; }
 
     public bool IsJumping { get; private set; }
@@ -267,6 +278,7 @@ public partial class PlayerCharacter : CharacterBody3D
         }
 
         IsDead = true;
+        _requestedClip = DeathClip;
         _animation?.Play(DeathClip);
     }
 
@@ -300,6 +312,7 @@ public partial class PlayerCharacter : CharacterBody3D
     public void Cry()
     {
         _crying = true;
+        _requestedClip = CryClip;
         _animation?.Play(CryClip);
     }
 
@@ -371,8 +384,9 @@ public partial class PlayerCharacter : CharacterBody3D
             next = "idle";
         }
 
-        if (_animation.CurrentAnimation != next)
+        if (_requestedClip != next)
         {
+            _requestedClip = next;
             _animation.Play(next);
         }
     }

@@ -852,6 +852,38 @@ landing ever needs to read as a distinct beat.
 
   `PauseMenu`, still unported, toggled the lock in Unity (`Locked` ↔ `None` with
   visibility flipped). `GameManager.CaptureMouse`/`ReleaseMouse` are the hooks for it.
+- **The camera's vertical axis needed the OPPOSITE of Unity's flag.** Unity's scene sets
+  `Invert.Vertical = 1` and this port copied it across, which inverted the look twice.
+  The two engines' vertical mouse axes already run opposite ways — Unity's `Mouse Y` is
+  positive when the mouse moves **up**, Godot's `Relative.Y` is positive when it moves
+  **down** — and in the asset `RotateVertically(degrees)` pitches *down* for positive
+  degrees, so Unity's flag is what gave the original mouse-up = look-up. Copying it gave
+  aeroplane controls. `InvertVertical` is now `false`, which is the setting that
+  reproduces the original's feel. **"Matches Unity's flag" and "matches Unity's feel" are
+  not the same thing when an axis convention differs.**
+
+  `tools/verify_camera_look.gd` asserts all four directions as *directions* — where the
+  forward vector actually points after a synthetic mouse move — rather than as a sign, so
+  it survives a refactor of how pitch is stored. Confirmed to catch the regression: with
+  the flag back at `true` it fails the two vertical checks and passes the horizontal ones.
+- **A finished non-looping clip must not be re-triggered.** Godot clears
+  `current_animation` the moment a non-looping clip ends, so `if (CurrentAnimation !=
+  next) Play(next)` re-plays it on the very next tick and keeps doing so for as long as
+  the state holds. The jump clips are 0.167 s against an ascent of roughly 0.23 s, so a
+  single jump replayed its take-off several times over. `PlayerCharacter` now compares
+  against the clip it last *asked for*, which lets a clip end and hold its final pose —
+  the behaviour the airborne, death and cry states all rely on.
+
+  Only `idle`, `walk` and `run` loop, per Unity's `m_LoopTime`, and `idle` was importing
+  as non-looping. `tools/set_clip_loops.gd` sets all nine from that table and warns about
+  any clip not in it. At 12.7 s, idle's restart read as an occasional hitch rather than a
+  loop bug, which is why it went unnoticed.
+
+  `tools/verify_jump_clips.gd` counts clip completions via `animation_finished`: each
+  take-off clip must finish at most once per jump. Note that once a clip ends,
+  `current_animation` is empty while the pose it left is still on screen, so anything
+  measuring "which clip is showing" has to fall back to `assigned_animation` — the first
+  version of that check under-counted the descent by 22 ticks for exactly this reason.
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth

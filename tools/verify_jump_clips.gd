@@ -32,6 +32,11 @@ var seen := {}
 var failures := 0
 var checks := 0
 var left_jump_seen := {"true": false, "false": false}
+## How many times each clip ran to completion. A non-looping clip should finish once
+## per state, not over and over: Godot clears current_animation when one ends, so code
+## that compares against it re-triggers the clip every tick the state lasts. That made a
+## single jump replay its take-off several times, which is what this counts.
+var finished := {}
 
 
 func _initialize() -> void:
@@ -39,6 +44,12 @@ func _initialize() -> void:
 	root.add_child(level)
 	player = level.get_node("Player")
 	anim = player.get_node("AnimationPlayer")
+	anim.animation_finished.connect(_on_finished)
+
+
+func _on_finished(name: StringName) -> void:
+	var key := String(name)
+	finished[key] = finished.get(key, 0) + 1
 
 
 func _physics_process(_delta: float) -> bool:
@@ -86,7 +97,13 @@ func _to(next: String, note: String) -> void:
 
 
 func _record() -> void:
+	# current_animation goes blank the moment a non-looping clip ends, but the pose it
+	# left is still what is on screen - that is the whole point of not re-triggering it.
+	# assigned_animation keeps the name, so this counts the pose actually being shown
+	# rather than only the frames the playhead was moving.
 	var clip: String = anim.current_animation
+	if clip == "":
+		clip = anim.assigned_animation
 	if clip == "":
 		return
 	if not seen.has(clip):
@@ -152,6 +169,17 @@ func _report() -> void:
 		_ok("descending uses jumpL1Frame/jumpR1Frame (%d ticks)" % desc)
 	else:
 		_fail("descending used neither jumpL1Frame nor jumpR1Frame")
+
+	# Two jumps happen in this run, one per foot, so each take-off clip should finish at
+	# most once. Anything more means the clip is being re-triggered while airborne.
+	print("clip completions: %s" % str(finished))
+	for clip in JUMP_CLIPS + AIRBORNE_CLIPS:
+		checks += 1
+		var n: int = finished.get(clip, 0)
+		if n > 1:
+			_fail("'%s' finished %d times; it is being replayed while the state holds" % [clip, n])
+		else:
+			_ok("'%s' finished %d time(s) - not replayed" % [clip, n])
 
 	checks += 1
 	if left_jump_seen["true"] and left_jump_seen["false"]:
