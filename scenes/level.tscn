@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://b6psuvh813ih8" path="res://models/level/nivel_p2.fbx" id="2_nivel_p2"]
 [ext_resource type="Script" uid="uid://jw7thkhshqh3" path="res://scripts/Gameplay/LevelShell.cs" id="3_shell"]
 [ext_resource type="PackedScene" path="res://scenes/props.tscn" id="4_props"]
+[ext_resource type="PackedScene" path="res://scenes/platforms.tscn" id="5_platforms"]
 
 [sub_resource type="Environment" id="Environment_level"]
 background_mode = 1
@@ -42,3 +43,5 @@ ModelKey = "nivel_p2.fbx"
 [node name="nivel_p2" parent="ShellP2" unique_id=1113251813 instance=ExtResource("2_nivel_p2")]
 
 [node name="Props" parent="." unique_id=1592056883 instance=ExtResource("4_props")]
+
+[node name="Platforms" parent="." instance=ExtResource("5_platforms")]

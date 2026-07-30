@@ -1,0 +1,56 @@
+[gd_scene load_steps=5 format=3]
+
+; Port of plataformaCae, the platform that drops out from under you - 8 instances
+; in nivelEscena. Each is 2 m deep and they are placed 2 m apart, so they tile edge
+; to edge into a walkway that collapses under the player: a run of 3 from z = -43.97
+; to -49.97, then a run of 5 from -51.97 to -61.97. The one missing tile, at
+; z = -50.97, leaves a 2 m gap to jump. Measured, see tools/platform_report.gd.
+;
+; Unity's structure was:
+;
+;   plataformaCae (moved by FallingPlatform)
+;   +-- plataformaCae (mesh + non-convex MeshCollider)
+;   +-- trigger (BoxCollider trigger 2.01 x 0.37 x 0.46, FallingPlatform + ParentPlayer)
+;
+; The root is what moved, so the trigger sank with the platform. Here the root and
+; the mesh's collider are the same node - an AnimatableBody3D - with the trigger
+; as its child. That is not a simplification for its own sake: sync_to_physics
+; makes a body rewrite its own transform each physics tick, so a parent node cannot
+; move it. See FallingPlatform.cs.
+;
+; As with moving_platform.tscn, ParentPlayer is gone: sync_to_physics carries a
+; CharacterBody3D standing on the platform. Verified in tools/verify_platforms.gd
+; rather than assumed.
+
+[ext_resource type="PackedScene" uid="uid://bbkxxunibv2mu" path="res://models/props/plataformaCae.fbx" id="1_model"]
+[ext_resource type="Script" path="res://scripts/Gameplay/FallingPlatform.cs" id="2_script"]
+
+; The mesh is one axis-aligned box - 2 x 20 x 2, top face at y = 0 - so this is
+; Unity's MeshCollider exactly, without putting a concave shape on a moving body.
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(2, 20, 2)
+
+; The trigger is a thin strip rather than the whole top face: 2.01 wide but only
+; 0.46 deep, so it fires as the player crosses the middle of the platform, not the
+; instant they touch the near edge. Sizes and the offset are Unity's, with the
+; trigger node's own (0, 0.098, -0.015) folded into the collider's (0, 0.09, 0).
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
+size = Vector3(2.01, 0.37, 0.46)
+
+[node name="FallingPlatform" type="AnimatableBody3D"]
+sync_to_physics = true
+script = ExtResource("2_script")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0)
+shape = SubResource("BoxShape3D_body")
+
+; No offset to cancel here: unlike plataforma.fbx, this model's mesh node sits on
+; its own origin.
+[node name="Model" parent="." instance=ExtResource("1_model")]
+
+[node name="Trigger" type="Area3D" parent="."]
+
+[node name="Shape" type="CollisionShape3D" parent="Trigger"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.188, -0.015)
+shape = SubResource("BoxShape3D_trigger")

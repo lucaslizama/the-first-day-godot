@@ -172,8 +172,8 @@ Everything left is small. Largest is 78 lines.
 |---|---|---|---|
 | 78 | `Fortunato.cs` | 1 | `Die`/`Revive`; blocks the respawn chain |
 | 55 | `FadeUI.cs` | — | overlaps the ported `FadeOverlay` |
-| 51 | `ParentPlayer.cs` | — | moving-platform parenting |
-| 50 | `FallingPlatform.cs` | 8 | |
+| 51 | `ParentPlayer.cs` | — | **not ported**, and not needed — see below |
+| 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
 | 43 | `TriggerZone.cs` | 2 | enter/exit/stay UnityEvents |
 | 39 | `SoundAttenuationByDeath.cs` | **11** | consumes `GameManager.DeathConstant` |
 | 34 | `Credits.cs` | 1 | |
@@ -206,6 +206,56 @@ the port rather than after.
   `UnityEngine.UI` assembly, not project code. Godot's `Control` system covers it.
 - `Yelena.prefab` — disabled in the scene.
 
+## Platforms
+
+Both platform prefabs are the same single box: **2 × 20 × 2 m, top face at
+y = 0**. A 2 m square you stand on, on a 20 m column hanging into the void. The
+column is meant to be seen dissolving: vertex red runs 1 along the bottom edge to
+0 along the top, and `mat_generalTransparencia` turns red into transparency, so
+the standable surface is solid and the column fades out below it. The two effects
+that shader couples — wobble and alpha — are both on that same channel, which is
+why the columns shimmer as they fade.
+
+> **Correction.** The recon above cited "a `plataforma` BoxCollider is
+> 1.96 × 0.41 × 2.03 m" as corroboration of the level's scale. The footprint is
+> right and confirms `root_scale = 100` (0.02 → 2.00 exactly), but that box is the
+> prefab's *trigger volume*, not the platform: 0.41 is how thick a detector sitting
+> on top of the platform is, not how thick the platform is. The platform is 20 m
+> deep. Anything reasoning about how these look from the numbers alone should read
+> `tools/platform_report.gd` instead.
+
+Unlike the shell, the platforms needed **no material table**: their two FBX
+material names map to the same two Unity materials in both models and in every
+instance, so `lambert1` → `level_general` and `lambert2` → `level_transparent` as
+plain `_subresources` remaps in the `.import` files. The per-renderer-slot problem
+that forced `LevelShell.cs` simply does not arise here.
+
+`plataforma_anim` is reproduced key for key as a Bezier track in
+`moving_platform.tscn`: Unity's six Hermite keys convert exactly, and the result
+tracks the original to 16 µm over the whole 6.633 s loop. The FBX also ships the
+artist's Maya take, which the port ignores exactly as Unity did — worth knowing
+only because it independently agrees on both amplitude and period, differing just
+in starting phase.
+
+Two findings worth carrying forward to the hazards and the ending:
+
+- **`ParentPlayer` has no Godot equivalent and needs none.** It existed to carry
+  the player on a moving platform by reparenting. An `AnimatableBody3D` with
+  `sync_to_physics` reports its own velocity and `move_and_slide` applies it, so
+  a rider follows to within 3 mm with no script and no trigger volume. This is
+  the same kind of substitution as `YBillboardFollow` becoming a property.
+- **The moving node has to *be* the body.** With `sync_to_physics` on, the body
+  writes its own transform back from the physics server every tick, so moving a
+  parent `Node3D` moves the mesh and the trigger while the collision body stays
+  put — the player ends up standing on an invisible collider while the platform
+  descends beneath them. `FallingPlatform` is therefore an `AnimatableBody3D`
+  itself. This will apply to the hammers too.
+
+`tools/verify_platforms.gd` checks all of this — curve fidelity, that a rider is
+carried, and that the fall delay, speed, reset distance and carry match the
+prefab. `tools/platform_report.gd` measures the models and the placement, and
+`tools/shot_platforms.gd` renders the platforms without the shell around them.
+
 ## Suggested order
 
 1. ~~**`shader_general` + `shader_generalTransparencia`**~~ — **done**, plus
@@ -217,8 +267,9 @@ the port rather than after.
 3. **Static props** — chairs, doors, tables, PCs. Bulk instancing, low risk.
    Remember these are the `globalScale: 1` group: import them at `root_scale = 1`,
    not 100.
-4. **Platforms** — `plataforma_prefab` (18) and `plataformaCae` (8) plus
-   `ParentPlayer`/`FallingPlatform`. First real gameplay work.
+4. ~~**Platforms**~~ — **done**. `scenes/platforms.tscn` places all 26 from
+   `scenes/moving_platform.tscn` and `scenes/falling_platform.tscn`.
+   `ParentPlayer` was not needed. See "Platforms" below.
 5. **Coworkers** — sprite atlases, billboards, `RandomizeMonoAnimStart`, and
    `SoundAttenuationByDeath`, which closes the death-constant loop already
    built in `GameManager`.
@@ -252,6 +303,17 @@ behavioural work is.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth
   converting to Ogg Vorbis rather than vendoring raw, given the repo already
   avoids large binaries.
+- **The falling platforms had a 20 cm reset bug, and the port drops it.**
+  `FallingPlatform` captured `platform.position` — a world position — and restored
+  it with `platform.localPosition`. Every instance sits under a container called
+  `Obstaculos` at (-0.2, 0, 0), so each platform reappeared 20 cm to the -x of
+  where it started, once, on its first cycle. The port stores the rest position in
+  the space it assigns back to. If the original's exact behaviour is ever wanted,
+  this is the divergence to undo.
+- **`animation/import=false` is ignored by the FBX importer in 4.7.** Both platform
+  models therefore carry an inert `AnimationPlayer` into every instance. Harmless,
+  but it means an unused clip is visible on 26 nodes, and it cannot be turned off
+  from the `.import` file.
 - **Two UnityEvent-heavy structures hide from naive greps.** Prefab-instance
   overrides store method names and active flags as `propertyPath`/`value` pairs,
   not as `m_MethodName:` or `m_IsActive:` fields. This already caused one wrong
@@ -264,7 +326,9 @@ behavioural work is.
   its `polySurface` slot 1, and `nivel_p2` reverses the `polySurface` mapping.
   Godot's importer keys external materials by name and **cannot express this**,
   which is why the shell needs `LevelShell.cs` and a data table rather than
-  import settings. Expect the same for the props.
+  import settings. It did not recur on the platforms, whose slot mapping is
+  consistent, so it is a shell problem rather than a project-wide one — but it is
+  still worth checking per model rather than assuming.
 - **One table entry targets a non-mesh node.** Unity had a renderer on `pPlane30`;
   Godot imports it as a plain `Node3D` whose `polySurface*` children hold the
   geometry and their own materials. Harmless, and reported as an informational
