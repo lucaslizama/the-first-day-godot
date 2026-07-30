@@ -45,11 +45,26 @@ _data = {
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
 sync_to_physics = true
 
-; The FBX's own mesh node also sits 8 m up - the same offset Unity's prefab used -
-; so the instance is pulled down by 8 to hang from the pivot instead of above it.
-; Same cancellation as the sliding platform's 5 m.
+; Cancels the FBX's baked rest pose ENTIRELY, so `Arm` alone orients the hammer. This
+; used to be just Transform3D(..., 0, -8, 0), undoing the mesh node's 8 m offset and
+; nothing else - but that node also carries a baked -79.6898 degree rotation about Z,
+; which is Unity's rest pose for the animated `martillo` node (m_LocalRotation z =
+; -0.64278764, exactly -80 degrees).
+;
+; The swing animation drives Arm with ABSOLUTE angles, -80 to +80, straight from Unity's
+; clip. With the rest rotation still baked into the mesh, the mesh got the animated angle
+; PLUS -79.69 while the colliders got the animated angle alone, so the visible hammer sat
+; about 80 degrees away from the thing that actually hits you. That reads as "the
+; collision is out of sync with the animation", and it is not a timing problem at all -
+; the physics transform tracks the node exactly, measured at 0.0000 m over 90 ticks by
+; tools/measure_hammer_sync.gd.
+;
+; So this is the exact inverse of the mesh node's own local transform, which leaves the
+; mesh neutral in Arm space. Do not simplify it back to a plain -8 on Y.
+; tools/verify_hammer.gd pins the baked value, so a reimport that changes it fails rather
+; than silently desyncing again.
 [node name="Model" parent="Arm" instance=ExtResource("1_model")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -8, 0)
+transform = Transform3D(0.178977, -0.983853, 0, 0.983853, 0.178977, 0, 0, 0, 1, 7.870825, -1.431817, 0)
 
 [node name="Shaft" type="CollisionShape3D" parent="Arm"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.5, 0)

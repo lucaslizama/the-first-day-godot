@@ -416,6 +416,36 @@ health or damage system at all, which is why `Fortunato`'s clipless `damage` sta
 never mattered. Five of them hang in a row at z = −73 to −94.5, pivoting 8 m above
 the floor with a 7 m arm, swinging −80° to +80° and back over 2.6333 s.
 
+**The mesh had the rest pose baked in twice — fixed.** Reported in play as "the
+hammers' collision seems unsynced from the animation". It was not a timing problem at
+all: the physics transform tracks the node **exactly**, measured at 0.000000 over 170
+ticks, so `sync_to_physics` and the physics callback mode were both innocent.
+
+The real cause is a double rotation. Unity's animated `martillo` node carries a rest
+rotation of **−80° about Z** (`m_LocalRotation` z = −0.64278764), and Godot's FBX importer
+**bakes that into the mesh node** as −79.6898°. The swing animation drives `Arm` with
+*absolute* angles straight from Unity's clip, −80° to +80°, so with the rest pose still
+baked in the mesh received the animated angle **plus** −79.69° while the colliders
+received the animated angle alone. At rest the drawn hammer sat ~80° from the thing that
+hits you, and since the head is 6 m out that is metres of error — measured as a **4.485 m**
+gap between mesh and collider centres. It also meant the hammer appeared to point *up*
+rather than hang.
+
+`hammer.tscn`'s `Model` transform is therefore the **exact inverse of the mesh node's own
+local transform**, not the plain `-8` on Y it used to be, which cancelled the offset and
+left the rotation. Do not simplify it back.
+
+This is the general trap: **a baked rest pose plus an absolute-angle animation double-counts
+the rest pose.** Either the animation is relative and the bake stays, or the animation is
+absolute and the bake must be cancelled. Mixing them puts geometry and collision in
+different places, and the symptom looks like a sync bug rather than a transform bug.
+
+`tools/verify_hammer.gd` pins all four facts: the FBX's baked rest rotation matches what
+the scene's correction assumes (so a reimport that changes it fails loudly), the physics
+transform tracks the node, the mesh and collider volumes coincide in `Arm` space, and the
+swing still covers ±80°. Confirmed to catch the original bug: restoring the old `Model`
+transform fails the alignment check at 4.485 m.
+
 The swing is baked at Unity's own 30 fps rather than transcribed as nine keys:
 Unity stores a Hermite spline per quaternion component and Godot's `rotation_3d`
 tracks offer neither those tangents nor a way to express them. Note the track
