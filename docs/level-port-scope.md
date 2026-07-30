@@ -177,7 +177,7 @@ Everything left is small. Largest is 78 lines.
 | 43 | `TriggerZone.cs` | 2 | **done** — wired directly in `RespawnChain.cs`, not as a generic emitter |
 | 39 | `SoundAttenuationByDeath.cs` | 7 on clusters | **done**, `WhisperEmitter.cs` |
 | 34 | `Credits.cs` | 1 | |
-| 31 | `FortunatoAnimFunctions.cs` | — | `Die`/`Cry` have no clips to fire from; the footstep events remain |
+| 31 | `FortunatoAnimFunctions.cs` | — | **done** — footstep events re-added; `Die`/`Cry` have no clips to fire from |
 | 30 | `TimerZone.cs` | 1 | |
 | 30 | `PauseMenu.cs` | — | |
 | 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
@@ -336,6 +336,45 @@ the fade-out and the sequence never starts. It cannot happen in play — the pla
 stands on solid ground with input disabled until that fade finishes — but it does
 mean a test has to wait for the level to open before it can kill anyone.
 
+### Footsteps
+
+Unity fired `PlayStepSound` and `RandomizePitch` from animation events on the walk
+and run clips. Animation events do not survive an FBX export, so the clips arrived
+silent; `tools/add_footstep_events.gd` puts them back as method tracks.
+
+The footfall times are **measured off the rig**, not assumed at 0% and 50% of the
+cycle. Each foot's `Toes_L`/`Toes_R` bone is sampled from the live skeleton at 120 Hz
+across the clip — bone tracks are local, so the only way to get a real height is to
+play the animation and read the global pose — and a footfall is where a contact
+*begins*: the first frame of each run below the lower third of that foot's own height
+range. Not a local minimum: a planted foot's height wobbles by fractions of a
+millimetre for dozens of frames, which turned a two-step walk cycle into thirteen
+"low points" per foot. The contact's start is also the better answer, since that is
+when the foot lands rather than somewhere mid-plant.
+
+The result is a stride pattern that stands up on its own: walk contacts at 0.000 s
+and 0.783 s of a 1.533 s cycle, run at 0.100 s and 0.600 s of 1.000 s — each pair
+almost exactly half a cycle apart, and walk starting on contact as an exported walk
+cycle does.
+
+Two things this needed along the way:
+
+- **Walk and run had to be set looping.** Every clip arrived from the FBX with
+  `loop_mode` 0, and a locomotion cycle that does not loop fires its events once and
+  stops. Unity looped them — they are the `walk_run_tree`'s two states.
+- **The key at t = 0 had to move half a frame in.** It sits exactly on the loop seam,
+  where the playhead arrives by wrapping rather than by advancing onto it.
+
+`PlayStepSound` does the pitch randomisation itself rather than relying on a second
+method key at the same time, whose firing order would depend on insertion order. The
+pair was always used together anyway: `Fortunato.Update` called `RandomizePitch` and
+then played the same source whenever the animator sat in `land` or `land_moving`.
+Neither land clip came across either, so that path is now a single play on touchdown,
+which is what the short state amounted to.
+
+`step.wav` is vendored as a WAV, not converted: at 6.5 KB and 37 ms there is nothing
+for Ogg to save.
+
 `Die` has no animation to play. The `damage` and `death` states have no clip
 anywhere in the project, so it plays the fall clip: the closest thing the project
 owns, and correct for the only way the player dies. `Revive` clears the velocity,
@@ -409,13 +448,8 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74 plus the
    7 whisper emitters, which closes the death-constant loop `GameManager` was
    ported for. See "Coworkers" above.
-6. **Hazards and the respawn chain** — hammers, `Fortunato.Die`/`Revive` and the
-   fade wiring are **done**; see "Hazards and the respawn chain" above. What is
-   left is the `FortunatoAnimFunctions` footstep events: `step.wav` still needs
-   vendoring, and `PlayStepSound`/`RandomizePitch` need method tracks at the
-   footfall frames of the walk and run clips. Those frames have to be measured
-   off the rig — the ankle bones' low points — rather than assumed at 0% and 50%
-   of the cycle, which is why they are not in yet.
+6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
+   See "Hazards and the respawn chain" above.
 7. **Ending and UI** — `meta.fbx`, cake, confetti, `Credits`, `PauseMenu`,
    `TimerZone`.
 
@@ -426,11 +460,11 @@ behavioural work is.
 
 - **`respawnDelay` is unread.** Confirmed in the Unity source; the actual delay
   is the fade duration. Timing has to be recovered from the fade, not the field.
-- **Animation events are missing.** `PlayStepSound`, `RandomizePitch`,
-  `SetLeftJump`/`SetRightJump`, `Die`, `Cry` were Unity animation events and did
-  not survive the FBX clip extraction. They need re-adding as Godot method
-  tracks — `PlayerCharacter` currently alternates jump feet in code as a
-  stand-in.
+- **Animation events were missing; the footsteps are back.** `PlayStepSound` and
+  `RandomizePitch` are Godot method tracks again, at footfalls measured off the rig —
+  see "Footsteps" below. `SetLeftJump`/`SetRightJump` stay in code, where
+  `PlayerCharacter` alternates the take-off foot directly. `Die` and `Cry` have no
+  clip to fire from: neither state has one anywhere in the project.
 - **`damage` and `death` animator states have no clips** anywhere in the
   project, in FBX or `.anim` form. Nothing to port; `Fortunato.Die` will need a
   substitute.

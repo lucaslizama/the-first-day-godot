@@ -69,8 +69,23 @@ public partial class PlayerCharacter : CharacterBody3D
     [Export]
     public NodePath AnimationPlayerPath { get; set; } = new();
 
+    /// <summary>
+    /// The footstep sound, Fortunato's own AudioSource. Optional: without it the
+    /// animation's method tracks find nothing to play and are harmless.
+    /// </summary>
+    [Export]
+    public NodePath StepSoundPath { get; set; } = new("StepSound");
+
+    /// <summary>Random.Range(0.8f, 1.2f) in RandomizePitch.</summary>
+    [Export]
+    public float MinStepPitch { get; set; } = 0.8f;
+
+    [Export]
+    public float MaxStepPitch { get; set; } = 1.2f;
+
     private Node3D? _cameraBasis;
     private AnimationPlayer? _animation;
+    private AudioStreamPlayer3D? _stepSound;
 
     /// <summary>
     /// Alternates the take-off foot. The original tracked this with a LeftJump
@@ -98,6 +113,7 @@ public partial class PlayerCharacter : CharacterBody3D
     {
         _cameraBasis = GetNodeOrNull<Node3D>(CameraBasisPath);
         _animation = GetNodeOrNull<AnimationPlayer>(AnimationPlayerPath);
+        _stepSound = GetNodeOrNull<AudioStreamPlayer3D>(StepSoundPath);
 
         if (_cameraBasis is null)
         {
@@ -170,6 +186,32 @@ public partial class PlayerCharacter : CharacterBody3D
         MoveAndSlide();
         CheckForFall();
         UpdateAnimation(input.CurrentDirection);
+    }
+
+    /// <summary>
+    /// Port of Fortunato.PlayStepSound, called from the walk and run clips' method
+    /// tracks - the animation events that did not survive the FBX export and were
+    /// re-added by tools/add_footstep_events.gd at measured footfalls.
+    ///
+    /// Unity fired two events per footfall, RandomizePitch then PlayStepSound. Both are
+    /// done here in one call: two method keys at the same time in one track depend on
+    /// insertion order to come out right, and the pair was always used together anyway -
+    /// Fortunato.Update's landing branch called RandomizePitch and then played the same
+    /// source. <see cref="RandomizePitch"/> is still public, as it was there.
+    /// </summary>
+    public void PlayStepSound()
+    {
+        RandomizePitch();
+        _stepSound?.Play();
+    }
+
+    /// <summary>Port of Fortunato.RandomizePitch: source.pitch = Random.Range(0.8, 1.2).</summary>
+    public void RandomizePitch()
+    {
+        if (_stepSound is not null)
+        {
+            _stepSound.PitchScale = (float)GD.RandRange(MinStepPitch, MaxStepPitch);
+        }
     }
 
     /// <summary>
@@ -345,6 +387,12 @@ public partial class PlayerCharacter : CharacterBody3D
         {
             IsFalling = false;
             velocity.Y = GroundedSpeed;
+
+            // Fortunato.Update played the step sound whenever the animator sat in its
+            // "land" or "land_moving" state - every frame it was in one, in fact. Neither
+            // clip came across in the FBX, so there is no land state to watch; touchdown
+            // is the same moment, and playing once is what the short state amounted to.
+            PlayStepSound();
         }
 
         if (IsFalling || IsJumping)

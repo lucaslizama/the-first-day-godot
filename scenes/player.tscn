@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://4qitguyw7fjo"]
 
 [ext_resource type="Script" uid="uid://erl2vqq718b7" path="res://scripts/Gameplay/PlayerCharacter.cs" id="1_3vyb7"]
+[ext_resource type="AudioStream" path="res://audio/step.wav" id="4_step"]
 [ext_resource type="PackedScene" uid="uid://wsvq8k2q1jlc" path="res://models/fortunato/fortunato.fbx" id="2_model"]
 [ext_resource type="AnimationLibrary" path="res://models/fortunato/fortunato_anims.tres" id="3_anims"]
 
@@ -21,6 +22,13 @@ transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=68606290]
 root_node = NodePath("../Model")
 libraries/ = ExtResource("3_anims")
+
+; Fortunato's own AudioSource, playing step.wav. The walk and run clips call
+; PlayStepSound from method tracks at their measured footfalls, and landing plays it
+; too - see PlayerCharacter. Kept as a WAV rather than converted: it is 6.5 KB and
+; 37 ms, so there is nothing for Ogg to save, and short sounds survive better uncompressed.
+[node name="StepSound" type="AudioStreamPlayer3D" parent="." unique_id=1120041755]
+stream = ExtResource("4_step")
 
 [node name="CameraTargetParent" type="Node3D" parent="." unique_id=1894699775]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
