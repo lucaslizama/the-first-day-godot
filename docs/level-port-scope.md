@@ -762,17 +762,73 @@ behavioural work is.
 
 - **`respawnDelay` is unread.** Confirmed in the Unity source; the actual delay
   is the fade duration. Timing has to be recovered from the fade, not the field.
-- **Animation events were missing; the footsteps are back.** `PlayStepSound` and
-  `RandomizePitch` are Godot method tracks again, at footfalls measured off the rig —
-  see "Footsteps" below. `SetLeftJump`/`SetRightJump` stay in code, where
-  `PlayerCharacter` alternates the take-off foot directly. `Die` and `Cry` have no
-  clip to fire from: neither state has one anywhere in the project.
-- **`damage` and `death` animator states have no clips** anywhere in the
-  project, in FBX or `.anim` form. Nothing to port; `Fortunato.Die` will need a
-  substitute.
+- **Animation events were missing; the footsteps and the jump foot are back.**
+  `PlayStepSound` and `RandomizePitch` are Godot method tracks again, at footfalls
+  measured off the rig — see "Footsteps" below. `SetLeftJump`/`SetRightJump` are now
+  method tracks too, on the same footfalls, which is where Unity fired them.
+
+  > **Correction.** This said `SetLeftJump`/`SetRightJump` "stay in code, where
+  > `PlayerCharacter` alternates the take-off foot directly". That was wrong. Unity
+  > fired them from animation events on **walk and run**, at the same frames as the
+  > footstep sounds (walk: right 0.167 s, left 1.0 s; run: right 0.2 s, left 0.7 s), so
+  > `LeftJump` means *"the left foot landed last"* — the airborne pose matches the
+  > stride you took off from. Alternating per take-off gives strict L/R/L/R regardless
+  > of gait, which the animator never did. See "The airborne clips" below.
+
+  > **Correction.** This also said "`Die` and `Cry` have no clip to fire from: neither
+  > state has one anywhere in the project." Both do. The Fortunato Controller's `death`
+  > state points at `fall.anim` and its `cry` state at `cry.anim` (11.4 s), and both
+  > import fine. Only **`damage`** is genuinely clipless — its motion guid resolves to
+  > nothing. `PlayerCharacter.Cry` had been written as a deliberate no-op on the
+  > strength of this claim; it now plays `cry`.
+- **`damage` is the only clipless animator state.** Its motion guid resolves to nothing
+  in FBX or `.anim` form, and nothing calls it — `Fortunato.Die` uses the `Death`
+  trigger, not `damage`. Nothing to port.
 - **`jumpR1Frame` is a degenerate export** — 23 tracks (2 skeletal) against
-  `jumpL1Frame`'s 221. A pre-existing defect in the jam project, not caused by
-  the rig strip.
+  `jumpL1Frame`'s 221 in Unity, and 2 against 41 in Godot. A pre-existing defect in the
+  jam project, not caused by the rig strip. It matters less than it looks: the animator
+  uses it for the *stationary* `fall`/`land` states, and because the un-animated bones
+  simply hold their previous values, the descent keeps the take-off pose from `jumpR`.
+  That reads as an airborne tuck, so the faithful mapping looks correct rather than
+  broken. Unity had exactly the same behaviour.
+
+### The airborne clips — what `LeftJump` actually selects
+
+Reconstructed from `Fortunato Controller.controller` after the jump was reported as
+playing a death animation. The `jump_land` sub-machine holds six states in two sets:
+
+| `LeftJump` | ascending | descending | landing |
+|---|---|---|---|
+| `false` (default state) | `jump` → **jumpR** | `fall` → **jumpR1Frame** | `land` → **jumpR1Frame** |
+| `true` (entry transition) | `jump_moving` → **jumpL** | `fall_moving` → **jumpL1Frame** | `land_moving` → **jumpL1Frame** |
+
+Three traps in that table:
+
+- **The `_moving` suffix is a misnomer.** Nothing in those states tests movement. The
+  sub-machine's entry transition is the **only** use of `LeftJump` anywhere in the
+  controller — `grep` the file, there is exactly one condition on it — and it selects
+  the `_moving` set when `LeftJump` is true. They are the left-foot variants.
+- **`fall.anim` is the death clip, not the falling clip.** The `death` state points at
+  it; the airborne states use the single-frame jump clips. Our port played `"fall"`
+  whenever `IsFalling`, and since a jump spends most of its arc descending, **every jump
+  looked like dying** — the reported bug. Naming alone makes this very easy to get
+  wrong, so it is the first thing to check if the jump ever looks off again.
+- **`LeftJump` is gait state, not a counter.** See the correction above.
+
+`tools/verify_jump_clips.gd` drives this through real simulated input rather than by
+poking state, and asserts all four properties: the death clip never plays while
+airborne, ascending uses `jumpL`/`jumpR`, descending uses the single-frame clips, and
+both feet get selected across a run. Its walk stage waits exactly 60 physics ticks
+(1.0 s at 60 Hz), which lands just past the measured left footfall at 0.783 s so the
+left case actually runs — an earlier 130-tick wait landed past the right footfall and
+the left branch was never exercised while the check still passed three of four.
+
+One thing Unity has that this port does not: the **`land`/`land_moving` states**, which
+hold the same single-frame clip briefly on touchdown before handing to `idle` or
+`walk_run_tree`, with `hasExitTime` on their way back to falling. The port goes straight
+from falling to grounded. Since the land states use the same clip as the fall states the
+visible difference is small, and the exit timing was not recovered — worth doing if the
+landing ever needs to read as a distinct beat.
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth

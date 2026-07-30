@@ -31,8 +31,13 @@ const SAMPLE_HZ := 120.0
 ## which rejects the small dip a foot makes mid-swing.
 const CONTACT_BAND := 0.35
 
-## The method the events call, on the node the track points at.
+## The methods the events call, on the node the track points at. Unity fired all of
+## these from the same animation events, at the same frames: PlayStepSound and
+## RandomizePitch for the sound, and SetLeftJump/SetRightJump to record which foot
+## landed last so the animator can pick the matching airborne pose. Recovering the
+## footfalls per foot is what makes the jump events possible - see _write_track.
 const METHOD := "PlayStepSound"
+const FOOT_METHOD := {"left": "SetLeftJump", "right": "SetRightJump"}
 
 ## Where the method track points, relative to the AnimationPlayer's root_node
 ## ("../Model"), so this resolves back to the player itself.
@@ -110,8 +115,10 @@ func _process_clip(anim: AnimationPlayer, skeleton: Skeleton3D, bones: Dictionar
 	anim.stop()
 
 	var contacts: Array[float] = []
+	var by_foot := {}
 	for side in bones:
 		var found := _contacts(curves[side])
+		by_foot[side] = found
 		print("%s: %-5s contacts at %s (height range %.3f..%.3f m)" % [
 			clip_name, side, _times(found), _lo(curves[side]), _hi(curves[side])])
 		for t in found:
@@ -127,7 +134,7 @@ func _process_clip(anim: AnimationPlayer, skeleton: Skeleton3D, bones: Dictionar
 
 	if _dry:
 		return
-	_write_track(clip, clip_name, contacts)
+	_write_track(clip, clip_name, contacts, by_foot)
 
 ## The moment each contact begins: the first sample of every run where the foot sits
 ## in the lower CONTACT_BAND of its own height range.
@@ -183,7 +190,8 @@ func _times(values: Array) -> String:
 		parts.append("%.3fs" % v)
 	return ", ".join(parts)
 
-func _write_track(clip: Animation, clip_name: String, contacts: Array[float]) -> void:
+func _write_track(clip: Animation, clip_name: String, contacts: Array[float],
+		by_foot: Dictionary) -> void:
 	# Drop any method track this tool added before, so re-running is idempotent.
 	for i in range(clip.get_track_count() - 1, -1, -1):
 		if clip.track_get_type(i) == Animation.TYPE_METHOD:
@@ -203,9 +211,32 @@ func _write_track(clip: Animation, clip_name: String, contacts: Array[float]) ->
 		# cycle actually crosses it.
 		clip.track_insert_key(track, maxf(t, 0.008), {"method": METHOD, "args": []})
 
+	# SetLeftJump / SetRightJump, on the SAME frames, which is how Unity had it: the
+	# walk clip fired SetRightJump at 0.167 s and SetLeftJump at 1.0 s, alongside
+	# PlayStepSound at both. The animator's only use of the LeftJump bool is choosing
+	# jumpL/jumpL1Frame over jumpR/jumpR1Frame, so getting the foot right here is what
+	# makes the airborne pose match the stride the player jumped from.
+	# A SEPARATE method track. Inserting these into the sound track at the same times
+	# overwrote the PlayStepSound keys outright - Animation.track_insert_key replaces
+	# any key already at that time - which silently removed every footstep. Unity could
+	# put several calls on one event; a Godot method track holds one call per time.
+	var jump_track := clip.add_track(Animation.TYPE_METHOD)
+	clip.track_set_path(jump_track, NodePath(TRACK_PATH))
+
+	var jump_keys := 0
+	for side in by_foot:
+		if not FOOT_METHOD.has(side):
+			printerr("FAIL: no jump method mapped for foot '%s'" % side)
+			continue
+		for t in by_foot[side]:
+			clip.track_insert_key(jump_track, maxf(t, 0.008),
+				{"method": FOOT_METHOD[side], "args": []})
+			jump_keys += 1
+
 	var path := "res://models/fortunato/anims/%s.res" % clip_name
 	var err := ResourceSaver.save(clip, path)
 	if err != OK:
 		printerr("FAIL: could not save %s (error %d)" % [path, err])
 		return
-	print("%s: wrote %d %s keys to %s" % [clip_name, contacts.size(), METHOD, path])
+	print("%s: wrote %d %s + %d jump-foot keys to %s" % [
+		clip_name, contacts.size(), METHOD, jump_keys, path])

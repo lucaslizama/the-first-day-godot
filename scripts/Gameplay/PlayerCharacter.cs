@@ -21,8 +21,34 @@ public partial class PlayerCharacter : CharacterBody3D
 
     private const int TicksToWaitForFall = 5;
 
-    /// <summary>Stands in for the animator's clipless death state. See <see cref="Die"/>.</summary>
-    private const string DeathSubstituteClip = "fall";
+    /// <summary>
+    /// The clip the animator's death state uses. Named "fall" because that is what the
+    /// source clip is called - `fall.anim` - which is confusing but is not a mistake and
+    /// is not a substitute: the Fortunato Controller's `death` state really does point at
+    /// fall.anim. **The airborne states do NOT use it**; see <see cref="UpdateAnimation"/>.
+    /// </summary>
+    private const string DeathClip = "fall";
+
+    /// <summary>
+    /// The airborne clips, by state, matching the Fortunato Controller's jump_land
+    /// sub-machine. Its entry transition is the controller's ONLY use of LeftJump:
+    ///
+    ///   LeftJump true  -> jump_moving, fall_moving, land_moving  -> jumpL,  jumpL1Frame
+    ///   LeftJump false -> jump,        fall,        land         -> jumpR,  jumpR1Frame
+    ///
+    /// The "_moving" in those state names is a misnomer - nothing about them tests
+    /// movement. They are the left-foot variants.
+    /// </summary>
+    private const string JumpLeftClip = "jumpL";
+
+    private const string JumpRightClip = "jumpR";
+
+    private const string AirborneLeftClip = "jumpL1Frame";
+
+    private const string AirborneRightClip = "jumpR1Frame";
+
+    /// <summary>The animator's `cry` state, which does have a clip. See <see cref="Cry"/>.</summary>
+    private const string CryClip = "cry";
 
     /// <summary>
     /// The eight movement directions in camera space, using Godot's -Z forward.
@@ -88,10 +114,17 @@ public partial class PlayerCharacter : CharacterBody3D
     private AudioStreamPlayer3D? _stepSound;
 
     /// <summary>
-    /// Alternates the take-off foot. The original tracked this with a LeftJump
-    /// animator bool, flipped by SetLeftJump/SetRightJump animation events.
+    /// The animator's LeftJump bool: true when the LEFT foot was the last to land while
+    /// walking or running. Not a per-jump alternation - Unity set it from animation
+    /// events on the walk and run clips, at the same times as the footstep sounds, via
+    /// Fortunato.SetLeftJump/SetRightJump. So the airborne pose matches the stride the
+    /// player took off from, and a jump from standing still reuses whatever the last
+    /// footfall left behind (false, hence jumpR, until the player has walked at all).
     /// </summary>
     private bool _leftJump;
+
+    /// <summary>Set by <see cref="Cry"/>; see the guard in UpdateAnimation.</summary>
+    private bool _crying;
 
     public bool IsRunning { get; private set; }
 
@@ -174,14 +207,12 @@ public partial class PlayerCharacter : CharacterBody3D
         Vector3 direction = GetDirection(input.CurrentDirection);
         ApplyRotation(direction, input.CurrentDirection, delta);
 
-        bool wasJumping = IsJumping;
         Velocity = BuildVelocity(direction, input.Jump, delta);
 
-        // Take-off happened this tick: swap the leading foot.
-        if (IsJumping && !wasJumping)
-        {
-            _leftJump = !_leftJump;
-        }
+        // The leading foot is NOT swapped here. It comes from SetLeftJump/SetRightJump,
+        // driven by method tracks on the walk and run clips - see _leftJump. An earlier
+        // version toggled it on every take-off, which alternates feet regardless of
+        // gait and is not what the animator did.
 
         MoveAndSlide();
         CheckForFall();
@@ -236,26 +267,40 @@ public partial class PlayerCharacter : CharacterBody3D
         }
 
         IsDead = true;
-        _animation?.Play(DeathSubstituteClip);
+        _animation?.Play(DeathClip);
+    }
+
+    /// <summary>
+    /// Fortunato.SetLeftJump / SetRightJump, called from method tracks on the walk and
+    /// run clips at each footfall - the same moments that fire PlayStepSound, which is
+    /// how Unity had it. Together they keep LeftJump equal to "the left foot landed
+    /// last", which the animator uses to pick the airborne pose.
+    /// </summary>
+    public void SetLeftJump()
+    {
+        _leftJump = true;
+    }
+
+    public void SetRightJump()
+    {
+        _leftJump = false;
     }
 
     /// <summary>
     /// Port of Fortunato.Cry, which TimerZone calls when the player crosses the finish
-    /// line. The original is one line - anim.SetTrigger("Cry") - and it has the same
-    /// problem the death state does: **the "Cry" state has no clip anywhere in the
-    /// project**, in FBX or .anim form. Unity's animator entered a state with nothing
-    /// to play and simply held whatever pose it had.
+    /// line. The original is one line, anim.SetTrigger("Cry"), and the Fortunato
+    /// Controller has an Any State transition into a `cry` state pointing at cry.anim -
+    /// an 11.4 second clip that imports fine and is sitting in the AnimationPlayer.
     ///
-    /// Unlike Die, this one gets no substitute. Die had a defensible stand-in because
-    /// the player only ever dies by falling, and the fall clip reads correctly for
-    /// that. There is no clip in the project that reads as crying, and inventing an
-    /// animation is not porting. So this deliberately does nothing to the pose, and
-    /// exists so the ending chain matches the original call for call - and so that
-    /// whoever adds a crying animation has the hook already wired.
+    /// This was previously written as a no-op on the belief that "Cry" had no clip. That
+    /// was wrong: the claim came from a note about the animator's *damage* and *death*
+    /// states, and only `damage` is genuinely clipless (its motion guid resolves to
+    /// nothing). `death` points at fall.anim and `cry` at cry.anim, and both exist.
     /// </summary>
     public void Cry()
     {
-        GD.Print($"{Name}: Cry() - no clip exists for this state in the project, so the pose is unchanged.");
+        _crying = true;
+        _animation?.Play(CryClip);
     }
 
     /// <summary>
@@ -268,6 +313,7 @@ public partial class PlayerCharacter : CharacterBody3D
     public void Revive()
     {
         IsDead = false;
+        _crying = false;
         IsFalling = false;
         IsJumping = false;
         _checkingForFall = false;
@@ -295,14 +341,26 @@ public partial class PlayerCharacter : CharacterBody3D
             return;
         }
 
+        // Same for crying. The animator reaches `cry` from Any State and has no
+        // transition out of it, so once the ending starts the pose stays; without this
+        // the player would be standing still and idle would win on the next tick.
+        if (_crying)
+        {
+            return;
+        }
+
         string next;
         if (IsFalling)
         {
-            next = "fall";
+            // The animator's fall/fall_moving states, which use the single-frame jump
+            // clips - NOT fall.anim. fall.anim belongs to the death state, and playing
+            // it here is what made every descent look like dying: the clip is a
+            // collapse, and a jump spends most of its arc falling.
+            next = _leftJump ? AirborneLeftClip : AirborneRightClip;
         }
         else if (IsJumping)
         {
-            next = _leftJump ? "jumpL" : "jumpR";
+            next = _leftJump ? JumpLeftClip : JumpRightClip;
         }
         else if (current != WasDirection.NoInput)
         {
