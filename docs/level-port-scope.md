@@ -289,11 +289,11 @@ Everything left is small. Largest is 78 lines.
 | 34 | `Credits.cs` | 1 | **done**, `scripts/UI/Credits.cs` |
 | 31 | `FortunatoAnimFunctions.cs` | — | **done** — footstep events re-added; `Die`/`Cry` have no clips to fire from |
 | 30 | `TimerZone.cs` | 1 | **done**, `scripts/Gameplay/TimerZone.cs` — carries the ending chain |
-| 30 | `PauseMenu.cs` | — | |
+| 30 | `PauseMenu.cs` | — | **done**, `scripts/UI/PauseMenu.cs` |
 | 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
 | 23 | `YBillboardFollow.cs` | **74** | **done** — a billboard mode, no script |
 | 23 | `Door.cs` | 1 | |
-| 20 | `CamControllerFunctionAccess.cs` | 1 | |
+| 20 | `CamControllerFunctionAccess.cs` | 1 | **nothing to port** — `PauseMenu`'s reference to it is `fileID: 0`, unassigned, and never read |
 | 19 | `ResetLocalPosition.cs` | 1 | **done** — it sat on Camera Target; `RespawnChain` resets it |
 | 7 | `UnityEventContainer.cs` | 1 | **done** — collapsed into `TimerZone.OnFadeOutCompleted`; it only existed to box a call list as an object argument |
 
@@ -884,6 +884,19 @@ landing ever needs to read as a distinct beat.
   `current_animation` is empty while the pose it left is still on screen, so anything
   measuring "which clip is showing" has to fall back to `assigned_animation` — the first
   version of that check under-counted the descent by 22 ticks for exactly this reason.
+- **A verifier that fails one run in three is worse than none.** `verify_footsteps.gd`
+  did, for two independent reasons, and both are the same mistake: a bound set to a value
+  the measurement can actually take. It played exactly 2.0 cycles, so whether the second
+  stride's last footfall fell inside the window was decided by frame pacing; and its
+  0.05 s tolerance was exactly equal to one of the gaps that legitimately occur. The gap
+  is *quantised* — a method key fires on the first frame past it and the sound is polled a
+  frame later, so it is always a multiple of 1/60 s, measured at 2, 3 or 4 frames. The
+  limit now sits strictly above the largest legitimate value, at five frames, and the
+  window is 2.25 cycles. Zero failures in eight consecutive runs.
+
+  Its key-count check also had to learn about the second method track: the clips carry
+  `PlayStepSound` *and* `SetLeftJump`/`SetRightJump`, so counting every method key made it
+  fail at 4 when the footsteps were fine. It counts `PlayStepSound` specifically now.
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth

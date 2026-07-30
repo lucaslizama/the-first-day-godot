@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://scripts/UI/Credits.cs" id="15_credits"]
 [ext_resource type="Script" path="res://scripts/Gameplay/TimerZone.cs" id="16_timer"]
 [ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
+[ext_resource type="Script" path="res://scripts/UI/PauseMenu.cs" id="18_pause"]
 
 ; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
@@ -166,6 +167,45 @@ script = ExtResource("15_credits")
 ScrollSpeed = 3.0
 CreditsTime = 10.0
 
+; menuPausa from UI.prefab: a full-screen wash at white alpha 0.147 with one centred
+; button, 331 x 63, labelled "Salir" in 40 pt at (0.196, 0.196, 0.196). Hidden until
+; Escape. process_mode 3 is Always, without which pausing would stop the node that has
+; to un-pause - see PauseMenu.cs.
+[node name="PausePanel" type="Control" parent="UI"]
+process_mode = 3
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Wash" type="ColorRect" parent="UI/PausePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.14705883)
+
+[node name="QuitButton" type="Button" parent="UI/PausePanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -165.5
+offset_top = -31.5
+offset_right = 165.5
+offset_bottom = 31.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_font_sizes/font_size = 40
+text = "Salir"
+
 ; TimerZone at the finish line, right at meta_01. Unity had it at world
 ; (0.02, 12.0, -182.32), conjugated to negate X like every other placement; its
 ; trigger is a 4 x 4 x 1 box offset (0, 2, 0), so the volume spans the banner's
@@ -192,6 +232,12 @@ shape = SubResource("BoxShape3D_timer")
 ; confetti rains onto the finish line. Hand-authored, so outside unity_space.py.
 [node name="Confetti" parent="." instance=ExtResource("17_confetti")]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.02, 16.22, -183.531)
+
+; Escape toggles the pause overlay. Always-processing for the same reason the panel is.
+[node name="PauseMenu" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("18_pause")
+PanelPath = NodePath("../UI/PausePanel")
 
 ; The UnityEvent graph that used to live across three prefabs. See RespawnChain.cs.
 [node name="RespawnChain" type="Node" parent="."]

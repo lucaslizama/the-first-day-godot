@@ -17,8 +17,25 @@ extends SceneTree
 
 const CLIPS := {"walk": [0.0, 0.783], "run": [0.1, 0.6]}
 
-## How much of each clip to play, in cycles.
-const CYCLES := 2.0
+## How much of each clip to play, in cycles. A little over 2 so the second stride's last
+## footfall is comfortably inside the window: at exactly 2.0 whether it landed was
+## decided by frame pacing, and this check failed about one run in three by counting 3
+## steps instead of 4.
+const CYCLES := 2.25
+
+## How far a step may land from its measured footfall.
+##
+## This is frame quantisation, not drift, and it is quantised: a method key fires on the
+## first frame whose playhead has passed it, and the sound is then detected by polling
+## `playing` a frame or more later, so the gap always lands on a multiple of 1/60 s.
+## Measured across eight runs it is 2, 3 or 4 frames - 0.033, 0.050, 0.067 s.
+##
+## The old limit was 0.05 s, exactly equal to one of those values, so a `>` comparison
+## tripped on it and the check failed intermittently. Anything set to a value the gap can
+## actually take is a coin flip; the bound has to sit strictly above the largest
+## legitimate one. Five frames does, and still discriminates easily - run's footfalls are
+## 0.5 s apart, so this is a sixth of the spacing.
+const MAX_GAP := 5.0 / 60.0
 
 var _frames := 0
 var _player: CharacterBody3D
@@ -73,18 +90,23 @@ func _physics_process(delta: float) -> bool:
 func _check_tracks() -> void:
 	for name in _clip_names:
 		var clip := _anim.get_animation(name)
+		# Count PlayStepSound keys specifically. These clips also carry a second method
+		# track for SetLeftJump/SetRightJump, on the same footfalls, which is how Unity
+		# had it - counting every method key instead makes this fail at 4 when the
+		# footsteps are perfectly fine. They need separate tracks because
+		# Animation.track_insert_key replaces any key already at that time.
 		var found := 0
 		var times: Array[String] = []
 		for t in clip.get_track_count():
 			if clip.track_get_type(t) != Animation.TYPE_METHOD:
 				continue
-			found += clip.track_get_key_count(t)
 			for k in clip.track_get_key_count(t):
-				times.append("%.3fs %s" % [
-					clip.track_get_key_time(t, k),
-					clip.method_track_get_name(t, k),
-				])
-		print("%s: %d method keys survived loading: %s" % [name, found, ", ".join(times)])
+				var method := clip.method_track_get_name(t, k)
+				if method == "PlayStepSound":
+					found += 1
+				times.append("%.3fs %s" % [clip.track_get_key_time(t, k), method])
+		print("%s: %d PlayStepSound keys of %d method keys: %s" % [
+			name, found, times.size(), ", ".join(times)])
 		if found != CLIPS[name].size():
 			printerr("FAIL: %s should carry %d footstep keys, not %d. A track pointing at a" % [
 				name, CLIPS[name].size(), found])
@@ -130,8 +152,9 @@ func _report_clip(clip: Animation) -> void:
 	# CYCLES times, plus up to one more per footfall from the partial cycle the window
 	# ends in - so the ideal is a range, not a single number.
 	var ideal: int = int(expected.size() * CYCLES)
-	if worst > 0.05:
-		printerr("FAIL: %s played a step %.3f s away from any footfall." % [name, worst])
+	if worst > MAX_GAP:
+		printerr("FAIL: %s played a step %.3f s away from any footfall (limit %.3f s)." % [
+			name, worst, MAX_GAP])
 		_failed = true
 	elif _fired.size() < ideal or _fired.size() > ideal + expected.size():
 		printerr("FAIL: %s played %d steps, expected %d to %d." % [
