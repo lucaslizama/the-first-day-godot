@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=3]
+
+; The whisper emitter that sits on each coworker cluster - the AudioSource plus
+; SoundAttenuationByDeath from coworkers_group 1 and coworkers_group2. Seven in the
+; level; coworkers_group3 has no AudioSource at all.
+;
+; Settings are the Unity AudioSource's: looping, play on awake, volume 1 before the
+; death constant scales it, MaxDistance 500, and logarithmic rolloff - which is
+; attenuation_model 0, ATTENUATION_INVERSE_DISTANCE, the model whose falloff is
+; unit_size / distance and so matches Unity's minDistance / distance exactly.
+;
+; unit_size and volume_db are both overwritten by WhisperEmitter.cs from the death
+; constant, at _Ready and on every change. The values here are what the emitter
+; sounds like with no deaths, so the scene is not misleading when opened on its own.
+;
+; MinDistance and MaxMinDistance differ per cluster - 1/10 on coworkers_group 1,
+; 40/45 on coworkers_group2 - so scenes/coworkers.tscn sets them per instance.
+
+[ext_resource type="AudioStream" path="res://audio/susurro_loko.ogg" id="1_whisper"]
+[ext_resource type="Script" path="res://scripts/Gameplay/WhisperEmitter.cs" id="2_script"]
+
+[node name="Whisper" type="AudioStreamPlayer3D"]
+stream = ExtResource("1_whisper")
+attenuation_model = 0
+volume_db = -80.0
+unit_size = 1.0
+max_distance = 500.0
+script = ExtResource("2_script")
+MinDistance = 1.0
+MaxMinDistance = 10.0

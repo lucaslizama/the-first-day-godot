@@ -1,0 +1,41 @@
+[gd_scene load_steps=3 format=3]
+
+; Port of Prefabs/Coworkers/Mono 1/mono1.prefab - 45 of the level's 74 coworkers.
+;
+; Unity's prefab was a single GameObject carrying a SpriteRenderer, an Animator on
+; mono1_animationController, YBillboardFollow and RandomizeMonoAnimStart. All four
+; collapse into this one node:
+;
+;   SpriteRenderer + Animator -> AnimatedSprite3D over the packed atlas
+;   YBillboardFollow          -> billboard = 2 (BILLBOARD_FIXED_Y)
+;   RandomizeMonoAnimStart    -> CoworkerSprite.cs
+;
+; YBillboardFollow yawed the sprite toward the camera and zeroed pitch and roll,
+; which is exactly fixed-Y billboarding. Godot keeps a non-uniform node scale
+; through it - verified, because 24 of the 74 coworkers are scaled non-uniformly and
+; a shader that normalised the X axis would silently squash them back to square.
+;
+; No pixel_size adjustment: Unity imported these sprites at 100 pixels per unit and
+; Godot's default pixel_size is 0.01 m, so a 128 px frame is 1.28 m in both.
+;
+; offset = (0, 64) puts the origin at the bottom edge of the 128 px frame, which is
+; where the figure's feet are, because these frames were imported with
+; alignment: 7 - BottomCenter - not the centred pivot Godot defaults to. Getting
+; this wrong buries every coworker to the waist: their Unity positions sit exactly
+; on the floor planes, so the origin has to be the feet. Worth knowing that the
+; frames the animation does NOT use, the mono1_00NN take, are alignment: 0 instead,
+; so checking the pivot on the wrong file gives the wrong answer.
+;
+; Sprite defaults are left as they are - unshaded, alpha blended, no alpha cut -
+; which is what Unity's sprite material did. If overlapping coworkers sort badly,
+; alpha_cut is the lever, but the original had the same sorting to contend with.
+
+[ext_resource type="SpriteFrames" path="res://textures/coworkers/mono1_frames.tres" id="1_frames"]
+[ext_resource type="Script" path="res://scripts/Gameplay/CoworkerSprite.cs" id="2_script"]
+
+[node name="CoworkerMono1" type="AnimatedSprite3D"]
+offset = Vector2(0, 64)
+billboard = 2
+sprite_frames = ExtResource("1_frames")
+animation = &"default"
+script = ExtResource("2_script")

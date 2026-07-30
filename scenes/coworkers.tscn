@@ -1,0 +1,264 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/coworker_mono1.tscn" id="1_mono1"]
+[ext_resource type="PackedScene" path="res://scenes/coworker_mono2.tscn" id="2_mono2"]
+[ext_resource type="PackedScene" path="res://scenes/whisper.tscn" id="3_whisper"]
+
+[node name="Coworkers" type="Node3D"]
+
+[node name="CoworkerMono1_01" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 21.090000, 12.870000, -155.639820)
+
+[node name="CoworkerMono1_02" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, -17.470060, 13.000000, -141.081870)
+
+[node name="CoworkerMono1_03" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 4.977080, 13.000000, -138.478030)
+
+[node name="CoworkerMono1_04" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, -6.877370, 13.000000, -137.833090)
+
+[node name="CoworkerMono1_05" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 11.748610, 16.083940, -135.224170)
+
+[node name="CoworkerMono1_06" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, -59.140370, 16.990590, -100.176550)
+
+[node name="CoworkerMono1_07" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, -56.097480, 16.990590, -98.211020)
+
+[node name="CoworkerMono1_08" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268660, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, -59.514350, 16.990590, -96.968280)
+
+[node name="CoworkerMono1_09" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.148520, 0.000000, 0.000000, 0.000000, 2.148520, 0.000000, 0.000000, 0.000000, 2.148520, 23.670000, 14.070000, -89.220000)
+
+[node name="CoworkerMono1_10" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385970, -60.461450, 16.990590, -88.843290)
+
+[node name="CoworkerMono1_11" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385970, -52.636960, 13.810000, -62.098540)
+
+[node name="CoworkerMono1_12" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(-1.834340, 0.000000, 0.000000, 0.000000, 2.443760, 0.000000, 0.000000, 0.000000, 2.443750, -61.211260, 19.280140, -57.438380)
+
+[node name="CoworkerMono1_13" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.148520, 0.000000, 0.000000, 0.000000, 2.148520, 0.000000, 0.000000, 0.000000, 2.148520, 26.030000, 8.292500, -57.020000)
+
+[node name="CoworkerMono1_14" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268670, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, -50.231120, 14.126800, -54.280330)
+
+[node name="CoworkerMono1_15" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(-1.834340, 0.000000, 0.000000, 0.000000, 2.443760, 0.000000, 0.000000, 0.000000, 2.443750, -60.808730, 19.953330, -52.930480)
+
+[node name="CoworkerMono1_16" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -51.044440, 14.467270, -48.410350)
+
+[node name="CoworkerMono1_17" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(-2.512960, 0.000000, 0.000000, 0.000000, 2.579930, 0.000000, 0.000000, 0.000000, 2.814510, -61.227900, 19.604610, -48.119430)
+
+[node name="CoworkerMono1_18" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -52.635490, 13.810000, -42.901600)
+
+[node name="CoworkerMono1_19" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(-2.571080, 0.000000, 0.000000, 0.000000, 2.241580, 0.000000, 0.000000, 0.000000, 2.443750, -65.140890, 19.280140, -41.681790)
+
+[node name="CoworkerMono1_20" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, 50.144850, 18.308530, -32.921110)
+
+[node name="CoworkerMono1_21" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.617010, 0.000000, 0.000000, 0.000000, 2.787360, 0.000000, 0.000000, 0.000000, 3.040800, 49.643940, 17.968050, -32.419460)
+
+[node name="CoworkerMono1_22" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268660, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, 49.629640, 17.968050, -27.179590)
+
+[node name="CoworkerMono1_23" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 37.224000, 11.550000, -26.820000)
+
+[node name="CoworkerMono1_24" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385970, 47.757260, 18.463750, -19.141390)
+
+[node name="CoworkerMono1_25" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385970, -59.956960, 26.090000, -18.585440)
+
+[node name="CoworkerMono1_26" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268670, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, -57.551120, 26.406800, -10.767220)
+
+[node name="CoworkerMono1_27" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -58.364440, 26.747270, -4.897250)
+
+[node name="CoworkerMono1_28" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 28.060000, 8.292500, -2.600000)
+
+[node name="CoworkerMono1_29" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -59.955490, 26.090000, 0.611500)
+
+[node name="CoworkerMono1_30" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385970, -64.145790, 26.070000, 18.392640)
+
+[node name="CoworkerMono1_31" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268660, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, -59.527790, 26.386800, 25.144420)
+
+[node name="CoworkerMono1_32" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -58.562140, 26.727270, 30.991270)
+
+[node name="CoworkerMono1_33" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385970, -58.446400, 26.070000, 36.724010)
+
+[node name="CoworkerMono1_34" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.574180, 0.000000, 0.000000, 0.000000, 1.787090, 0.000000, 0.000000, 0.000000, 2.552980, 48.280000, 27.780000, 37.930000)
+
+[node name="CoworkerMono1_35" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 0.000000, 0.000000, 0.000000, 1.989370, 10.966420, 9.140000, 40.250500)
+
+[node name="CoworkerMono1_36" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385960, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, 2.910000, 9.140000, 44.090000)
+
+[node name="CoworkerMono1_37" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.552980, 0.000000, 0.000000, 0.000000, 2.552980, 0.000000, 0.000000, 0.000000, 2.552980, 40.900000, 28.200000, 45.280000)
+
+[node name="CoworkerMono1_38" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385960, -46.050730, 26.070000, 57.768790)
+
+[node name="CoworkerMono1_39" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.344270, 0.000000, 0.000000, 0.000000, 2.188570, 0.000000, 0.000000, 0.000000, 2.385960, -6.900000, 24.560000, 59.690000)
+
+[node name="CoworkerMono1_40" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268660, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, 1.280000, 24.560000, 59.690000)
+
+[node name="CoworkerMono1_41" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, 4.510000, 24.560000, 59.690000)
+
+[node name="CoworkerMono1_42" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(3.268660, 0.000000, 0.000000, 0.000000, 2.518920, 0.000000, 0.000000, 0.000000, 2.747950, -38.391010, 26.386800, 60.639530)
+
+[node name="CoworkerMono1_43" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, 2.910000, 24.560000, 62.940000)
+
+[node name="CoworkerMono1_44" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, -34.240190, 26.727270, 64.869040)
+
+[node name="CoworkerMono1_45" parent="." instance=ExtResource("1_mono1")]
+transform = Transform3D(2.385970, 0.000000, 0.000000, 0.000000, 2.385960, 0.000000, 0.000000, 0.000000, 2.385960, -30.850440, 26.070000, 69.493680)
+
+[node name="CoworkerMono2_01" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 0.000000, 0.000000, 0.000000, 2.409760, -20.700000, 13.315340, -153.908160)
+
+[node name="CoworkerMono2_02" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(3.681550, 0.000000, 0.000000, 0.000000, 2.503810, 0.000000, 0.000000, 0.000000, 2.503810, -16.500000, 13.000000, -139.336140)
+
+[node name="CoworkerMono2_03" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -57.715470, 17.810590, -102.899890)
+
+[node name="CoworkerMono2_04" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -61.420000, 17.810590, -94.180000)
+
+[node name="CoworkerMono2_05" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -58.271310, 17.810590, -93.812970)
+
+[node name="CoworkerMono2_06" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -52.639800, 14.630000, -56.667660)
+
+[node name="CoworkerMono2_07" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(-1.924700, 0.000000, 0.000000, 0.000000, 2.564140, 0.000000, 0.000000, 0.000000, 2.564140, -59.254550, 19.784100, -53.176680)
+
+[node name="CoworkerMono2_08" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(-1.924700, 0.000000, 0.000000, 0.000000, 2.564140, 0.000000, 0.000000, 0.000000, 2.564140, -59.758730, 19.840510, -51.484280)
+
+[node name="CoworkerMono2_09" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 26.060000, 8.460000, -50.290000)
+
+[node name="CoworkerMono2_10" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -49.574120, 14.357120, -50.187630)
+
+[node name="CoworkerMono2_11" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -49.488380, 14.302040, -48.126590)
+
+[node name="CoworkerMono2_12" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(-1.924700, 0.000000, 0.000000, 0.000000, 2.564140, 0.000000, 0.000000, 0.000000, 2.564140, -64.032320, 20.120000, -46.139360)
+
+[node name="CoworkerMono2_13" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 47.194450, 18.471260, -29.186650)
+
+[node name="CoworkerMono2_14" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 48.620660, 18.143300, -25.065700)
+
+[node name="CoworkerMono2_15" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 51.521770, 18.198370, -23.127720)
+
+[node name="CoworkerMono2_16" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 27.130000, 8.460000, -13.520000)
+
+[node name="CoworkerMono2_17" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -59.959800, 26.910000, -13.154560)
+
+[node name="CoworkerMono2_18" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 0.000000, 0.000000, 0.000000, 2.409760, 26.990000, 8.460000, -7.960000)
+
+[node name="CoworkerMono2_19" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -56.894120, 26.637120, -6.674530)
+
+[node name="CoworkerMono2_20" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -56.808380, 26.582040, -4.613490)
+
+[node name="CoworkerMono2_21" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -62.536520, 26.890000, 23.579620)
+
+[node name="CoworkerMono2_22" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -57.685610, 26.617120, 28.857670)
+
+[node name="CoworkerMono2_23" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -56.991990, 26.562040, 30.800370)
+
+[node name="CoworkerMono2_24" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -1.710160, 25.380000, 58.120000)
+
+[node name="CoworkerMono2_25" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 7.380000, 25.380000, 60.790000)
+
+[node name="CoworkerMono2_26" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -41.752500, 26.890000, 61.088380)
+
+[node name="CoworkerMono2_27" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -1.710160, 25.380000, 61.290000)
+
+[node name="CoworkerMono2_28" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -34.749260, 26.617120, 62.619280)
+
+[node name="CoworkerMono2_29" parent="." instance=ExtResource("2_mono2")]
+transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, -33.065040, 26.562040, 63.810340)
+
+[node name="Whisper_01" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.420000, 17.810590, -94.180000)
+MinDistance = 1.0
+MaxMinDistance = 10.0
+
+[node name="Whisper_02" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -49.610000, 14.630000, -57.600000)
+MinDistance = 40.0
+MaxMinDistance = 45.0
+
+[node name="Whisper_03" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.310000, 20.120000, -45.400000)
+MinDistance = 40.0
+MaxMinDistance = 45.0
+
+[node name="Whisper_04" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.930000, 26.910000, -14.086890)
+MinDistance = 40.0
+MaxMinDistance = 45.0
+
+[node name="Whisper_05" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -59.920000, 26.890000, 21.790000)
+MinDistance = 40.0
+MaxMinDistance = 45.0
+
+[node name="Whisper_06" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.640000, 26.890000, 58.120000)
+MinDistance = 40.0
+MaxMinDistance = 45.0
+
+[node name="Whisper_07" parent="." instance=ExtResource("3_whisper")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.710160, 25.380000, 58.120000)
+MinDistance = 1.0
+MaxMinDistance = 10.0

@@ -107,7 +107,7 @@ naive scan of the scene; confirmed against prefab guid `65a06b95…`.
 | Kind | Count | Weight |
 |---|---|---|
 | Level FBX models | 13 | **936 KB total** |
-| Coworker sprite frames | 153 (mono1) + 70 (mono2) | **19 MB** |
+| Coworker sprite frames | 153 (mono1) + 70 (mono2) | **19 MB** → 175 KB packed, only the 81 + 70 the clips use |
 | Coworker anim clips / controllers | 2 / 2 | |
 | Audio (WAV) referenced by this scene | 3 | **22.8 MB** |
 | Materials | 12 | |
@@ -175,28 +175,22 @@ Everything left is small. Largest is 78 lines.
 | 51 | `ParentPlayer.cs` | — | **not ported**, and not needed — see below |
 | 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
 | 43 | `TriggerZone.cs` | 2 | enter/exit/stay UnityEvents |
-| 39 | `SoundAttenuationByDeath.cs` | **11** | consumes `GameManager.DeathConstant` |
+| 39 | `SoundAttenuationByDeath.cs` | 7 on clusters | **done**, `WhisperEmitter.cs` |
 | 34 | `Credits.cs` | 1 | |
 | 31 | `FortunatoAnimFunctions.cs` | — | the missing animation events |
 | 30 | `TimerZone.cs` | 1 | |
 | 30 | `PauseMenu.cs` | — | |
-| 24 | `RandomizeMonoAnimStart.cs` | **32** | |
-| 23 | `YBillboardFollow.cs` | **31** | → Godot billboard mode, near-free |
+| 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
+| 23 | `YBillboardFollow.cs` | **74** | **done** — a billboard mode, no script |
 | 23 | `Door.cs` | 1 | |
 | 20 | `CamControllerFunctionAccess.cs` | 1 | |
 | 19 | `ResetLocalPosition.cs` | 1 | |
 | 7 | `UnityEventContainer.cs` | 1 | |
 
-### 3. The coworkers are 2D sprites
+### 3. The coworkers are 2D sprites — **done**
 
-31 `SpriteRenderer`s + 31 `YBillboardFollow` + 32 `RandomizeMonoAnimStart` +
-223 PNG frames + 2 animation controllers. The coworkers are **billboarded
-sprite-sheet animations**, not 3D models. In Godot that's `Sprite3D` with
-`billboard = enabled` and either `SpriteFrames` or a shader-driven atlas —
-`YBillboardFollow` becomes a property rather than a script.
-
-19 MB of individually-imported PNG frames is worth packing into atlases during
-the port rather than after.
+The coworkers are **billboarded sprite-sheet animations**, not 3D models. See
+"Coworkers" below; the count in this section was wrong and is corrected there.
 
 ### 4. Not needed
 
@@ -205,6 +199,83 @@ the port rather than after.
 - `EventSystem` — the unresolved script guid `f5f67c52…` is Unity's built-in
   `UnityEngine.UI` assembly, not project code. Godot's `Control` system covers it.
 - `Yelena.prefab` — disabled in the scene.
+
+## Coworkers
+
+> **Correction.** This document counted "31 `SpriteRenderer`s + 31
+> `YBillboardFollow` + 32 `RandomizeMonoAnimStart`" and treated that as the number
+> of coworkers. There are **74**: 45 mono1 and 29 mono2. Those 31 are stripped
+> component *documents* in the scene, which Unity writes only for objects carrying
+> overrides — the same trap this document already warns about twice for
+> UnityEvents and `m_IsActive`. Three of the five coworker prefabs are clusters:
+> `coworkers_group 1`, `coworkers_group2` and `coworkers_group3` each bake in seven
+> coworkers, 4 mono1 and 3 mono2, as plain GameObjects rather than nested prefab
+> instances. So 13 mono1 + 5 mono2 placed directly, plus 8 group instances of 7,
+> comes to 74. Anything counting prefab documents in this scene is counting the
+> wrong thing.
+
+Every coworker is one node. Unity had four things per figure — a `SpriteRenderer`,
+an `Animator`, `YBillboardFollow` and `RandomizeMonoAnimStart` — and all four
+collapse into an `AnimatedSprite3D`:
+
+| Unity | Godot |
+|---|---|
+| `SpriteRenderer` + `Animator` | `AnimatedSprite3D` over a packed atlas |
+| `YBillboardFollow` | `billboard = BILLBOARD_FIXED_Y` |
+| `RandomizeMonoAnimStart` | `CoworkerSprite.cs` |
+| `AudioSource` + `SoundAttenuationByDeath` | `WhisperEmitter.cs` |
+
+**The sprite pivot is the one thing that will catch you.** The frames the clips
+actually use were imported with `alignment: 7` — BottomCenter — so a coworker's
+Unity position is where its *feet* are, not its centre. The scenes reproduce that
+with `offset = (0, 64)`. Checking the pivot on the wrong file gives the wrong
+answer: `Mono 1/Sprites` holds 153 PNGs, the 81 the animation uses are the
+`Untitled-4NNNN` take at `alignment: 7`, and the unused `mono1_00NN` take is
+`alignment: 0`, centred. Get this wrong and all 74 are buried to the waist.
+
+Frame order comes from the clip's PPtr curve, not from filenames — the used frames
+are split across two naming schemes that do not interleave in filename order.
+mono1 is 81 frames over 2.7 s, mono2 is 70 over 2.333 s, both at 30 fps, both
+looping. Packed into one atlas each with a 2 px transparent gutter, **19 MB of
+individual PNGs becomes 175 KB of texture**. No frame in mono1 has a
+non-transparent border pixel, so the gutter is lossless there; one mono2 frame has
+a border alpha of 10 out of 255, whose outermost pixel row fades slightly.
+
+Sizes need no conversion: Unity imported at 100 pixels per unit and Godot's
+default `pixel_size` is 0.01 m, so a 128 px frame is 1.28 m in both.
+
+**24 of the 74 are scaled non-uniformly**, up to about 3.7×, because the artists
+scaled whole clusters and Unity composes that component-wise onto the children.
+Godot keeps X and Y scale independently through fixed-Y billboarding — measured at
+2.96× and 2.00× for a (3, 2, 1) scale, not assumed, because a billboard shader that
+normalised the X axis would quietly squash every one of them back to square.
+Rotation is *not* emitted: `YBillboardFollow` overwrote it every frame, so what the
+artists authored never reached the screen, and re-emitting it would only tilt the
+coworkers whose basis carried pitch.
+
+Most coworkers have nothing beneath them — only 10 of 74 have any collision
+geometry below, and enabling `backface_collision` on all 53 trimeshes changes
+that by one. They are background figures standing in open space or behind the
+outer wall around x = -60, seen through the transparent windows. What corroborates
+the placement instead is precision: three land at a gap of exactly 0.0000 m on
+floor planes and three more at 0.0453 m, and direct instances ground at the same
+rate as group children — which is what ruled out the group composition when the
+first raycast pass looked alarming. `tools/verify_coworkers.gd` reports the
+distribution rather than scoring it, for exactly that reason.
+
+The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of WAV to 197 KB of
+Ogg Vorbis — sits on the cluster roots, 7 of them: 2 at minDistance 1→10 and 5 at
+40→45. Unity's logarithmic rolloff attenuates by `minDistance / distance`, which is
+Godot's `ATTENUATION_INVERSE_DISTANCE` over `unit_size` exactly, so the mapping
+needs no fudging. `coworkers_group3` has no `AudioSource` at all.
+
+Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
+constant, where Unity set it once in `Start`; that only works if the scene reloads
+on death, and this game respawns through a fade, so on the original's code path the
+volume stays at its level-load value of zero and the whisper is never heard —
+which the script's own comment says is not the intent. And the stagger is a random
+start position rather than `PlayDelayed` of a random offset; both desynchronise the
+seven emitters, but Unity's leaves each silent for up to 14 seconds first.
 
 ## Platforms
 
@@ -270,9 +341,9 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 4. ~~**Platforms**~~ — **done**. `scenes/platforms.tscn` places all 26 from
    `scenes/moving_platform.tscn` and `scenes/falling_platform.tscn`.
    `ParentPlayer` was not needed. See "Platforms" below.
-5. **Coworkers** — sprite atlases, billboards, `RandomizeMonoAnimStart`, and
-   `SoundAttenuationByDeath`, which closes the death-constant loop already
-   built in `GameManager`.
+5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74 plus the
+   7 whisper emitters, which closes the death-constant loop `GameManager` was
+   ported for. See "Coworkers" above.
 6. **Hazards and the respawn chain** — hammers, `Fortunato.Die`/`Revive`,
    `FortunatoAnimFunctions` animation events, wiring `CheckpointTeleport`
    through the fade. This completes what the GameManager port deliberately left
@@ -302,7 +373,15 @@ behavioural work is.
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth
   converting to Ogg Vorbis rather than vendoring raw, given the repo already
-  avoids large binaries.
+  avoids large binaries. Done for `susurro_loko` — 2.5 MB to 197 KB at
+  `ffmpeg -c:a libvorbis -q:a 5`, same 14.1 s. Note the `.ogg` import defaults to
+  `loop=false`, so looping clips need it set and **reimported**: an emitter that
+  starts near the end of a non-looping clip stops within a frame or two, which is
+  how six of seven whispers can play while one is silent.
+- **Unity's sprite pivots are per-file and the used take is not the obvious one.**
+  See "Coworkers": the animated frames are `alignment: 7`, BottomCenter, while the
+  unused take beside them is centred. Any further sprite work should read the pivot
+  from a frame the clip actually names.
 - **The falling platforms had a 20 cm reset bug, and the port drops it.**
   `FallingPlatform` captured `platform.position` — a world position — and restored
   it with `platform.localPosition`. Every instance sits under a container called
