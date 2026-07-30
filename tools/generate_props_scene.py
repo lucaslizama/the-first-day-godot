@@ -33,6 +33,8 @@ STATIC = {
     # in Unity - no MonoBehaviour, no trigger - so they are static props here and the
     # ending's behaviour stays with TimerZone and Credits.
     "meta.fbx", "cake.fbx",
+    # The entrance door: its own scene, because it animates and carries a trigger.
+    "puertaInicio.prefab",
 }
 
 # Where each entry's PackedScene lives. Models resolve to models/props by name;
@@ -41,6 +43,7 @@ STATIC = {
 # hold only .fbx names.
 RESOURCE = {
     "tablePcs.prefab": "res://scenes/table_pcs.tscn",
+    "puertaInicio.prefab": "res://scenes/puerta_inicio.tscn",
 }
 
 # The tablePcs instances that are solid, keyed by world position the way

@@ -292,7 +292,7 @@ Everything left is small. Largest is 78 lines.
 | 30 | `PauseMenu.cs` | — | **done**, `scripts/UI/PauseMenu.cs` |
 | 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
 | 23 | `YBillboardFollow.cs` | **74** | **done** — a billboard mode, no script |
-| 23 | `Door.cs` | 1 | |
+| 23 | `Door.cs` | 1 | **done**, `scripts/Gameplay/Door.cs` + `scenes/puerta_inicio.tscn` |
 | 20 | `CamControllerFunctionAccess.cs` | 1 | **nothing to port** — `PauseMenu`'s reference to it is `fileID: 0`, unassigned, and never read |
 | 19 | `ResetLocalPosition.cs` | 1 | **done** — it sat on Camera Target; `RespawnChain` resets it |
 | 7 | `UnityEventContainer.cs` | 1 | **done** — collapsed into `TimerZone.OnFadeOutCompleted`; it only existed to box a call list as an object argument |
@@ -588,7 +588,9 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
-7. **Ending and UI** — remaining: `PauseMenu`, the five tutorial key props (`WASD`,
+7. **Ending and UI** — remaining: the five tutorial key props (`WASD`, `WASD (1)`,
+   `Spacebar`, `Shift`, `Tutorial`, on Unity's built-in cube mesh, with four unported
+   key materials). Everything else in this step is done.
    `WASD (1)`, `Spacebar`, `Shift`, `Tutorial`, on Unity's built-in cube mesh) and
    `Door` for `puertaInicio`.
 
@@ -897,6 +899,51 @@ landing ever needs to read as a distinct beat.
   Its key-count check also had to learn about the second method track: the clips carry
   `PlayStepSound` *and* `SetLeftJump`/`SetRightJump`, so counting every method key made it
   fail at 4 when the footsteps were fine. It counts `PlayStepSound` specifically now.
+### The entrance door — `puertaInicio`
+
+`Door` is one line: `OnTriggerEnter` sets the animator's `Open` trigger. Note what is
+**not** there — no tag check, unlike `TimerZone`'s `CompareTag("Player")` — so anything
+entering the volume opens it. Reproduced as-is rather than tightened.
+
+The animator has one trigger, a default state with **no clip** (the closed door is the
+rest pose, not an animation), one transition to `puertaAbrir`, and no way back. So the
+door opens once and stays open.
+
+`puertaAbrir.anim` is 11 keys at 30 fps over 0.3333 s, rotating only the leaf about Y —
+its position and scale curves are constant. Hand-keyed on threes: 0, 10.63, 53.16, 95.69,
+106.32 degrees, with values repeating then jumping. Ported as a `rotation_3d` track with
+the y component negated, which is the `diag(-1, 1, 1)` conjugation applied to a *rotation*
+rather than a position.
+
+Three traps, all of which cost a debugging cycle here:
+
+- **`marquito`'s prefab transform is not the shipped arrangement.** `puertita` agrees
+  between prefab and FBX under the usual X negation — Godot `(0.65450, 2.02803, -0.06647)`
+  against Unity `(-0.6545, 2.0280, -0.0665)` — but `marquito` does not, and the FBX's own
+  value is the right one. Measured, not assumed: with the FBX transform the frame centres
+  on the leaf at x = −0.081 against the leaf's −0.079 and encloses it; the conjugated
+  prefab value puts it 0.5–0.8 m adrift in three axes. Rendering confirms a leaf sitting
+  flush in its frame. **Do not "restore" the prefab value.**
+- **Godot's `ROTATION_TRACK_SIZE` is 6, not 5.** A rotation key is `time, transition, x, y,
+  z, w`. Writing five floats fails the *whole track* with
+  `vcount % ROTATION_TRACK_SIZE`, the animation loads with **no keys at all**, and the door
+  dutifully reports itself open without moving. The error goes to stderr among the import
+  noise and is easy to miss.
+- **The trigger belongs on the root, not the leaf.** Unity's `BoxCollider` (2 × 3.97 × 1,
+  centre (0, 2, −0.24), `isTrigger`) was added to the root in the scene, not the prefab.
+  Parent it to the leaf and it swings away with the door.
+
+The root of `scenes/puerta_inicio.tscn` deliberately carries **no transform**: the
+extractor's world transform already includes the prefab root's 0.5511577 scale, so
+`props.tscn` applies it once. The trigger box is therefore in unscaled local space, as
+Unity's was, and the instance's scale brings it to size.
+
+`tools/verify_door.gd` checks the leaf is solid and the frame is not (only `puertita` had
+a `MeshCollider`), that the trigger is not parented to the leaf, that the door starts
+closed, that it ends at **−106.32°**, and that a second trigger does not replay the clip.
+The final-angle assertion is deliberately signed: the magnitude comes from the clip and
+the sign from the conjugation, and the sign is the part most likely to be wrong.
+
 - **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth
