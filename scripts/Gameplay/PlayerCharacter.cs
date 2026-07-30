@@ -240,6 +240,25 @@ public partial class PlayerCharacter : CharacterBody3D
     }
 
     /// <summary>
+    /// Port of Fortunato.Cry, which TimerZone calls when the player crosses the finish
+    /// line. The original is one line - anim.SetTrigger("Cry") - and it has the same
+    /// problem the death state does: **the "Cry" state has no clip anywhere in the
+    /// project**, in FBX or .anim form. Unity's animator entered a state with nothing
+    /// to play and simply held whatever pose it had.
+    ///
+    /// Unlike Die, this one gets no substitute. Die had a defensible stand-in because
+    /// the player only ever dies by falling, and the fall clip reads correctly for
+    /// that. There is no clip in the project that reads as crying, and inventing an
+    /// animation is not porting. So this deliberately does nothing to the pose, and
+    /// exists so the ending chain matches the original call for call - and so that
+    /// whoever adds a crying animation has the hook already wired.
+    /// </summary>
+    public void Cry()
+    {
+        GD.Print($"{Name}: Cry() - no clip exists for this state in the project, so the pose is unchanged.");
+    }
+
+    /// <summary>
     /// Port of Fortunato.Revive: the "Revive" trigger plus charController.Move(zero).
     /// The zero move existed to flush the controller's accumulated motion, which is
     /// Velocity here - without clearing it, the fall speed built up on the way into the

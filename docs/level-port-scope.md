@@ -286,16 +286,16 @@ Everything left is small. Largest is 78 lines.
 | 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
 | 43 | `TriggerZone.cs` | 2 | **done** — wired directly in `RespawnChain.cs`, not as a generic emitter |
 | 39 | `SoundAttenuationByDeath.cs` | 7 on clusters | **done**, `WhisperEmitter.cs` |
-| 34 | `Credits.cs` | 1 | |
+| 34 | `Credits.cs` | 1 | **done**, `scripts/UI/Credits.cs` |
 | 31 | `FortunatoAnimFunctions.cs` | — | **done** — footstep events re-added; `Die`/`Cry` have no clips to fire from |
-| 30 | `TimerZone.cs` | 1 | |
+| 30 | `TimerZone.cs` | 1 | **done**, `scripts/Gameplay/TimerZone.cs` — carries the ending chain |
 | 30 | `PauseMenu.cs` | — | |
 | 24 | `RandomizeMonoAnimStart.cs` | **74** | **done**, `CoworkerSprite.cs` |
 | 23 | `YBillboardFollow.cs` | **74** | **done** — a billboard mode, no script |
 | 23 | `Door.cs` | 1 | |
 | 20 | `CamControllerFunctionAccess.cs` | 1 | |
 | 19 | `ResetLocalPosition.cs` | 1 | **done** — it sat on Camera Target; `RespawnChain` resets it |
-| 7 | `UnityEventContainer.cs` | 1 | |
+| 7 | `UnityEventContainer.cs` | 1 | **done** — collapsed into `TimerZone.OnFadeOutCompleted`; it only existed to box a call list as an object argument |
 
 ### 3. The coworkers are 2D sprites — **done**
 
@@ -588,15 +588,74 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
-7. **Ending and UI** — remaining: `particleSys_conffeti`, `Credits`, `PauseMenu`,
-   `TimerZone`, the five tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`,
-   `Tutorial`, on Unity's built-in cube mesh) and `Door` for `puertaInicio`.
+7. **Ending and UI** — remaining: `particleSys_conffeti`, `PauseMenu`, the five
+   tutorial key props (`WASD`, `WASD (1)`, `Spacebar`, `Shift`, `Tutorial`, on Unity's
+   built-in cube mesh) and `Door` for `puertaInicio`.
 
    Done so far in this step:
    - `mat_skyboxFernandito` — the ending area is exterior, so without it the whole
      climax rendered against black. See "The skybox was an ending-area problem"
      under Lighting.
    - **`meta.fbx` and `cake.fbx`** — see "The ending pair" below.
+   - **`TimerZone`, `Credits` and `UnityEventContainer`** — the ending chain now
+     runs end to end. See "The ending chain" below.
+
+### The ending chain — `TimerZone`, `Credits`
+
+`TimerZone` is a generic two-event timer in Unity: `onTriggerEnter` fires at once,
+`onAfterDelay` `delay` seconds later, and **everything specific to the ending lived in
+the UnityEvent wiring, not the script**. Reading only the two `.cs` files would have
+produced a working timer that does nothing. The wiring, out of `nivelEscena`
+(`delay: 5`) and `UI.prefab` (`scrollspeed: 3`, `creditsTime: 10`):
+
+| when | calls |
+|---|---|
+| on enter | `InputManager.set_CanValidateInput(false)`, `Fortunato.Cry()`, `GUIFadeEffect.SetOnFadeOutComplete(Event Container)`, `particleSys_conffeti.Play()` |
+| +5 s | `GUIFadeEffect.FadeOut()` |
+| fade fully black | `Credits panel.SetActive(true)`, `Credits.RollCredits()` |
+| +10 s of rolling | `GoToMainMenu()` |
+
+Reproduced directly in `TimerZone.cs`, the same choice `RespawnChain` made for the
+death chain, rather than building a generic UnityEvent emulation for one instance.
+Three details worth keeping:
+
+- **The fade's completion callback is armed in the *first* event**, before `FadeOut` is
+  ever called in the second. Arming it after would be a race.
+- **`UnityEventContainer` was pure plumbing.** `SetOnFadeOutComplete` takes a single
+  `UnityEvent` object argument, so a list of calls had to be boxed in a component to be
+  passed at all. Here it is just the body of `OnFadeOutCompleted`.
+- **The trigger** is at Unity `(0.02, 12.0, -182.32)` — conjugated to negate X — with a
+  4 × 4 × 1 box offset `(0, 2, 0)`, which puts it in the FINISH banner's opening. It is
+  hand-authored in `level.tscn`, so outside `unity_space.py`'s reach.
+
+`Fortunato.Cry()` is `anim.SetTrigger("Cry")`, and the "Cry" state has **no clip
+anywhere in the project** — same as the death state. Unlike `Die`, it gets no
+substitute: the fall clip was a defensible stand-in for dying by falling, but nothing
+in the project reads as crying and inventing an animation is not porting.
+`PlayerCharacter.Cry()` therefore leaves the pose alone and exists so the chain matches
+call for call, and so the hook is wired for whoever adds the animation.
+
+`Credits` is a **timed** scroll, not a scroll-until-offscreen: after `creditsTime` the
+text stops wherever it reached, which at 3 units/s for 10 s is 30 units. The text block
+is far taller than that, so most of it never arrives. Both numbers are the instance's,
+so this is faithful rather than a bug — but it is the first thing to check if the
+credits ever look wrong. Godot's Y axis runs opposite to Unity's `anchoredPosition`,
+hence a subtraction where Unity added.
+
+`tools/verify_ending.gd` drives the whole chain and checks the order and timing, which
+is where the failure modes are. Entry → input disabled 0.03 s, entry → fully black
+8.02 s (5 s delay + 1 s `fadeOutDelay` + 2 s at 0.5 alpha/s), black → credits shown
+0.02 s, roll duration 10.00 s. It also asserts `MainMenuScenePath` resolves *before*
+blanking it to keep the scene from being torn down mid-test.
+
+> **Note on the verifier.** An earlier version sampled `fade.color.a >= 0.999` to
+> detect black. That passed once and failed on the next run: the tween reaches 1.0 on
+> the same frame the signal fires, so a sampled threshold is a coin flip. It subscribes
+> to `FadeOutCompleted` instead, which is what the chain actually depends on. If a
+> check is racy, test the event, not the value it happens to leave behind.
+
+`particleSys_conffeti.Play()` is wired as an optional `ConfettiPath` export that does
+nothing while unset, so the confetti drops in without touching the chain.
 
 ### The ending pair — `meta.fbx` and `cake.fbx`
 

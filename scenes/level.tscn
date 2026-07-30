@@ -14,6 +14,12 @@
 [ext_resource type="Script" path="res://scripts/UI/FadeOverlay.cs" id="12_fade"]
 [ext_resource type="Script" path="res://scripts/Gameplay/RespawnChain.cs" id="13_chain"]
 [ext_resource type="Sky" path="res://materials/sky_fernandito.tres" id="14_sky"]
+[ext_resource type="Script" path="res://scripts/UI/Credits.cs" id="15_credits"]
+[ext_resource type="Script" path="res://scripts/Gameplay/TimerZone.cs" id="16_timer"]
+
+; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
+[sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
+size = Vector3(4, 4, 1)
 
 ; background_mode 2 is Sky. It was 1, a flat near-black colour, while
 ; mat_skyboxFernandito was unported - invisible indoors, where walls fill the frame,
@@ -110,6 +116,72 @@ FadeOutSpeed = 0.5
 FadeInDelay = 1.0
 FadeOutDelay = 1.0
 FadeInOnReady = true
+
+; The credits, from UI.prefab: scrollspeed 3, creditsTime 10, text verbatim. Hidden
+; until the ending's fade to black completes, which is what SetActive(true) did.
+; anchors_preset 8 centres it, and Unity's slow 30-unit crawl then moves it up from
+; there. See Credits.cs for why that is not a full roll.
+[node name="Credits" type="Label" parent="UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Credits
+
+
+
+
+Programming:
+Lucas Lizama
+
+3D Modeling and Animation:
+Ian Genskowsky
+Kathya Zuñiga
+Fernando Castillo
+
+
+Concept Art:
+Fernando castillo
+Kathya Zuñiga
+
+Music:
+Guillermo Rojas
+
+Sounds:
+
+www.freesound.org
+
+whisper1.wav by thanvannispen
+\"small group whispering.wav\" by speedygonzo
+looping-hollow-air-wind.wav by robinhood76"
+script = ExtResource("15_credits")
+ScrollSpeed = 3.0
+CreditsTime = 10.0
+
+; TimerZone at the finish line, right at meta_01. Unity had it at world
+; (0.02, 12.0, -182.32), conjugated to negate X like every other placement; its
+; trigger is a 4 x 4 x 1 box offset (0, 2, 0), so the volume spans the banner's
+; opening. Hand-authored, so outside tools/unity_space.py's reach - the X negation
+; here is applied by hand and has to stay that way.
+[node name="TimerZone" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.02, 12, -182.32)
+monitorable = false
+script = ExtResource("16_timer")
+Delay = 5.0
+PlayerPath = NodePath("../Player")
+FadePath = NodePath("../UI/FadeOverlay")
+CreditsPath = NodePath("../UI/Credits")
+
+[node name="Collider" type="CollisionShape3D" parent="TimerZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("BoxShape3D_timer")
 
 ; The UnityEvent graph that used to live across three prefabs. See RespawnChain.cs.
 [node name="RespawnChain" type="Node" parent="."]
