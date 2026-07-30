@@ -24,6 +24,7 @@ import re
 import sys
 
 from extract_coworkers import PrefabFile, compose, guid_map, split, v3, v4
+from unity_space import to_godot
 
 WANTED = {
     "CheckPointZone.prefab": "kill_volume",
@@ -157,6 +158,8 @@ def main():
             out["player"] = entry
 
     out["trigger_zones"].sort(key=lambda e: e["name"])
+    # Conjugated into Godot space on the way out; see tools/unity_space.py.
+    out = to_godot(out)
     json.dump(out, open(os.environ["SP"] + "/zones.json", "w"), indent=1)
 
     kv = out["kill_volume"]

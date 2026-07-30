@@ -34,6 +34,8 @@ import re
 import sys
 from collections import Counter
 
+from unity_space import to_godot
+
 MONO_PREFABS = {"mono1.prefab": "mono1", "mono2_prefab.prefab": "mono2"}
 GROUP_PREFABS = {"coworkers_group 1.prefab", "coworkers_group2.prefab", "coworkers_group3.prefab"}
 
@@ -318,7 +320,12 @@ def main():
             })
 
     out.sort(key=lambda e: (e["kind"], e["pos"][2], e["pos"][0]))
-    json.dump({"coworkers": out, "whispers": whispers}, open(os.environ["SP"] + "/coworkers.json", "w"), indent=1)
+    # Conjugated into Godot space on the way out; see tools/unity_space.py.
+    json.dump(
+        to_godot({"coworkers": out, "whispers": whispers}),
+        open(os.environ["SP"] + "/coworkers.json", "w"),
+        indent=1,
+    )
 
     for k, v in counts.most_common():
         print("  %-8s %d" % (k, v), file=sys.stderr)

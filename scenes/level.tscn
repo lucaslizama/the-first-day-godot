@@ -25,19 +25,25 @@ ambient_light_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
 [node name="Environment" type="WorldEnvironment" parent="." unique_id=1482451335]
 environment = SubResource("Environment_level")
 
+; Conjugated by diag(-1, 1, 1) like every other placement in this level - the
+; off-diagonal terms coupling X to Y and Z flip sign, so the sun's direction
+; mirrors with the world it lights. This is on top of, not instead of, the 180
+; degree turn about Y that Unity's opposite light-emission convention needs; that
+; correction is already baked into the columns here. See tools/unity_space.py.
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=1798684195]
-transform = Transform3D(-0.866002, -0.463367, -0.187965, 3e-06, -0.375905, 0.926658, -0.50004, 0.802488, 0.325535, 0, 3, 0)
+transform = Transform3D(-0.866002, 0.463367, 0.187965, -3e-06, -0.375905, 0.926658, 0.50004, 0.802488, 0.325535, 0, 3, 0)
 light_color = Color(1, 0.95686275, 0.8392157, 1)
 shadow_enabled = true
 
 [node name="PointLight" type="OmniLight3D" parent="." unique_id=1474097611]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.373, 2.194, 4.014)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.373, 2.194, 4.014)
 light_color = Color(0.75086504, 0.7719484, 0.9117647, 1)
 light_energy = 2.39
 omni_range = 20.0
 
+; Unity's Obstaculos container offset, conjugated: -0.2 in Unity is +0.2 here.
 [node name="Shell" type="Node3D" parent="." unique_id=746699252]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0, 0)
 script = ExtResource("3_shell")
 ModelKey = "nivel.fbx"
 
@@ -60,9 +66,9 @@ ModelKey = "nivel_p2.fbx"
 
 [node name="Zones" parent="." instance=ExtResource("8_zones")]
 
-; Unity's Fortunato start, unchanged. Check Point 1 sits at (-0.17, 1.25, 4.29), a
-; metre above it, because respawning drops the player rather than placing them
-; standing.
+; Unity's Fortunato start. Its X is 0, so the diag(-1, 1, 1) conjugation leaves it
+; where it was. Check Point 1 sits at (0.17, 1.25, 4.29), a metre above it, because
+; respawning drops the player rather than placing them standing.
 [node name="Player" type="CharacterBody3D" parent="." groups=["player"] instance=ExtResource("9_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.018)
 script = ExtResource("10_player_script")

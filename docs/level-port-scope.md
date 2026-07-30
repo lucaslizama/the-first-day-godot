@@ -34,12 +34,54 @@ the whole level standing up before any of it is playable.
 
 ### Unity → Godot placement convention
 
-Positions transfer **unchanged**, including z. Established by measurement, not
-by reasoning about handedness: the last Trigger Zone is at Unity z = −101.14 and
-must lie inside the level, and Godot's imported `nivel` spans z ∈ [−110.4,
-+75.9]. Unchanged puts it inside; negated puts it outside the geometry
-altogether. Godot's importer and Unity's agree numerically on these files, so
-the geometry needs no mirroring.
+> **Correction.** This section said positions transfer **unchanged**. That is true
+> for Y and Z and **false for X**, and the error put every prop, coworker, platform
+> and zone in the wrong place — mirrored relative to the shell, which is why doors
+> sat inside walls and coworkers hung over holes. The claim that "Godot's importer
+> and Unity's agree numerically on these files" was the mistake: they agree on Y
+> and Z and disagree on X. Only Z had actually been measured.
+
+Positions transfer **conjugated by `M = diag(-1, 1, 1)`**: X negates, Y and Z do
+not. Rotation quaternions go `(x, y, z, w) → (x, −y, −z, w)`, which is `M R M`.
+Scales and box sizes are untouched, since `M S M = S` for diagonal `S`, so props
+keep the handedness Unity gave them and mirrored props stay mirrored.
+
+Applied in exactly one place, `tools/unity_space.py`, called by all three
+extractors, so no generator carries mirror logic of its own. Do not apply it
+twice. `tools/generate_table_pcs_scene.py` is the exception and conjugates its own
+numbers, because those are prefab-local and never pass through the extractors.
+
+**Z is unchanged, and that part was measured correctly.** The last Trigger Zone is
+at Unity z = −101.14 and must lie inside the level; Godot's imported `nivel` spans
+z ∈ [−110.4, +75.9]. Unchanged puts it inside, negated puts it outside the
+geometry altogether. `tools/check_mirror.gd` re-tests this against independent
+evidence and agrees: negating Z makes everything much worse.
+
+**Why X is different, and how it was caught.** Two independent proofs:
+
+- **Local, exact.** `tablePcs` flattens `table.fbx` into its prefab root, so Unity
+  stores the table's five planes as plain children. Their positions are Godot's
+  imported positions with X negated, to five decimals on all five, Z identical
+  throughout. `book.fbx`'s two children agree the same way.
+- **Global, statistical.** `tools/check_mirror.gd` probes all 173 placed nodes in
+  the built level for a surface beneath them and for contact with geometry, under
+  all four axis conventions. The models were already mirrored by the importer while
+  the placements were not, so the two disagreed:
+
+  | convention | <0.1 m | <0.5 m | <2 m | <10 m | nothing | contact |
+  |---|---|---|---|---|---|---|
+  | as placed (before) | 13 | 1 | 7 | 34 | **118** | 21 |
+  | −x | 19 | 21 | 13 | 64 | **56** | 67 |
+  | −z | 1 | 0 | 5 | 33 | 134 | 5 |
+  | −x −z | 1 | 3 | 2 | 31 | 136 | 10 |
+
+Two pre-existing tools corroborate the fix independently. `verify_coworkers.gd`
+went from 64 of 74 coworkers with nothing beneath them to **24**, and
+`verify_level_placement.gd` went from 2 of 3 landmarks supported to **3 of 3**.
+
+Since Godot's handedness differs from Unity's, a consistently conjugated scene
+renders the way Unity's did — the fix is not "the level is mirrored now", it is
+"the level and its models finally agree".
 
 **Rotations are the exception.** A Unity directional light shines along +Z while
 Godot's shines along −Z, so its basis needs its X and Z columns negated — a 180°
@@ -95,6 +137,11 @@ arrives through prefab instances.
 | 5 | `Models/table.fbx` | tables |
 | 4 | `tablePcs` | desk + PCs |
 | 2 each | `Models/pc.fbx`, `Models/pc2.fbx`, `Trigger Zone`, `coworkers_group 1` | |
+
+`tablePcs` is not one model but four on one node — a `table`, a `pc`, a `pc2` and a
+`book`, 11 meshes in all — with the table flattened into the prefab root as
+`pPlane23`–`pPlane27`. Counting it as a single prop is what let the static-props
+pass skip it.
 | 1 each | `nivel.fbx`, `nivel_p2.fbx`, `meta.fbx`, `cake.fbx`, `cable.fbx`, `interruptor.fbx`, `piezaParede.fbx`, `Fortunato`, `Yelena`, `UI`, `InputManager`, `CheckPointZone`, `Timer Zone`, `puertaInicio`, `coworkers_group3`, `particleSys_conffeti` | |
 
 `nivel.fbx` + `nivel_p2.fbx` are the level shell. `Yelena` is the **disabled**
@@ -253,14 +300,19 @@ Rotation is *not* emitted: `YBillboardFollow` overwrote it every frame, so what 
 artists authored never reached the screen, and re-emitting it would only tilt the
 coworkers whose basis carried pitch.
 
-Most coworkers have nothing beneath them — only 10 of 74 have any collision
-geometry below, and enabling `backface_collision` on all 53 trimeshes changes
-that by one. They are background figures standing in open space or behind the
-outer wall around x = -60, seen through the transparent windows. What corroborates
-the placement instead is precision: three land at a gap of exactly 0.0000 m on
-floor planes and three more at 0.0453 m, and direct instances ground at the same
-rate as group children — which is what ruled out the group composition when the
-first raycast pass looked alarming. `tools/verify_coworkers.gd` reports the
+> **Correction.** This said "only 10 of 74 have any collision geometry below" and
+> explained it away as background figures in open space. The real cause was the
+> unconjugated X: the coworkers were mirrored relative to the shell. After the fix
+> **50 of 74 stand over geometry** and only 24 do not. The alarming raycast pass was
+> right; the explanation was wrong. Treat "most of them have nothing beneath them"
+> as a symptom to chase, not a property to rationalise.
+
+Twenty-four coworkers still have nothing beneath them. Those are the background
+figures standing in open space or behind the outer wall, seen through the
+transparent windows. What corroborates the placement beyond the raycast count is
+precision: coworkers land on floor planes at gaps of exactly 0.0000 m, and direct
+instances ground at the same rate as group children — which is what ruled out the
+group composition as the culprit. `tools/verify_coworkers.gd` reports the
 distribution rather than scoring it, for exactly that reason.
 
 The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of WAV to 197 KB of
@@ -439,9 +491,17 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 2. ~~**Level shell**~~ — **done**. `scenes/level.tscn` holds both halves with
    trimesh collision on all 53 meshes and 73 per-surface materials applied from
    `models/level/level_materials.json`. The player is not in it yet.
-3. **Static props** — chairs, doors, tables, PCs. Bulk instancing, low risk.
-   Remember these are the `globalScale: 1` group: import them at `root_scale = 1`,
+3. ~~**Static props**~~ — **done**. `scenes/props.tscn` places 61 instances across
+   9 entries. These are the `globalScale: 1` group: imported at `root_scale = 1`,
    not 100.
+
+   The first pass missed the four `tablePcs` desk clusters, because the
+   generator's `STATIC` set listed only `.fbx` models and `tablePcs` is a prefab
+   assembling four of them. They are in now, as `scenes/table_pcs.tscn` from
+   `tools/generate_table_pcs_scene.py`, which also required vendoring
+   `book.fbx`. Read the two "Risks" entries on per-instance collision and the
+   `diag(-1, 1, 1)` importer mirror before touching them — neither is guessable
+   from the scene.
 4. ~~**Platforms**~~ — **done**. `scenes/platforms.tscn` places all 26 from
    `scenes/moving_platform.tscn` and `scenes/falling_platform.tscn`.
    `ParentPlayer` was not needed. See "Platforms" below.
@@ -495,6 +555,64 @@ behavioural work is.
   models therefore carry an inert `AnimationPlayer` into every instance. Harmless,
   but it means an unused clip is visible on 26 nodes, and it cannot be turned off
   from the `.import` file.
+- **Prop collision is per-instance, not per-model, so `addColliders: 0` is a lie
+  and `.import` physics is usually the wrong tool.** Every prop `.fbx.meta` has
+  `addColliders: 0`, which makes it look like the props carry no collision at all.
+  They do: the colliders are `MeshCollider` components added to *instances* in
+  `nivelEscena.unity`, hanging off stripped prefab GameObjects that reference the
+  model only through `m_Mesh`. All 60 are `m_Convex: 0`, `m_IsTrigger: 0` — concave
+  trimesh, solid. Attribute them by walking each collider's GameObject up to its
+  owning prefab instance, **not** by counting them per asset: per asset it reads as
+  "`table` 5, `pc` 2, `pc2` 2, `book` 2", which invites the wrong fix. Per instance
+  it is one thing — **a single `tablePcs` cluster**, the desk beside the player's
+  spawn, carrying 11 real colliders (5 table planes, 2 per pc, 2 per pc2, 2 book)
+  plus 3 inert `MeshCollider`s with no mesh assigned on the `pc`/`pc2`/`book`
+  parents. The other three `tablePcs` clusters and every standalone `table`, `pc`
+  and `pc2` instance are walk-through, as are all 24 `silla` and all 21 `puerta`.
+  So generating physics in `table.fbx.import` would wrongly solidify nine props.
+  Two fixes, chosen by instance count:
+  - `piezaParede` has exactly one instance, so its `.import` generates a static
+    trimesh body per sub-mesh (`pCube1`–`pCube6`, `pCube21`). Seven
+    `_subresources` entries beat a script.
+  - `tablePcs` has four instances that disagree, so the cluster root carries
+    `PropCollision.cs`, off by default, and `props.tscn` sets
+    `GenerateCollision` on the one instance Unity made solid. `SOLID_CLUSTERS` in
+    `generate_props_scene.py` keys it by world position and the generator exits
+    non-zero if it stops matching.
+
+  Still unported, both under "Ending and UI": the 5 colliders on Unity's built-in
+  cube mesh belong to the **tutorial key props** (`WASD`, `WASD (1)`, `Spacebar`,
+  `Shift`, `Tutorial`), and `meta` (2) and `cake` (1) come with those models.
+- **The two importers disagree by a mirror on X, per model.** Unity's `tablePcs`
+  flattens `table.fbx`, so the prefab holds `pPlane23`–`pPlane27` as direct
+  children — and their positions are Godot's imported positions with X negated, to
+  five decimals on all five planes, with Z identical throughout. `book.fbx`'s two
+  children agree the same way. So each model's local space differs between the
+  engines by exactly `M = diag(-1, 1, 1)`, and a Unity child transform has to be
+  **conjugated, not copied**: `R = M R_u M` (a Y rotation by θ becomes −θ) and
+  `p = M p_u`. Copying Unity's numbers straight across mirrors the layout — the
+  book lands at +0.542 on a table top spanning [−0.888, +0.667] instead of −0.542,
+  and the monitors swap sides. Two consequences: the cluster's table needs **no**
+  transform at all, since Godot's `table.fbx` already holds the planes where the
+  conjugation puts them; and a model with its own internal chain needs
+  `R = M R_u M A⁻¹`, `p = M p_u − R A d`. Only `book.fbx` does: Godot puts a
+  −12.521363° Y rotation on an intermediate `libro` node Unity has no node for, and
+  Unity's `book` origin sits 0.064442 above `libro`'s. `tools/verify_table_pcs.gd`
+  re-derives all of it from the raw prefab numbers and pins both constants, so a
+  reimport that changes either fails instead of sliding the book off the desk.
+  **Resolved, and it was level-wide.** The mirror applies to `nivel`/`nivel_p2`
+  too, so props placed at unmirrored Unity X sat mirrored relative to the shell and
+  the whole level was wrong — doors inside walls, coworkers over holes. Fixed by
+  conjugating every placement; see "Unity → Godot placement convention" above for
+  the evidence and `tools/unity_space.py` for the one place it is applied. The
+  `globalScale` groups had nothing to do with it: the mirror is uniform across
+  every model in the project.
+
+  Three things did **not** come from the extractors and were conjugated by hand in
+  `scenes/level.tscn`: the `Sun`'s basis, the `PointLight`'s X, and the `Shell`'s
+  `Obstaculos` offset (−0.2 → +0.2). `ShellP2` and the player start are at X = 0,
+  so the conjugation leaves them alone. Anything hand-authored in a scene is
+  outside `unity_space.py`'s reach — check for it when adding placements.
 - **Two UnityEvent-heavy structures hide from naive greps.** Prefab-instance
   overrides store method names and active flags as `propertyPath`/`value` pairs,
   not as `m_MethodName:` or `m_IsActive:` fields. This already caused one wrong

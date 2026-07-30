@@ -1,6 +1,11 @@
 import re, os, json, sys
 from collections import Counter
 
+# Positions and rotations come out of here in GODOT space, not Unity's: the two
+# importers' local spaces differ by diag(-1, 1, 1), so placements have to be
+# conjugated to match the models. See tools/unity_space.py for the proof.
+from unity_space import to_godot
+
 def guid_map():
     g={}
     for root,_,files in os.walk('.'):
@@ -119,4 +124,4 @@ for iid,inst in instances.items():
 c=Counter(o['prefab'] for o in out)
 for k,v in c.most_common(): print("  %-26s %d"%(k,v), file=sys.stderr)
 print("  TOTAL %d instances"%len(out), file=sys.stderr)
-json.dump(out, open(os.environ['SP']+'/props.json','w'), indent=1)
+json.dump(to_godot(out), open(os.environ['SP']+'/props.json','w'), indent=1)
