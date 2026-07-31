@@ -60,6 +60,16 @@ var level: Node
 var checks := 0
 var failures := 0
 
+## Checks that actually reported a verdict. A check counts itself in `checks` when it starts and
+## in `reported` only when it calls _ok or _fail, so a check that dies partway through - a script
+## error, a null from an unbuilt C# node - leaves the two disagreeing and the run fails.
+##
+## This exists because it happened: reading PeakVolumeDb off a C# emitter with no assembly built
+## returned null, float(null) aborted _check_no_source_clips mid-way, and the suite still printed
+## "PASS: 9 checks" because the check had already counted itself. A check that cannot fail is
+## worse than a missing one, since it reports safety it never established.
+var reported := 0
+
 
 func _process(_delta: float) -> bool:
 	frame += 1
@@ -79,6 +89,12 @@ func _process(_delta: float) -> bool:
 	_check_master_limiter()
 
 	print("")
+	if reported < checks:
+		print("  FAIL  %d of %d checks never reported a verdict - one aborted partway through." % [
+			checks - reported, checks] + " Look for a SCRIPT ERROR above; if it names a C# property," +
+			" the assembly is not built: dotnet build TheFirstDay.sln")
+		failures += checks - reported
+
 	if failures == 0:
 		print("PASS: %d checks" % checks)
 	else:
@@ -277,9 +293,14 @@ func _check_no_source_clips() -> void:
 	var whispers := level.get_node_or_null("Whispers")
 	if whispers != null and levels.has("audio/susurro_loko.ogg"):
 		var one := whispers.get_child(0) as AudioStreamPlayer3D
+		if one == null:
+			_fail("Whispers has no AudioStreamPlayer3D child, so the whisper peak cannot be budgeted")
+			return
 		# PeakVolumeDb, i.e. what the emitters reach at full death constant, plus the measured
 		# worst-case summing of all 13 at the loudest point on the route.
-		var peak_volume := float(one.get("PeakVolumeDb"))
+		var peak_volume := _number(one, "PeakVolumeDb")
+		if is_nan(peak_volume):
+			return
 		peaks["whispers"] = float((levels["audio/susurro_loko.ogg"] as Dictionary)["true_peak_db"]) \
 			+ peak_volume + _bus_db(one.bus) + WHISPER_SUM_GAIN_DB
 
@@ -338,10 +359,32 @@ func _players_3d(n: Node) -> Array[AudioStreamPlayer3D]:
 	return out
 
 
+## Reads a numeric property off a node, failing the check rather than throwing when it is not
+## there. Returns NAN on failure, which every caller must test for.
+##
+## The case this exists for: a C# node whose script did not instantiate - no bin/, i.e. nobody ran
+## dotnet build - answers get() with null for every exported property. float(null) is not a
+## conversion but a script error, so the check died silently and the run passed. Anything reading a
+## C# property out of a scene has to survive an unbuilt assembly by SAYING SO.
+func _number(node: Node, property: String) -> float:
+	var value: Variant = node.get(property)
+	if value == null:
+		_fail(("%s has no readable '%s'. If it is a C# node the assembly is probably not built" +
+			" (dotnet build TheFirstDay.sln); if it is not, the property was renamed and this" +
+			" check is measuring nothing.") % [node.name, property])
+		return NAN
+	if not (value is float or value is int):
+		_fail("%s.%s is %s, not a number, so it cannot be budgeted" % [node.name, property, type_string(typeof(value))])
+		return NAN
+	return float(value)
+
+
 func _ok(m: String) -> void:
+	reported += 1
 	print("  ok    ", m)
 
 
 func _fail(m: String) -> void:
 	failures += 1
+	reported += 1
 	print("  FAIL  ", m)
