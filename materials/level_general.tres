@@ -1,12 +1,5 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-; Replaces mat_general, the level's main opaque surface (27 references in
-; nivelEscena). Values from
-; ../the-first-day-unity/Assets/Prefabs/Level Construction/Models/mat_general.mat.
-;
-; The material also stored a _Cutoff of 0.5, which shader_general does not
-; declare, so it is dropped.
-
 [ext_resource type="Shader" path="res://shaders/level_lit.gdshader" id="1_shader"]
 
 [resource]

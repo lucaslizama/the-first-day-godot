@@ -1,11 +1,5 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
-; Ported from MAT_Platic.mat, which used Unity's Standard shader (metallic workflow).
-; Roughness is 1 - _Glossiness. Unity ran in Gamma colour space while Godot is
-; linear, so this matches the albedo exactly but the shading response only
-; approximately - unlike the hand-written shaders, Standard is a full PBR model
-; and reproducing it term-by-term is not worth it for prop surfaces.
-
 [resource]
 resource_name = "MAT_Platic"
 albedo_color = Color(0.90322727, 0.90322727, 0.90322727, 1.0)

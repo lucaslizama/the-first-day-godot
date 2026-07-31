@@ -1,40 +1,8 @@
 [gd_scene load_steps=5 format=3]
 
-; puertaInicio, the door at the level's entrance: a leaf (`puertita`) in a frame
-; (`marquito`) that swings open once when anything enters its trigger. See Door.cs for
-; the script and the animator it replaces.
-;
-; The root carries no transform. props.tscn places this at the world transform the
-; extractor produced, which already includes the prefab root's own 0.5511577 scale -
-; applying it again here would shrink the door twice. The trigger box below is therefore
-; in the unscaled local space, exactly as Unity's BoxCollider was, and the instance's
-; scale brings it to size.
-;
-; The FBX's own internal layout is used as-is, NOT the prefab's stored child transforms.
-; `puertita` agrees between them under the usual X negation - Godot (0.65450, 2.02803,
-; -0.06647) against Unity (-0.6545012, 2.0280325, -0.06647095) - but `marquito` does not,
-; and measuring settles it: with the FBX's transform the frame centres on the leaf at
-; x = -0.081 against the leaf's -0.079 and encloses it, while the prefab's value
-; conjugated puts the frame 0.5 to 0.8 m adrift in three axes. So the prefab's stored
-; marquito transform is not the arrangement the game shipped. Do not "restore" it.
-
 [ext_resource type="PackedScene" path="res://models/props/puertaInicio.fbx" id="1_model"]
 [ext_resource type="Script" path="res://scripts/Gameplay/Door.cs" id="2_door"]
 
-; Port of puertaAbrir.anim: 11 keys at 30 fps over 0.3333 s, rotating the leaf about Y
-; and nothing else - its position and scale curves are constant. Hand-keyed on threes, so
-; values repeat and then jump; linear interpolation between them reproduces that.
-;
-; Unity's angles are 0, 10.63, 53.16, 95.69 and 106.32 degrees. The quaternions here are
-; those with the y component negated, which is the diag(-1, 1, 1) conjugation of a Y
-; rotation - the same mirror every placement in this port uses, applied to a rotation
-; rather than a position. That sets which way the leaf swings; if it ever opens into the
-; wall, negating y back is the whole fix.
-;
-; Godot's ROTATION_TRACK_SIZE is 6, so each key is time, transition, x, y, z, w - six
-; floats, not five. Writing five silently fails the whole track with
-; "vcount % ROTATION_TRACK_SIZE", the animation loads with no keys, and the door opens
-; without moving.
 [sub_resource type="Animation" id="Animation_open"]
 resource_name = "puertaAbrir"
 length = 0.33333334
@@ -52,8 +20,6 @@ _data = {
 &"puertaAbrir": SubResource("Animation_open")
 }
 
-; Unity's scene-added BoxCollider: size 2 x 3.97 x 1, centre (0, 2, -0.24), isTrigger 1.
-; The centre is a local offset, so the X negation leaves it alone at 0.
 [sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
 size = Vector3(2, 3.97, 1)
 
@@ -69,9 +35,6 @@ libraries = {
 &"": SubResource("AnimationLibrary_door")
 }
 
-; monitorable off: nothing queries the door, it only watches. Unity's trigger sat on the
-; root, so this matches its placement rather than being parented to the leaf - the volume
-; must not swing away with the door.
 [node name="Trigger" type="Area3D" parent="."]
 monitorable = false
 

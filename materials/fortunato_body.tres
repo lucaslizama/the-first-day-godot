@@ -1,12 +1,5 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-; Replaces MAT_Kuro. Values taken from
-; ../the-first-day-unity/Assets/Materials/MAT_Kuro.mat, which drove
-; Custom/shader_personaje. The material also stored _Metallic, _OutlineColor,
-; _Glossiness, _EmissionColor, _node_2018 and _node_2018_copy; all are orphaned
-; Shader Forge and Standard-shader debris that shader_personaje never declared,
-; so none of them are carried over.
-
 [ext_resource type="Shader" path="res://shaders/character_lit.gdshader" id="1_shader"]
 
 [resource]

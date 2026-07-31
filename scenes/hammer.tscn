@@ -1,31 +1,8 @@
 [gd_scene load_steps=6 format=3]
 
-; Port of martillo_prefab, the swinging hammer - 5 instances in nivelEscena.
-;
-; Unity's structure was:
-;
-;   martillo_prefab (Animator: martillo_controller -> martillo_anim)
-;   +-- martillo (local (0, 8, 0), mesh + two BoxColliders, rotation animated)
-;
-; So the pivot is 8 m above the instance origin and the 7 m hammer hangs below it,
-; swinging from -80 to +80 degrees about Z and back over 2.6333 s. The head is the
-; bottom 2 m.
-;
-; Note what is NOT here: no trigger, no damage, no script. Both of Unity's colliders
-; are solid, so the hammer does not hurt the player - it shoves them, and the fall
-; into the CheckPointZone kill volume is what kills. That is why this hazard needs no
-; health system to be faithful, and it is why the arm has to be an AnimatableBody3D
-; with sync_to_physics: that is what gives a moving body the velocity that pushes a
-; CharacterBody3D, the same mechanism the platforms use to carry the player.
-;
-; Its one surface is mat_generalTransparencia, like the platform columns, so the
-; hammer wobbles and fades along its vertex-red gradient rather than being solid.
-
 [ext_resource type="PackedScene" path="res://models/props/martillo.fbx" id="1_model"]
 [ext_resource type="Animation" path="res://models/props/hammer_swing.tres" id="2_swing"]
 
-; Unity's two BoxColliders on the animated node: the 7 m shaft, and the head at the
-; bottom. Sizes and centres are Unity's, unchanged.
 [sub_resource type="BoxShape3D" id="BoxShape3D_shaft"]
 size = Vector3(2, 7.0000005, 2)
 
@@ -39,30 +16,10 @@ _data = {
 
 [node name="Hammer" type="Node3D"]
 
-; The pivot. 8 m up, because that is where Unity's animated node sat, and the
-; rotation is applied at that node's origin with the geometry hanging below it.
 [node name="Arm" type="AnimatableBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
 sync_to_physics = true
 
-; Cancels the FBX's baked rest pose ENTIRELY, so `Arm` alone orients the hammer. This
-; used to be just Transform3D(..., 0, -8, 0), undoing the mesh node's 8 m offset and
-; nothing else - but that node also carries a baked -79.6898 degree rotation about Z,
-; which is Unity's rest pose for the animated `martillo` node (m_LocalRotation z =
-; -0.64278764, exactly -80 degrees).
-;
-; The swing animation drives Arm with ABSOLUTE angles, -80 to +80, straight from Unity's
-; clip. With the rest rotation still baked into the mesh, the mesh got the animated angle
-; PLUS -79.69 while the colliders got the animated angle alone, so the visible hammer sat
-; about 80 degrees away from the thing that actually hits you. That reads as "the
-; collision is out of sync with the animation", and it is not a timing problem at all -
-; the physics transform tracks the node exactly, measured at 0.0000 m over 90 ticks by
-; tools/measure_hammer_sync.gd.
-;
-; So this is the exact inverse of the mesh node's own local transform, which leaves the
-; mesh neutral in Arm space. Do not simplify it back to a plain -8 on Y.
-; tools/verify_hammer.gd pins the baked value, so a reimport that changes it fails rather
-; than silently desyncing again.
 [node name="Model" parent="Arm" instance=ExtResource("1_model")]
 transform = Transform3D(0.178977, -0.983853, 0, 0.983853, 0.178977, 0, 0, 0, 1, 7.870825, -1.431817, 0)
 
@@ -74,8 +31,6 @@ shape = SubResource("BoxShape3D_shaft")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6, 0)
 shape = SubResource("BoxShape3D_head")
 
-; Physics callback mode, as with the platforms: sync_to_physics only reports a
-; velocity for a transform updated inside the physics step.
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries/ = SubResource("AnimationLibrary_hammer")
 autoplay = "swing"

@@ -1,15 +1,5 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-; Replaces mat_generalTransparencia, the most-used material in the level (57
-; references in nivelEscena). Values from
-; ../the-first-day-unity/Assets/Prefabs/Level Construction/Models/mat_generalTransparencia.mat.
-;
-; wobble_amplitude is not a material property in Unity - it is a literal inside
-; the Shader Forge graph - and is set here only to make the value visible.
-;
-; Requires meshes with vertex colours: alpha is 1 - red, so a mesh without them
-; reads as white and becomes fully transparent. See level_fade.gdshader.
-
 [ext_resource type="Shader" path="res://shaders/level_fade.gdshader" id="1_shader"]
 
 [resource]

@@ -80,16 +80,11 @@ func _init() -> void:
 	var dry := "--dry" in OS.get_cmdline_user_args()
 	var table: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TABLE))
 
+	# BEGIN and END are the ONLY comments this tool writes, and they are not documentation: the
+	# region is found by them on the next run (see _write), so they are this file's syntax. The
+	# prose that used to follow BEGIN is gone - comments in a .tscn do not survive an editor save,
+	# which is the same asymmetry that eats the overrides themselves. See CLAUDE.md.
 	lines.append(BEGIN)
-	lines.append(";")
-	lines.append("; Unity assigned these per renderer-slot; see the header of the generator for why they")
-	lines.append("; live in the scene rather than in a script. Regenerate with:")
-	lines.append(";")
-	lines.append(";     godot-mono --headless --path . --script tools/generate_shell_overrides.gd")
-	lines.append(";")
-	lines.append("; Do not edit by hand - tools/verify_level_shells.gd checks every entry against")
-	lines.append("; models/level/level_materials.json, which tools/extract_level_materials.py derives")
-	lines.append("; from nivelEscena.")
 
 	for shell in SHELLS:
 		_emit_shell(shell, table)
@@ -142,8 +137,9 @@ func _emit_shell(shell: Dictionary, table: Dictionary) -> void:
 	var section: Dictionary = table[key]
 	var transforms: Dictionary = TRANSFORMS.get(key, {})
 
-	lines.append("")
-	lines.append("; ---- %s, under %s ----" % [key, shell["node"]])
+	# No blank line here: the per-mesh loop below already opens each node block with one. This used
+	# to separate the "---- <model> ----" header that is no longer written, and leaving it emitted a
+	# double blank at the top of each shell.
 
 	var seen := {}
 	for mesh in _meshes(root):
@@ -161,11 +157,12 @@ func _emit_shell(shell: Dictionary, table: Dictionary) -> void:
 
 		lines.append("")
 		var t: Dictionary = transforms.get(name, {})
-		if not t.is_empty():
-			lines.append("; %s" % t["note"])
 		lines.append('[node name="%s" parent="%s" index="%d"]' % [
 			name, full, mesh.get_index()])
 		if not t.is_empty():
+			# The "note" explaining where this transform came from is NOT written into the scene
+			# any more; it is printed below and kept in TRANSFORMS above, which is source.
+			print("  moved: %s - %s" % [name, t["note"]])
 			lines.append("transform = %s" % t["value"])
 
 		var slots: Dictionary = section[name]

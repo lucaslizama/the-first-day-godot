@@ -1,53 +1,10 @@
 [gd_scene load_steps=5 format=3]
 
-; Port of plataforma_prefab, the sliding platform - 18 instances in nivelEscena.
-;
-; Unity's structure was:
-;
-;   plataforma_prefab (Animator: plataforma_controller -> plataforma_anim)
-;   +-- plataforma (mesh + non-convex MeshCollider), local x = -5
-;       +-- collider (BoxCollider trigger 1.96 x 0.41 x 2.03, ParentPlayer)
-;
-; Three deliberate substitutions, each explained below: the Animator becomes an
-; AnimationPlayer, the MeshCollider becomes a box, and ParentPlayer disappears.
-;
-; ParentPlayer reparented the player under the platform on trigger enter and
-; unparented it on exit, which is how Unity's CharacterController was carried
-; along. Godot does this in the engine: an AnimatableBody3D with sync_to_physics
-; reports its own velocity, and CharacterBody3D.move_and_slide adds that to the
-; body standing on it. So the trigger volume and the script both drop out, the
-; same way YBillboardFollow becomes a property rather than a script. Nothing is
-; lost: reparenting was the mechanism, not the intent.
-
 [ext_resource type="PackedScene" uid="uid://b8prsg88uuit5" path="res://models/props/plataforma.fbx" id="1_model"]
 
-; Unity put a non-convex MeshCollider on the mesh, which for this model is a box
-; and nothing else - 8 vertices, axis aligned, 2 x 20 x 2 with its top face at
-; y = 0. A BoxShape3D is therefore the same collision surface exactly, not an
-; approximation, and it avoids putting a concave trimesh on a moving body.
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
 size = Vector3(2, 20, 2)
 
-; plataforma_anim, reproduced key for key. Unity's clip is six Hermite keys on
-; the child's localPosition.x, looping, 6.633333 s long, sliding -5 -> +5 -> -5.
-;
-; Hermite converts to cubic Bezier exactly, so this is not a re-authoring: for
-; each key the handles are (+-dt/3, +-dt/3 * slope) using the neighbouring
-; interval, which places the Bezier control points on the Hermite tangents. The
-; sampled result stays within [-5, 5] with no overshoot.
-;
-; The two keys 0.067 s apart near t = 5 are redundant samples on a straight
-; section, an artifact of how the clip was edited in Unity. They are kept so the
-; curve is identical rather than merely equivalent.
-;
-; The FBX ships its own "Take 001" - the artist's Maya original - which this port
-; does not use, matching Unity: the prefab's Animator pointed at the .anim asset
-; and the importer was configured with no clips. It is worth knowing that the
-; take independently agrees on both amplitude (+-5 m after the x100 import) and
-; period (6.633 s); it differs only in starting phase, beginning at +5 where the
-; shipped clip begins at -5. The take cannot be excluded from the import -
-; animation/import=false is ignored by the FBX importer in 4.7 - so each instance
-; carries an inert AnimationPlayer from the model. Nothing plays it.
 [sub_resource type="Animation" id="Animation_slide"]
 resource_name = "slide"
 length = 6.633333
@@ -70,8 +27,6 @@ _data = {
 
 [node name="MovingPlatform" type="Node3D"]
 
-; x = -5 is the prefab's authored rest pose and the clip's value at t = 0, so the
-; platform sits where Unity had it even with the animation stopped.
 [node name="Body" type="AnimatableBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 0)
 sync_to_physics = true
@@ -80,16 +35,9 @@ sync_to_physics = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0)
 shape = SubResource("BoxShape3D_body")
 
-; The FBX's own mesh node sits at x = +5 - the artist's animation start - so the
-; instance is pulled back by 5 to put the geometry on Body's origin. Unity did
-; the same thing by overriding that node's localPosition to -5 outright; here the
-; offset has to be cancelled instead, because the animation drives Body rather
-; than the imported node.
 [node name="Model" parent="Body" instance=ExtResource("1_model")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 0)
 
-; Physics callback mode, not the idle default: sync_to_physics only reports a
-; velocity if the transform is updated inside the physics step.
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries/ = SubResource("AnimationLibrary_platform")
 autoplay = "slide"

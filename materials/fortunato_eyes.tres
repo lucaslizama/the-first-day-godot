@@ -1,12 +1,5 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-; Replaces MAT_Ojos on GEO_L_Eye and GEO_R_Eye. Values taken from
-; ../the-first-day-unity/Assets/Materials/MAT_Ojos.mat, which drove
-; Custom/shader_ojos.
-;
-; The material also stored a white _Color and a _Specular, but shader_ojos
-; declares neither - its only property is _Emision - so they are dropped.
-
 [ext_resource type="Shader" path="res://shaders/character_eyes.gdshader" id="1_shader"]
 
 [resource]

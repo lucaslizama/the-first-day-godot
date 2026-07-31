@@ -1,11 +1,5 @@
 [gd_scene load_steps=3 format=3]
 
-; Port of Prefabs/Coworkers/Mono 2/mono2_prefab.prefab - 29 of the level's 74
-; coworkers. Identical in structure to coworker_mono1.tscn, which carries the full
-; explanation, including why offset puts the origin at the feet; only the atlas
-; differs. mono2's clip is 70 frames to mono1's 81, so
-; the two never fall into step even where the random phases happen to coincide.
-
 [ext_resource type="SpriteFrames" path="res://textures/coworkers/mono2_frames.tres" id="1_frames"]
 [ext_resource type="Script" path="res://scripts/Gameplay/CoworkerSprite.cs" id="2_script"]
 

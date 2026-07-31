@@ -1884,3 +1884,98 @@ three checks.
 > 14 for `nivel_p2`. The Model-order guess fails this check, which is what exposed it.
 > `tools/extract_level_materials.py` regenerates the table; it had no generator in the
 > repo before, so it could not be re-derived or audited at all.
+
+## Scene and resource settings, migrated out of the files
+
+These facts used to live as `;` comments inside the `.tscn` and `.tres` files they described.
+They are here because **comments in Godot resource files do not survive**: an editor save or any
+`ResourceSaver.save()` strips every one of them, silently. That happened to
+`default_bus_layout.tres` and three times to `level.tscn`. See `CLAUDE.md` for the rule.
+
+Nothing below is a new decision — it is the reasoning that was already in the files, moved
+somewhere it will still be readable next year.
+
+### The prop materials are Standard-shader ports, done approximately on purpose
+
+Sixteen materials in `materials/props/` (`lambert1`–`lambert8`, `blinn2`, `blinn3`, `MAT_Barras`,
+`MAT_Cartel`, `MAT_Chocolate`, `MAT_Liston`, `MAT_Platic`, `MAT_Screen`) came from Unity's
+**Standard shader, metallic workflow**, and are plain `StandardMaterial3D` here. Two rules cover
+all of them:
+
+- **`roughness = 1 − _Glossiness`.** That is the whole conversion.
+- **Albedo matches exactly; the shading response only approximately.** Unity ran in **gamma**
+  colour space and Godot is **linear**. Reproducing Standard term-by-term — as was done for the
+  hand-written shaders on the character and the level — is not worth it for prop surfaces, and
+  that is a deliberate limit on the fidelity, not an oversight.
+
+**Orphaned Unity properties are dropped throughout**, and the rule for deciding is "does the
+shader *declare* it": `mat_general` stored a `_Cutoff` of 0.5 that `shader_general` never
+declared; `MAT_Kuro` stored `_Metallic`, `_OutlineColor`, `_Glossiness`, `_EmissionColor`,
+`_node_2018` and `_node_2018_copy`, all Shader Forge and Standard debris that
+`shader_personaje` never declared; `MAT_Ojos` stored a white `_Color` and a `_Specular` where
+`shader_ojos`'s only property is `_Emision`. A stored value a shader cannot read is not data.
+
+### The hand-written-shader materials
+
+| material | what to know |
+|---|---|
+| `level_transparent.tres` | **Requires meshes with vertex colours.** `ALPHA = 1 − red`, so a mesh without them reads white and goes fully transparent. `wobble_amplitude` is a literal inside the Shader Forge graph, not a Unity material property; it is exposed here only to make the value visible. |
+| `level_general.tres` | `mat_general`, the level's main opaque surface, 27 references. |
+| `cake.tres` | **Every value is a graph literal, not a material property** — `shader_torta` declares no Properties at all. `mat_torta`'s stored `_Color` (white) and `_speed` (2) were ignored by Unity and are not carried over. That `_speed` and the graph's sine rate are both 2 is a coincidence. |
+| `fortunato_tie.tres` | Shares `character_lit.gdshader` with the body: `shader_corbata` is `shader_personaje` without the light-wrapping term and with diffuse power 1.0, so a **black `light_wrap_color`** zeroes the wrap and `diffuse_power = 1.0` restores plain Lambert falloff. `MAT_Bluish` declared no `_LightWrappingColor` of its own. |
+| `sky_fernandito.tres` | Tint `(0.5, 0.5, 0.5, 0.5)` and exposure 1 are the Unity shader's **neutral** values (0.5 grey is its no-op tint), rotation 0, so nothing is colour-corrected. This is the sky's *appearance* only — ambient light stays the flat colour Unity specified. |
+
+### The coworker atlases are deliberately uncompressed, with mipmaps
+
+`textures/coworkers/mono{1,2}_frames.tres` are imported **lossless with mipmaps**, and both
+halves of that are choices:
+
+- **Godot's `detect_3d` would flip them to VRAM compression automatically**, which is the wrong
+  trade here. Block compression puts visible artifacts on hard-edged silhouette alpha, and the
+  whole cast is 175 KB — there is nothing to save.
+- **The mipmaps that conversion also enables are worth keeping.** Most coworkers are seen at a
+  distance, where an unmipmapped 128 px frame aliases badly.
+
+Sprite settings are left at their defaults — unshaded, alpha blended, no alpha cut — which is
+what Unity's sprite material did. **If overlapping coworkers ever sort badly, `alpha_cut` is the
+lever**, but the original had the same sorting to contend with.
+
+### The falling platforms tile into a collapsing walkway
+
+Eight instances, each 2 m deep, placed 2 m apart so they meet edge to edge: a **run of 3 from
+z = −43.97 to −49.97**, then a **run of 5 from z = −51.97 to −61.97**. The one missing tile, at
+**z = −50.97, leaves a 2 m gap to jump**. Measured — see `tools/platform_report.gd`.
+
+**The trigger is a thin strip, not the whole top face**: 2.01 wide but only 0.46 deep, so it
+fires as the player crosses the *middle* of the platform rather than the instant they touch the
+near edge. Sizes and offset are Unity's, with the trigger node's own `(0, 0.098, −0.015)` folded
+into the collider's `(0, 0.09, 0)`.
+
+### The moving platform's two offsets
+
+- **`x = −5` on `Body` is the prefab's authored rest pose** and the clip's value at t = 0, so the
+  platform sits where Unity had it even with the animation stopped.
+- **The FBX's own mesh node sits at `x = +5`** — the artist's animation start — so the instance is
+  pulled back by 5 to put the geometry on `Body`'s origin. Unity did the same thing by overriding
+  that node's `localPosition` to −5 outright; here the offset has to be *cancelled* instead,
+  because the animation drives `Body` rather than the imported node.
+- **The two keys 0.067 s apart near t = 5 are redundant samples** on a straight section, an
+  artifact of how the clip was edited in Unity. They are kept so the curve is identical rather
+  than merely equivalent.
+
+### Two whisper-scene nuances
+
+- **The `unit_size` and `volume_db` stored in `whisper.tscn` are the no-deaths values.**
+  `WhisperEmitter` overwrites both at `_Ready` and on every change, so the stored numbers exist
+  only so the scene is not misleading when opened on its own.
+- **The emitters are routed to the `Coworkers` bus even though its snapshot level is 0 dB**, so a
+  later change to that group's level reaches them without anyone having to remember they were the
+  exception.
+
+### `polySurface17`'s rotation override
+
+Recorded here because it is a measurement, and it lives on in `tools/generate_shell_overrides.gd`'s
+override table as a `note` field: `nivelEscena` overrides `m_LocalRotation` x, y and w but **not
+z** — the three given components already norm to 1.000000000, so z keeps the FBX's 0. Its
+`m_LocalEulerAnglesHint.y` of 37.555 disagrees with its own quaternion by about a quarter of a
+degree; **the quaternion is what the engine used.**

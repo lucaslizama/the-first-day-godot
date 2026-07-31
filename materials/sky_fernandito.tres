@@ -1,19 +1,5 @@
 [gd_resource type="Sky" load_steps=3 format=3 uid="uid://2ub5vhde6en"]
 
-; Ported from mat_skyboxFernandito, which used Unity's built-in Skybox/6 Sided
-; shader with six 1016x1016 faces. Godot has no six-sided sky material, so the
-; faces were resampled into one equirectangular panorama by
-; tools/build_skybox_panorama.py - see that file for the two mappings involved
-; and why both are easy to get backwards.
-;
-; The Unity material's tint is (0.5, 0.5, 0.5, 0.5) and its exposure 1, which for
-; that shader is neutral: 0.5 grey is its no-op tint. Rotation is 0. So nothing is
-; corrected here and energy_multiplier stays at its default.
-;
-; Note this is the sky's *appearance* only. The level's ambient light stays the
-; flat colour Unity specified rather than being derived from this sky - see the
-; Environment in scenes/level.tscn.
-
 [ext_resource type="Texture2D" path="res://textures/skybox/skybox_fernandito_panorama.png" id="1_panorama"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_sky"]

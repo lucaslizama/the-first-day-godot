@@ -19,36 +19,18 @@
 [ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
 [ext_resource type="Script" path="res://scripts/UI/PauseMenu.cs" id="18_pause"]
 
-; The shell's two materials, referenced by the generated override block at the end of
-; this file. Declared by hand so tools/generate_shell_overrides.py never has to edit this
-; header - it owns only its own delimited region, and these ids must stay stable.
 [ext_resource type="Material" path="res://materials/level_general.tres" id="19_general"]
 [ext_resource type="Material" path="res://materials/level_transparent.tres" id="20_transparent"]
 
-; The coworkers' whispers, generated separately from the coworkers themselves - see
-; tools/generate_whispers_scene.py.
 [ext_resource type="PackedScene" path="res://scenes/whispers.tscn" id="21_whispers"]
 
-; The level's music, 68.4 s looping - see the Music node below.
 [ext_resource type="AudioStream" path="res://audio/guille_experimental.ogg" id="22_music"]
 
-; The wind bed, 49.8 s looping - see the Ambience node below.
 [ext_resource type="AudioStream" path="res://audio/wind_ambience.ogg" id="23_wind"]
 
-; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
 size = Vector3(4, 4, 1)
 
-; background_mode 2 is Sky. It was 1, a flat near-black colour, while
-; mat_skyboxFernandito was unported - invisible indoors, where walls fill the frame,
-; but the level's ending is exterior, so the whole climax rendered against void.
-;
-; ambient_light_source stays 2 (Color) rather than becoming Sky. Unity used Flat
-; ambient at (0.2235, 0.2353, 0.2235), which is what these numbers are and what
-; shaders/character_lit.gdshader's ambient_color default matches. Deriving ambient
-; from the sky instead would relight the entire level off a backdrop Unity never used
-; for lighting, so the sky here changes what you see and deliberately not how
-; anything is lit.
 [sub_resource type="Environment" id="Environment_level"]
 background_mode = 2
 sky = ExtResource("14_sky")
@@ -60,11 +42,6 @@ ambient_light_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
 [node name="Environment" type="WorldEnvironment" parent="." unique_id=1482451335]
 environment = SubResource("Environment_level")
 
-; Conjugated by diag(-1, 1, 1) like every other placement in this level - the
-; off-diagonal terms coupling X to Y and Z flip sign, so the sun's direction
-; mirrors with the world it lights. This is on top of, not instead of, the 180
-; degree turn about Y that Unity's opposite light-emission convention needs; that
-; correction is already baked into the columns here. See tools/unity_space.py.
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=1798684195]
 transform = Transform3D(-0.866002, 0.463367, 0.187965, -3e-06, -0.375905, 0.926658, 0.50004, 0.802488, 0.325535, 0, 3, 0)
 light_color = Color(1, 0.95686275, 0.8392157, 1)
@@ -76,23 +53,12 @@ light_color = Color(0.75086504, 0.7719484, 0.9117647, 1)
 light_energy = 2.39
 omni_range = 20.0
 
-; Unity's Obstaculos container offset, conjugated: -0.2 in Unity is +0.2 here.
 [node name="Shell" type="Node3D" parent="." unique_id=746699252]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0, 0)
 script = ExtResource("3_shell")
 
 [node name="nivel" parent="Shell" unique_id=1709712449 instance=ExtResource("1_nivel")]
 
-; ClimbableMeshes marks the staircase before the end line as steppable - see
-; PlayerCharacter.ClimbableGroup, which is opt-in, so nothing else in the level is. It lives here
-; rather than on the mesh nodes for two reasons: those nodes sit inside the region
-; tools/generate_shell_overrides.gd owns and would be wiped by the next run, and the collision
-; bodies the tag actually lands on are built at load by CreateTrimeshCollision and are not in this
-; file at all.
-;
-; BOTH meshes are required. polySurface18 carries the eight risers from y=10.0 to y=11.78, but the
-; final step lands on polySurface32 - the floor profile crosses that boundary between 11.78 and
-; 12.00 - so tagging only the first leaves the character stuck on the last step.
 [node name="ShellP2" type="Node3D" parent="." unique_id=1391112274]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
 script = ExtResource("3_shell")
@@ -106,47 +72,14 @@ ClimbableMeshes = PackedStringArray("polySurface18", "polySurface32")
 
 [node name="Coworkers" parent="." instance=ExtResource("6_coworkers")]
 
-; Silent until the player starts dying; WhisperEmitter drives volume from the death
-; constant, which is 0 at level start.
 [node name="Whispers" parent="." instance=ExtResource("21_whispers")]
 
-; The Music GameObject from nivelEscena. It carried only a Transform and an AudioSource - no
-; script - so nothing in the original ever faded, ducked or restarted it: play on awake, loop,
-; volume 1, for as long as the level is open.
-;
-; An AudioStreamPlayer rather than an AudioStreamPlayer3D, and that is the faithful choice, not
-; a simplification: the Unity source has Spatialize 0 and a panLevelCustomCurve that is flat at
-; 0, so it was fully 2D. A non-positional player has no attenuation and no panning by
-; construction, which is exactly "the same volume everywhere in the level".
-;
-; Its -5.21 dB lives on the Music bus, not here - see default_bus_layout.tres. Keeping the
-; mixer's levels in the mixer means volume_db on this node stays available for anything that
-; wants to fade the music later, without that fade having to know the mixer value.
-;
-; The .ogg import needed loop=true set by hand and reimported; Godot defaults it to false, so
-; this would otherwise stop after 68.4 s and never come back.
 [node name="Music" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("22_music")
 volume_db = 0.0
 autoplay = true
 bus = &"Music"
 
-; The Ambience GameObject from nivelEscena - a GameObject of that exact name, carrying only a
-; Transform and an AudioSource, routed to the mixer's Ambience group. Play on awake, loop,
-; volume 1, no script, exactly like Music.
-;
-; An AudioStreamPlayer for the same reason as Music: the Unity source has Spatialize 0, so it was
-; fully 2D. Kept STEREO for the same reason too - a non-positional player never pans by position,
-; so its channels reach both ears as authored, and a wind bed wants the width. The mono rule in
-; tools/verify_audio_assets.py applies only to 3D emitters, which is why this is exempt rather
-; than overlooked.
-;
-; Its -9.33 dB lives on the Ambience bus. This is the source that bus was created empty for when
-; the mixer was ported.
-;
-; susurro_ambience.wav is deliberately NOT here. It sits in the Unity project's Sounds folder but
-; is referenced by nothing at all, so porting it would be inventing content the original never
-; played.
 [node name="Ambience" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("23_wind")
 volume_db = 0.0
@@ -157,9 +90,6 @@ bus = &"Ambience"
 
 [node name="Zones" parent="." instance=ExtResource("8_zones")]
 
-; Unity's Fortunato start. Its X is 0, so the diag(-1, 1, 1) conjugation leaves it
-; where it was. Check Point 1 sits at (0.17, 1.25, 4.29), a metre above it, because
-; respawning drops the player rather than placing them standing.
 [node name="Player" type="CharacterBody3D" parent="." groups=["player"] instance=ExtResource("9_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.018)
 script = ExtResource("10_player_script")
@@ -171,10 +101,6 @@ script = ExtResource("11_camera")
 TargetPath = NodePath("../Player/CameraTargetParent/CameraTarget")
 IgnoreBodyPath = NodePath("../Player")
 
-; The fade, with GUIFadeEffect's own numbers: 1 s before fading out, 2 s to black at
-; 0.5 alpha/s, 1 s before fading back, 0.667 s at 1.5 alpha/s. It starts opaque and
-; fades in, as GUIFadeEffect.Start did, so the level opens out of black. The respawn
-; chain speeds later fade-ins up to the values Unity set on its first completion.
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="FadeOverlay" type="ColorRect" parent="UI"]
@@ -191,10 +117,6 @@ FadeInDelay = 1.0
 FadeOutDelay = 1.0
 FadeInOnReady = true
 
-; The credits, from UI.prefab: scrollspeed 3, creditsTime 10, text verbatim. Hidden
-; until the ending's fade to black completes, which is what SetActive(true) did.
-; anchors_preset 8 centres it, and Unity's slow 30-unit crawl then moves it up from
-; there. See Credits.cs for why that is not a full roll.
 [node name="Credits" type="Label" parent="UI"]
 visible = false
 layout_mode = 1
@@ -239,10 +161,6 @@ script = ExtResource("15_credits")
 ScrollSpeed = 3.0
 CreditsTime = 10.0
 
-; menuPausa from UI.prefab: a full-screen wash at white alpha 0.147 with one centred
-; button, 331 x 63, labelled "Salir" in 40 pt at (0.196, 0.196, 0.196). Hidden until
-; Escape. process_mode 3 is Always, without which pausing would stop the node that has
-; to un-pause - see PauseMenu.cs.
 [node name="PausePanel" type="Control" parent="UI"]
 process_mode = 3
 visible = false
@@ -278,11 +196,6 @@ theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_font_sizes/font_size = 40
 text = "Salir"
 
-; TimerZone at the finish line, right at meta_01. Unity had it at world
-; (0.02, 12.0, -182.32), conjugated to negate X like every other placement; its
-; trigger is a 4 x 4 x 1 box offset (0, 2, 0), so the volume spans the banner's
-; opening. Hand-authored, so outside tools/unity_space.py's reach - the X negation
-; here is applied by hand and has to stay that way.
 [node name="TimerZone" type="Area3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.02, 12, -182.32)
 monitorable = false
@@ -297,21 +210,14 @@ ConfettiPath = NodePath("../Confetti")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
 shape = SubResource("BoxShape3D_timer")
 
-; particleSys_conffeti, 4 m above the FINISH banner. Unity had it at
-; (-0.02, 16.22, -183.531) turned 90 degrees about X, conjugated here to negate X; the
-; quaternion (0.7071068, 0, 0, 0.7071068) is unchanged by the conjugation because its
-; y and z are zero. That turn aims the emitter's local +Z straight down, so the
-; confetti rains onto the finish line. Hand-authored, so outside unity_space.py.
 [node name="Confetti" parent="." instance=ExtResource("17_confetti")]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.02, 16.22, -183.531)
 
-; Escape toggles the pause overlay. Always-processing for the same reason the panel is.
 [node name="PauseMenu" type="Node" parent="."]
 process_mode = 3
 script = ExtResource("18_pause")
 PanelPath = NodePath("../UI/PausePanel")
 
-; The UnityEvent graph that used to live across three prefabs. See RespawnChain.cs.
 [node name="RespawnChain" type="Node" parent="."]
 script = ExtResource("13_chain")
 KillVolumePath = NodePath("../Zones/KillVolume")
@@ -324,17 +230,6 @@ SecondZonePath = NodePath("../Zones/TriggerZone2")
 SecondZoneCheckpointPath = NodePath("../Zones/Checkpoint3")
 
 ; >>> BEGIN generated shell overrides - tools/generate_shell_overrides.gd
-;
-; Unity assigned these per renderer-slot; see the header of the generator for why they
-; live in the scene rather than in a script. Regenerate with:
-;
-;     godot-mono --headless --path . --script tools/generate_shell_overrides.gd
-;
-; Do not edit by hand - tools/verify_level_shells.gd checks every entry against
-; models/level/level_materials.json, which tools/extract_level_materials.py derives
-; from nivelEscena.
-
-; ---- nivel.fbx, under Shell ----
 
 [node name="pPlane29" parent="Shell/nivel/Nivel" index="0"]
 surface_material_override/0 = ExtResource("20_transparent")
@@ -420,8 +315,6 @@ surface_material_override/0 = ExtResource("20_transparent")
 [node name="pPlane49" parent="Shell/nivel/Nivel" index="20"]
 surface_material_override/0 = ExtResource("20_transparent")
 
-; ---- nivel_p2.fbx, under ShellP2 ----
-
 [node name="polySurface6" parent="ShellP2/nivel_p2/Nivel_p2" index="0"]
 surface_material_override/0 = ExtResource("19_general")
 surface_material_override/1 = ExtResource("20_transparent")
@@ -458,13 +351,11 @@ surface_material_override/1 = ExtResource("20_transparent")
 surface_material_override/0 = ExtResource("19_general")
 surface_material_override/1 = ExtResource("20_transparent")
 
-; Unity (-37.26, 48.98, -0.23); the FBX exports it at (51.791214, 50.000011, 40.291302).
 [node name="polySurface16" parent="ShellP2/nivel_p2/Nivel_p2" index="9"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.26, 48.98, -0.23)
 surface_material_override/0 = ExtResource("19_general")
 surface_material_override/1 = ExtResource("20_transparent")
 
-; Unity (46.13, 50.54, 9.94) with m_LocalRotation x/y/w overridden but not z - the three given components already norm to 1.000000000, so z keeps the FBX's 0. Its m_LocalEulerAnglesHint.y of 37.555 disagrees with its own quaternion by a quarter degree; the quaternion is what the engine used.
 [node name="polySurface17" parent="ShellP2/nivel_p2/Nivel_p2" index="10"]
 transform = Transform3D(0.795548, 0, -0.605891, 0, 1, 0, 0.605891, 0, 0.795548, -46.13, 50.54, 9.94)
 surface_material_override/0 = ExtResource("19_general")
@@ -525,4 +416,3 @@ surface_material_override/1 = ExtResource("19_general")
 [editable path="ShellP2/nivel_p2"]
 
 ; <<< END generated shell overrides
-

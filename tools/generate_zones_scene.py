@@ -64,9 +64,6 @@ def main():
     lines += [
         '[node name="Zones" type="Node3D"]',
         "",
-        "; The kill volume: a %.0f x %.0f x %.0f m slab under the whole level. Falling into it"
-        % tuple(kv_size),
-        "; is the only way to die, which is why the hammers need no damage of their own.",
         '[node name="KillVolume" type="Area3D" parent="."]',
         "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %s)" % fmt(kv["pos"]),
         'script = ExtResource("1_teleport")',
@@ -81,18 +78,17 @@ def main():
     # Checkpoint markers. Checkpoint 1 is where the player starts.
     for i, c in enumerate(kv["checkpoints"]):
         lines += [
-            "; %s" % c["name"],
             '[node name="Checkpoint%d" type="Node3D" parent="."]' % (i + 1),
             "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %s)" % fmt(c["pos"]),
             "",
         ]
 
     for i, z in enumerate(zones):
+        # No ';' annotations in the scene - see CLAUDE.md. What they said is in
+        # docs/level-port-scope.md: these colliders are NOT triggers in the prefab and every
+        # instance overrides m_IsTrigger to 1, so taking the prefab at face value gives a level
+        # where the checkpoint never advances. The Unity names are echoed to stdout below.
         lines += [
-            "; %s. Its collider is not a trigger in the prefab; every instance overrides"
-            % z["name"],
-            "; m_IsTrigger to 1, so the zone does fire - the prefab default alone would mean",
-            "; the checkpoint never moved past the first one.",
             '[node name="TriggerZone%d" type="Area3D" parent="."]' % (i + 1),
             "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %s)" % fmt(z["pos"]),
             "",
