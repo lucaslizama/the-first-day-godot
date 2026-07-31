@@ -198,9 +198,26 @@ public partial class PlayerCharacter : CharacterBody3D
     /// 0.15 is the default: about a quarter smoother per frame than 0.08, for 0.09 m more lag. Past
     /// that the returns are poor - 0.40 buys only another 0.008 m of smoothness for 0.28 m of lag,
     /// which is the camera visibly trailing the character rather than easing after him.
+    ///
+    /// TREAT THAT TABLE AS SUSPECT. It was measured through the old tools/verify_stairs.gd, which
+    /// called move_and_slide() from _process and so drove the body at 1.7 to 3.6 times walking
+    /// speed. Re-measured at RunSpeed through the rewritten scene-based verifier, worst camera rise
+    /// per tick is:
+    ///
+    ///     half-life   worst rise/tick
+    ///       0.15 s        0.053 m      <- over the 0.050 the verifier allows
+    ///       0.20 s        0.049 m
+    ///       0.25 s        0.045 m      <- current
+    ///       0.35 s        0.040 m
+    ///
+    /// 0.25 rather than 0.20 because 0.20 clears the limit by a single millimetre, which is the kind
+    /// of margin that makes a check fail one run in three. The lag half of the trade is NOT
+    /// currently measured - the attempt to instrument it returned 0.000 at every half-life, i.e. it
+    /// measured nothing - so the cost of going slower than this is unquantified. Worth confirming by
+    /// ear before trusting it: a camera that eases too slowly reads as trailing the character.
     /// </summary>
     [Export]
-    public float StepSmoothingHalfLife { get; set; } = 0.15f;
+    public float StepSmoothingHalfLife { get; set; } = 0.25f;
 
     /// <summary>
     /// How far off vertical a contact may be and still count as ground to step DOWN onto. Above
@@ -384,9 +401,41 @@ public partial class PlayerCharacter : CharacterBody3D
             TryStepDown(wasOnFloor);
         }
 
-        DrainStepSmoothing(delta);
+        // Written HERE, in the same tick the offset changed, even though the DECAY happens in
+        // _Process. Splitting the two is the whole point: if the node were only updated by the
+        // decay, a lift taken on a physics tick would go uncompensated until the next rendered
+        // frame, and the camera - which reads its target in _Process, and may well run before this
+        // node does - would see the raw teleport. Measured at 5.5 m/s of camera rise, which is worse
+        // than the stutter the move was meant to cure.
+        ApplyStepSmoothing();
+
         CheckForFall();
         UpdateAnimation(input.CurrentDirection);
+    }
+
+    /// <summary>
+    /// Drains the camera's step offset on the RENDER clock, not the physics clock.
+    ///
+    /// Reported in play as a minor stutter in the camera on every lift, with the stairs themselves
+    /// feeling right. The offset is a purely VISUAL quantity - it exists so the camera is not shown
+    /// a teleport - and ThirdPersonCamera reads its target in _Process, once per rendered frame.
+    /// Draining it in _PhysicsProcess meant the value the camera reads only changed 60 times a
+    /// second, so above 60 fps the camera repeated a position and then jumped, over and over. No
+    /// amount of tuning StepSmoothingHalfLife fixes that: it makes each jump smaller without
+    /// removing the stepping.
+    ///
+    /// The drain is already frame-rate independent (exponential in delta), so moving it here costs
+    /// nothing and it now advances exactly as often as the camera samples it.
+    ///
+    /// This does NOT address the general case: the body's own position still only changes on physics
+    /// ticks, so any motion is sampled at 60 Hz by a camera running faster. The engine-level answer
+    /// to that is physics/common/physics_interpolation, which is off in this project and would need
+    /// the camera opted out (it is driven per-frame) and reset_physics_interpolation() on the respawn
+    /// teleport. That is a project-wide change and deliberately not made here.
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        DrainStepSmoothing(delta);
     }
 
     /// <summary>
@@ -842,6 +891,21 @@ public partial class PlayerCharacter : CharacterBody3D
             {
                 _stepSmoothing = 0.0f;
             }
+        }
+
+        ApplyStepSmoothing();
+    }
+
+    /// <summary>
+    /// Writes the current offset onto the camera pivot. Separate from the decay because the two run
+    /// on different clocks: the offset CHANGES on a physics tick (a step is taken) and DECAYS on the
+    /// render clock, so the write has to happen in both places or the camera reads a stale value.
+    /// </summary>
+    private void ApplyStepSmoothing()
+    {
+        if (_cameraSmoothing is null)
+        {
+            return;
         }
 
         Vector3 local = _cameraSmoothing.Position;

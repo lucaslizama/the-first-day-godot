@@ -1979,3 +1979,77 @@ override table as a `note` field: `nivelEscena` overrides `m_LocalRotation` x, y
 z** — the three given components already norm to 1.000000000, so z keeps the FBX's 0. Its
 `m_LocalEulerAnglesHint.y` of 37.555 disagrees with its own quaternion by about a quarter of a
 degree; **the quaternion is what the engine used.**
+
+## Correction: the stairs verifier was measuring its own harness
+
+Reported in play as the step-up not really working going up, with only the descent's animation
+fixed. The check agreed — `verify_stairs.gd` failed 2 of 8, both ascents "1.95 m short" — and
+**both the report and the check were pointing at a defect that was not in the game.**
+
+**The old verifier was a `SceneTree` script calling `move_and_slide()` from `_process`.** There is
+no fixed physics delta there. Measured on **flat floor, before any stairs**, the body advanced
+**0.070 to 0.149 m per tick where walking is 0.0417**, varying frame to frame. `TryStepUp` derives
+its step direction from `intended − moved` against a hardcoded 1/60, so an overspeeding harness
+makes `moved` exceed `intended`, the difference reverses sign, and the step-up drives the character
+**backwards 0.25 m per frame while returning `true`** — which also suppressed the step-down and hid
+itself. Equilibrium at riser two, 1.76 m short.
+
+**In a real physics loop the shipped code climbs the flight**: y = 10.05 → **12.00**, 121 ticks
+walking, 66 running. Nothing in `PlayerCharacter` needed changing.
+
+`tools/verify_stairs.gd` is now a **scene**, run as
+`godot-mono --headless --path . tools/verify_stairs.tscn`, and two rules came out of the rewrite:
+
+1. **Drive the game, do not simulate it.** Input arrives through `Input.action_press` and the
+   player's own `_PhysicsProcess` does the moving. The old version switched `_PhysicsProcess` off
+   and hand-rolled movement, so `PlayerInput`, gravity, the animation state and the camera
+   smoothing were all outside what it tested.
+2. **Reload the level between cases.** Resetting position and velocity is not isolation. An
+   intermediate harness reused one level and reported four different approaches ending at
+   byte-identical positions, one of them a metre above the top of the staircase.
+
+### The hybrid step-up was tried and reverted
+
+Both maintained community implementations (`Andicraft/stairs-character`,
+`JheKWall/Godot-Stair-Step-Demo`) converge on a different shape: step-up **before**
+`move_and_slide`, direction from **velocity** rather than a difference of positions, all probing via
+`PhysicsServer3D.body_test_motion` on a **virtual** transform, and **only `global_position.y`**
+applied — the slide afterwards does the horizontal part, which is what makes running first safe.
+
+It was implemented here in full and **reverted**: 6 of 8 against the original's 8 of 8, with real
+stalls. Two findings worth keeping from the attempt:
+
+- **Neither reference works on this staircase unmodified — zero steps taken.** They advance by the
+  collision remainder alone, which here is 4 cm, and with a 0.3 m capsule the bottom hemisphere
+  still overhangs the lower floor, so the downward sweep contacts the riser's *vertical face*.
+  `StepForwardProbe` is the thing they lack.
+- **They translate the virtual transform to the contact point before lifting**, which on trimesh
+  stairs puts the capsule against the riser and blocks the lift — measured at **0.077 m instead of
+  0.30**, not enough to clear a 0.24 m riser, so the character was placed floating, the slide stayed
+  blocked, and he sank back in a loop. The stall looked like a step-height problem and was a
+  probe-origin problem.
+
+The premise for the rewrite — that `intended − moved` is fragile — came from the broken harness.
+It is still theoretically true, and it is still the thing to change first if the step-up ever
+misbehaves again; but it is not a live defect, and a rewrite that regresses a working feature is
+not an improvement.
+
+### `StepSmoothingHalfLife` is 0.25 s, and the old table was wrong
+
+The camera-rise table in `PlayerCharacter.StepSmoothingHalfLife` was measured through the
+overspeeding harness. Re-measured at `RunSpeed` in a real loop: 0.15 s gives **0.053 m** of camera
+rise in a single tick, over the 0.050 the verifier allows. 0.20 → 0.049, **0.25 → 0.045**,
+0.35 → 0.040. Now 0.25, chosen over 0.20 because a one-millimetre margin is how a check comes to
+fail one run in three.
+
+**The lag half of that trade is unmeasured.** The instrumentation for it returned 0.000 at every
+half-life, i.e. it measured nothing, and it was removed rather than left to mislead. So the cost of
+smoothing more slowly is not currently known — confirm by ear.
+
+### The staircase is 2 m wide, which is a separate problem
+
+`polySurface18` spans **x ∈ [−1.0, +1.0]**. Holding a diagonal walks off the side in about a
+second: measured leaving the flight at x = −1.54 and falling out of the level, past y = −99, into
+the kill volume. That is not a step-up failure and no step-up change will address it. If "the stairs
+don't work" is ever reported again, **falling off the side and stopping dead against a riser are
+different symptoms** and the first one is level design.
