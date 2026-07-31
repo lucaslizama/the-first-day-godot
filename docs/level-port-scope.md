@@ -2099,13 +2099,14 @@ environment cannot reproduce the user's — an attempt to measure per-frame came
 *slower* than physics and the character fell off the stairs mid-measurement. The check proves the
 offset is eased rather than handed over whole. Stutter is confirmed by eye.
 
-**Not done, and the bigger answer if it is ever wanted.** The body's own position still only changes
-on physics ticks, so *all* motion is sampled at 60 Hz by a faster camera; the step-up is merely the
-most visible case because it is a teleport. The engine-level fix is
-`physics/common/physics_interpolation`, which is off in this project (absent from `project.godot`, and
-it defaults to false). Turning it on would need the camera opted out, since it is driven per-frame,
-and `reset_physics_interpolation()` on the respawn teleport — and it would also smooth the platforms
-and the hammers. That is a project-wide change and was deliberately not made as part of a camera fix.
+**The bigger answer, deferred at the time and since taken.** The body's own position still only
+changed on physics ticks, so *all* motion was sampled at 60 Hz by a faster camera; the step-up was
+merely the most visible case because it is a teleport.
+
+> **Now done.** `physics/common/physics_interpolation` is **enabled** — see "Physics interpolation"
+> below. It was deliberately not bundled into a camera fix, which still seems right: it is a
+> project-wide change with two compensations, and doing it separately kept the camera work
+> reviewable.
 
 ### The pose pop at take-off is in the original — do not "fix" it
 
@@ -2385,3 +2386,38 @@ player consumes it. Two things learned writing it:
 
 Deadzone rescaling is worth knowing when reading its output: the action deadzone is 0.2, and Godot
 rescales it out, so a raw stick of 0.5 arrives as a magnitude of 0.38 and moves at 1.69 m/s.
+
+## Physics interpolation
+
+`physics/common/physics_interpolation` is **on**. Nodes are drawn at a position interpolated between
+their last two physics-tick transforms, so 60 Hz motion stops arriving at the screen in 60 Hz steps —
+which is the root cause behind the camera judder chased through three separate fixes above, and it
+affects ordinary walking as much as stepping.
+
+Two compensations, both necessary and neither visible to any check:
+
+- **The camera opts out**, `physics_interpolation_mode = 2` (OFF; the enum is INHERIT 0, ON 1, OFF 2 —
+  verified rather than assumed). `ThirdPersonCamera` writes `GlobalPosition` in `_Process`, once per
+  rendered frame. An interpolated node's drawn transform is a lerp of physics-tick snapshots, which
+  would fight those writes and make the camera worse rather than better. Confirmed with
+  `is_physics_interpolated()`, which now reports false for the camera and true for the player.
+- **`CheckpointTeleport` calls `ResetPhysicsInterpolation()`.** Interpolation cannot tell a teleport
+  from motion, so a respawn would be *drawn* sliding from the place of death to the checkpoint over one
+  frame. It happens behind a fully black fade today, which is exactly why nothing would have caught it.
+
+**The step-up deliberately does NOT reset it.** That teleport being smeared over one frame is free
+smoothing of the thing three fixes above were fighting. `_stepSmoothing` is still needed as well:
+interpolation spreads a step across one frame, which is not the same as hiding a whole riser from the
+camera across several.
+
+**Every check passed before and after, and that means less than it appears.** They all sample state at
+physics ticks, and interpolation only changes what is drawn *between* ticks — so the suite is
+structurally blind to this setting in both directions. It cannot confirm the improvement and could not
+have caught either compensation being missing. Recorded so nobody reads the green suite as evidence.
+
+**One thing to watch.** The moving platforms' and hammers' `AnimationPlayer`s run on the **idle** clock
+by default — the same fact that made the footsteps check flaky — so their transforms are written per
+rendered frame while `sync_to_physics` writes back from the physics server each tick.
+`tools/verify_platforms.gd` and `tools/verify_hammer.gd` still pass at the physics level (rider carried
+within 3 mm, hammer tracking 0.000 m). If anything looks wrong after this change, look there first, and
+the lever is those players' `callback_mode_process`.

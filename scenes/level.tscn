@@ -100,6 +100,7 @@ CameraBasisPath = NodePath("../Camera")
 AnimationPlayerPath = NodePath("AnimationPlayer")
 
 [node name="Camera" type="Camera3D" parent="."]
+physics_interpolation_mode = 2
 script = ExtResource("11_camera")
 TargetPath = NodePath("../Player/CameraTargetParent/CameraTarget")
 IgnoreBodyPath = NodePath("../Player")

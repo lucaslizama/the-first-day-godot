@@ -105,6 +105,13 @@ public partial class CheckpointTeleport : Area3D
         }
 
         player.GlobalPosition = _checkpoint.GlobalPosition;
+
+        // A teleport is not motion, and physics interpolation cannot tell the difference: it lerps
+        // between the last two physics-tick transforms, so without this the player is DRAWN sliding
+        // from wherever they died to the checkpoint over one frame. It happens behind a fully black
+        // fade today, which is exactly why no check would catch it - see the note in
+        // docs/level-port-scope.md on the fade hiding the revive blend as well.
+        player.ResetPhysicsInterpolation();
     }
 
     public void SetCheckpoint(Node3D checkpoint)

@@ -482,10 +482,11 @@ public partial class PlayerCharacter : CharacterBody3D
     /// nothing and it now advances exactly as often as the camera samples it.
     ///
     /// This does NOT address the general case: the body's own position still only changes on physics
-    /// ticks, so any motion is sampled at 60 Hz by a camera running faster. The engine-level answer
-    /// to that is physics/common/physics_interpolation, which is off in this project and would need
-    /// the camera opted out (it is driven per-frame) and reset_physics_interpolation() on the respawn
-    /// teleport. That is a project-wide change and deliberately not made here.
+    /// ticks, so any motion is sampled at 60 Hz by a camera running faster. The engine-level answer to
+    /// that is physics/common/physics_interpolation, and it is now ENABLED - the camera opts out
+    /// because it is driven per-frame, and CheckpointTeleport resets interpolation so a respawn is not
+    /// drawn as a slide. This offset is still needed: interpolation smooths the step over one frame,
+    /// which is not the same as hiding a whole riser from the camera over several.
     /// </summary>
     public override void _Process(double delta)
     {
