@@ -25,6 +25,10 @@
 [ext_resource type="Material" path="res://materials/level_general.tres" id="19_general"]
 [ext_resource type="Material" path="res://materials/level_transparent.tres" id="20_transparent"]
 
+; The coworkers' whispers, generated separately from the coworkers themselves - see
+; tools/generate_whispers_scene.py.
+[ext_resource type="PackedScene" path="res://scenes/whispers.tscn" id="21_whispers"]
+
 ; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
 size = Vector3(4, 4, 1)
@@ -84,6 +88,10 @@ script = ExtResource("3_shell")
 [node name="Platforms" parent="." instance=ExtResource("5_platforms")]
 
 [node name="Coworkers" parent="." instance=ExtResource("6_coworkers")]
+
+; Silent until the player starts dying; WhisperEmitter drives volume from the death
+; constant, which is 0 at level start.
+[node name="Whispers" parent="." instance=ExtResource("21_whispers")]
 
 [node name="Hammers" parent="." instance=ExtResource("7_hammers")]
 

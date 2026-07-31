@@ -4,7 +4,8 @@ namespace TheFirstDay.Gameplay;
 
 /// <summary>
 /// Port of Unity's SoundAttenuationByDeath.cs - the whisper that closes in on the
-/// player the more they die. Seven of these, one on each coworker cluster.
+/// player the more they die. 15 of these, one per cluster of coworkers, placed by
+/// tools/generate_whispers_scene.py into scenes/whispers.tscn.
 ///
 /// The original's own comment says it plainly: "Los sonidos de esta audio source se
 /// escuchan mas de cerca mientras mas muere el jugador." The mechanism is the
@@ -27,7 +28,7 @@ namespace TheFirstDay.Gameplay;
 /// Both quantities are driven from the signal, so they stay consistent.
 ///
 /// The stagger is a random start position rather than Unity's PlayDelayed of a
-/// random offset into the clip. Both exist to stop seven emitters looping in
+/// random offset into the clip. Both exist to stop the emitters looping in
 /// lockstep, and both give uniformly distributed relative phases; the difference is
 /// that Unity's leaves each emitter silent for up to the clip's 14 seconds first.
 /// </summary>

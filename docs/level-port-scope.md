@@ -291,7 +291,7 @@ Everything left is small. Largest is 78 lines.
 | 51 | `ParentPlayer.cs` | — | **not ported**, and not needed — see below |
 | 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
 | 43 | `TriggerZone.cs` | 2 | **done** — wired directly in `RespawnChain.cs`, not as a generic emitter |
-| 39 | `SoundAttenuationByDeath.cs` | 7 on clusters | **done**, `WhisperEmitter.cs` |
+| 39 | `SoundAttenuationByDeath.cs` | 12 sources in the scene | **done**, `WhisperEmitter.cs`; 15 emitters, clustered rather than copied — see "Coworkers" |
 | 34 | `Credits.cs` | 1 | **done**, `scripts/UI/Credits.cs` |
 | 31 | `FortunatoAnimFunctions.cs` | — | **done** — footstep events re-added; `Die`/`Cry` have no clips to fire from |
 | 30 | `TimerZone.cs` | 1 | **done**, `scripts/Gameplay/TimerZone.cs` — carries the ending chain |
@@ -400,10 +400,47 @@ rate as group children — which is what ruled out the group composition as the 
 distribution rather than scoring it, for exactly that reason.
 
 The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of WAV to 197 KB of
-Ogg Vorbis — sits on the cluster roots, 7 of them: 2 at minDistance 1→10 and 5 at
-40→45. Unity's logarithmic rolloff attenuates by `minDistance / distance`, which is
+Ogg Vorbis. Unity's logarithmic rolloff attenuates by `minDistance / distance`, which is
 Godot's `ATTENUATION_INVERSE_DISTANCE` over `unit_size` exactly, so the mapping
-needs no fudging. `coworkers_group3` has no `AudioSource` at all.
+needs no fudging.
+
+> **Correction, and then a redesign.** This said the whisper "sits on the cluster roots, 7 of
+> them: 2 at minDistance 1→10 and 5 at 40→45", and that `coworkers_group3` has no
+> `AudioSource`. Both wrong. `nivelEscena` has **12** `susurro_loko` sources, and
+> `coworkers_group3 (1)` is one of them. `tools/extract_coworkers.py` only looked for an
+> `AudioSource` on a coworker **group root**, so the five that sit elsewhere were never seen —
+> and the seven it did find were all at positive x.
+>
+> Reported in play as missing audio from the coworkers on the left of the level. Measured over
+> the 74 placed coworkers:
+>
+> | side | coworkers | emitters | mean `unit_size / distance` to the nearest |
+> |---|---|---|---|
+> | negative x (left) | 25 | **0** | 0.53 |
+> | positive x (right) | 49 | 7 | 46.1 |
+>
+> The 25 on the left had no emitter nearer than 90 m, so their whisper was a distant wash
+> rather than the sound of the people in front of them.
+>
+> Fixed by **deriving** the emitters instead of extracting them.
+> `tools/generate_whispers_scene.py` clusters our own verified coworker placement (greedy,
+> densest-first, 18 m radius) and writes one emitter per cluster into `scenes/whispers.tscn`:
+> **15 emitters, 9 left and 6 right, no coworker further than 13.0 m from one.** Coverage is
+> now a property of where the coworkers actually are, and cannot depend on how the Unity scene
+> happened to be organised.
+>
+> The per-cluster attenuation is deliberately *not* Unity's. Its own values were inconsistent
+> between groups — `minDistance` 1 with `maxMinDistance` 10 on some and 40/45 on others, an
+> order of magnitude apart for the same sound — so each emitter is sized from its own cluster
+> extent instead, with a floor of 8 m and doubling at full death constant.
+>
+> The audio also **moved out of `coworkers.tscn` into its own scene**. A coworker is a placed
+> billboard whose position comes from Unity; an emitter is derived coverage over wherever
+> those billboards ended up. Keeping them in one file meant regenerating the placement and
+> regenerating the sound were the same operation, which is part of how this went unnoticed.
+> `tools/verify_whispers.gd` checks coverage, that neither side is starved, and that the
+> emitters follow the death constant — all four checks negative-tested, and the one-emitter
+> case reproduces the original failure exactly.
 
 Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
 constant, where Unity set it once in `Start`; that only works if the scene reloads
@@ -411,7 +448,7 @@ on death, and this game respawns through a fade, so on the original's code path 
 volume stays at its level-load value of zero and the whisper is never heard —
 which the script's own comment says is not the intent. And the stagger is a random
 start position rather than `PlayDelayed` of a random offset; both desynchronise the
-seven emitters, but Unity's leaves each silent for up to 14 seconds first.
+emitters, but Unity's leaves each silent for up to 14 seconds first.
 
 ## Hazards and the respawn chain
 
@@ -642,9 +679,9 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
 4. ~~**Platforms**~~ — **done**. `scenes/platforms.tscn` places all 26 from
    `scenes/moving_platform.tscn` and `scenes/falling_platform.tscn`.
    `ParentPlayer` was not needed. See "Platforms" below.
-5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74 plus the
-   7 whisper emitters, which closes the death-constant loop `GameManager` was
-   ported for. See "Coworkers" above.
+5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74;
+   `scenes/whispers.tscn` carries the 15 whisper emitters, which closes the
+   death-constant loop `GameManager` was ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.
 7. **Ending and UI** — remaining: the five tutorial key props (`WASD`, `WASD (1)`,
@@ -1111,7 +1148,7 @@ three checks.
   `ffmpeg -c:a libvorbis -q:a 5`, same 14.1 s. Note the `.ogg` import defaults to
   `loop=false`, so looping clips need it set and **reimported**: an emitter that
   starts near the end of a non-looping clip stops within a frame or two, which is
-  how six of seven whispers can play while one is silent.
+  how some whispers can play while another is silent.
 - **Unity's sprite pivots are per-file and the used take is not the obvious one.**
   See "Coworkers": the animated frames are `alignment: 7`, BottomCenter, while the
   unused take beside them is centred. Any further sprite work should read the pivot

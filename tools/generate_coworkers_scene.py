@@ -30,8 +30,12 @@ SCENES = {
     "mono2": ("coworker_mono2.tscn", "CoworkerMono2"),
 }
 
-## The whisper emitter each cluster carries, with its per-cluster attenuation.
-WHISPER_SCENE = "whisper.tscn"
+# No audio here. The whisper emitters are generated separately by
+# tools/generate_whispers_scene.py into scenes/whispers.tscn, clustered from the coworker
+# positions this tool writes. They used to be emitted here, one per Unity coworker group, and
+# that hid a bug: every emitter landed at positive x, so the 25 coworkers on the left-hand
+# side of the level had no whisper nearer than 90 m. Placement and coverage are different
+# problems and regenerating one should not mean regenerating the other.
 
 
 def main():
@@ -42,22 +46,15 @@ def main():
 
     data = json.load(open(src))
     items = data["coworkers"]
-    whispers = data.get("whispers", [])
     used = sorted({e["kind"] for e in items})
     ids = {k: "%d_%s" % (i + 1, k) for i, k in enumerate(used)}
-    whisper_id = "%d_whisper" % (len(used) + 1)
 
-    steps = len(used) + (1 if whispers else 0) + 1
+    steps = len(used) + 1
     lines = ["[gd_scene load_steps=%d format=3]" % steps, ""]
     for k in used:
         lines.append(
             '[ext_resource type="PackedScene" path="res://scenes/%s" id="%s"]'
             % (SCENES[k][0], ids[k])
-        )
-    if whispers:
-        lines.append(
-            '[ext_resource type="PackedScene" path="res://scenes/%s" id="%s"]'
-            % (WHISPER_SCENE, whisper_id)
         )
     lines += ["", '[node name="Coworkers" type="Node3D"]', ""]
 
@@ -81,23 +78,8 @@ def main():
         lines.append("transform = Transform3D(%s)" % ", ".join("%.6f" % v for v in vals))
         lines.append("")
 
-    # The clusters' whisper emitters. Position only: an AudioStreamPlayer3D has no
-    # orientation to speak of, and Unity's AudioSource was omnidirectional.
-    for i, w in enumerate(sorted(whispers, key=lambda e: (e["pos"][2], e["pos"][0]))):
-        lines.append(
-            '[node name="Whisper_%02d" parent="." instance=ExtResource("%s")]'
-            % (i + 1, whisper_id)
-        )
-        lines.append(
-            "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, %s)"
-            % ", ".join("%.6f" % v for v in w["pos"])
-        )
-        lines.append("MinDistance = %.1f" % w["minDistance"])
-        lines.append("MaxMinDistance = %.1f" % w["maxMinDistance"])
-        lines.append("")
-
     open(out, "w").write("\n".join(lines))
-    print("%s: %d coworkers, %d whisper emitters" % (out, len(items), len(whispers)))
+    print("%s: %d coworkers" % (out, len(items)))
     for k, v in counters.most_common():
         print("   %-8s %d -> %s" % (k, v, SCENES[k][0]))
     print("   non-uniformly scaled: %d" % scaled)

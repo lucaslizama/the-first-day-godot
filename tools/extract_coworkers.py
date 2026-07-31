@@ -6,7 +6,13 @@ Run from the Unity project's Assets directory, with SP pointing at a scratch dir
     cd ../the-first-day-unity/Assets && SP=/tmp python3 <repo>/tools/extract_coworkers.py
 
 Writes $SP/coworkers.json: one entry per coworker with its kind (mono1 or mono2),
-world position, rotation and scale, plus one entry per whisper emitter.
+world position, rotation and scale.
+
+Whispers are deliberately NOT extracted. This used to emit one entry per AudioSource
+found on a coworker GROUP ROOT, which found 7 of the scene's 12 susurro_loko sources
+and all 7 on the same side of the level - so the coworkers on the left had no whisper
+near them. They are derived from the coworker positions instead, by
+tools/generate_whispers_scene.py.
 
 Why this is separate from extract_unity_transforms.py
 ----------------------------------------------------
@@ -38,10 +44,6 @@ from unity_space import to_godot
 
 MONO_PREFABS = {"mono1.prefab": "mono1", "mono2_prefab.prefab": "mono2"}
 GROUP_PREFABS = {"coworkers_group 1.prefab", "coworkers_group2.prefab", "coworkers_group3.prefab"}
-
-## SoundAttenuationByDeath.cs, the whisper attenuation on each group root.
-SOUND_SCRIPT_GUID = "d428b6d30c257084898f758689387497"
-
 
 def guid_map():
     g = {}
@@ -154,16 +156,6 @@ class PrefabFile:
                 }
                 t = re.search(r"m_IsTrigger: (\d)", d)
                 self.is_trigger = t.group(1) == "1" if t else None
-            elif cid == "114":
-                go = re.search(r"m_GameObject: \{fileID: (\d+)\}", d)
-                s = re.search(r"m_Script: \{fileID: \d+, guid: (\w+)", d)
-                if go and s and s.group(1) == SOUND_SCRIPT_GUID:
-                    mn = re.search(r"minDistance: ([-\d.eE+]+)", d)
-                    mx = re.search(r"maxMinDistance: ([-\d.eE+]+)", d)
-                    self.components.setdefault("sound", {})[go.group(1)] = {
-                        "minDistance": float(mn.group(1)) if mn else 1.0,
-                        "maxMinDistance": float(mx.group(1)) if mx else 10.0,
-                    }
 
     def local(self, tid):
         """Transform of tid relative to the prefab root, root's own TRS excluded.
@@ -271,7 +263,6 @@ def main():
         return compose(ppos, prot, pscl, pos, rot, scl)
 
     out = []
-    whispers = []
     counts = Counter()
     nonuniform = []
 
@@ -298,15 +289,6 @@ def main():
                 cp, cr, cs = compose(wp, wr, ws, lp, lr, ls)
                 entries.append((kind, "%s/%s" % (inst["name"] or name, p.names[go]), cp, cr, cs))
 
-            # The whisper emitter lives on the group root.
-            for go, cfg in p.components.get("sound", {}).items():
-                whispers.append({
-                    "source": inst["name"] or name,
-                    "pos": [round(v, 5) for v in wp],
-                    "minDistance": cfg["minDistance"],
-                    "maxMinDistance": cfg["maxMinDistance"],
-                })
-
         for kind, label, cp, cr, cs in entries:
             counts[kind] += 1
             if max(cs) - min(cs) > 1e-4:
@@ -322,14 +304,14 @@ def main():
     out.sort(key=lambda e: (e["kind"], e["pos"][2], e["pos"][0]))
     # Conjugated into Godot space on the way out; see tools/unity_space.py.
     json.dump(
-        to_godot({"coworkers": out, "whispers": whispers}),
+        to_godot({"coworkers": out}),
         open(os.environ["SP"] + "/coworkers.json", "w"),
         indent=1,
     )
 
     for k, v in counts.most_common():
         print("  %-8s %d" % (k, v), file=sys.stderr)
-    print("  TOTAL %d coworkers, %d whisper emitters" % (len(out), len(whispers)), file=sys.stderr)
+    print("  TOTAL %d coworkers" % len(out), file=sys.stderr)
     if nonuniform:
         print("  non-uniform scales (%d):" % len(nonuniform), file=sys.stderr)
         for label, s in nonuniform[:5]:

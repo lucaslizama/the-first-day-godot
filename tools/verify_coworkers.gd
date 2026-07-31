@@ -1,6 +1,7 @@
 extends SceneTree
 ## Checks the coworker placement against the level geometry, independently of the
-## extraction that produced it, and then checks the whisper emitters respond to the
+## extraction that produced it, and then checks the whisper emitters (now in their own
+## scene, scenes/whispers.tscn - see tools/verify_whispers.gd for their coverage) respond to the
 ## death constant.
 ##
 ## The extraction has to compose three transforms - the scene instance, the group
@@ -115,7 +116,8 @@ func _report() -> void:
 	var worst := 0.0
 	var worst_name := ""
 
-	# Sprites only: the whisper emitters share this parent and have no feet to check.
+	# Sprites only. The whisper emitters used to share this parent; they are their own
+	# scene now, so this filter is belt and braces rather than load-bearing.
 	var coworkers: Array[Node] = []
 	for child in _level.get_node("Coworkers").get_children():
 		if child is AnimatedSprite3D:
@@ -171,8 +173,16 @@ func _report() -> void:
 ## the volume follow the death constant. The last part is what Unity only half did -
 ## it set the volume once - so it is the part most worth having a check on.
 func _report_whispers() -> void:
+	# Under Whispers, not Coworkers: the emitters moved into scenes/whispers.tscn, because
+	# they are derived coverage over the coworkers rather than part of their placement. This
+	# check looked under Coworkers and reported "no whisper emitters in the level" once they
+	# moved, which was stale rather than a real finding.
 	var emitters: Array[AudioStreamPlayer3D] = []
-	for c in _level.get_node("Coworkers").get_children():
+	var host := _level.get_node_or_null("Whispers")
+	if host == null:
+		printerr("FAIL: level.tscn has no Whispers node; is scenes/whispers.tscn instanced?")
+		return
+	for c in host.get_children():
 		if c is AudioStreamPlayer3D:
 			emitters.append(c)
 
@@ -197,7 +207,7 @@ func _report_whispers() -> void:
 	for e in emitters:
 		var key := "%.0f/%.0f" % [e.MinDistance, e.MaxMinDistance]
 		by_setting[key] = int(by_setting.get(key, 0)) + 1
-	print("  per-cluster attenuation (Unity: 2 at 1/10, 5 at 40/45): %s" % by_setting)
+	print("  per-cluster attenuation, unit_size/grown (sized from each cluster, NOT Unity's inconsistent 1/10 and 40/45): %s" % by_setting)
 
 	var manager: Node = root.get_node_or_null("GameManager")
 	if manager == null:

@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/coworker_mono1.tscn" id="1_mono1"]
 [ext_resource type="PackedScene" path="res://scenes/coworker_mono2.tscn" id="2_mono2"]
-[ext_resource type="PackedScene" path="res://scenes/whisper.tscn" id="3_whisper"]
 
 [node name="Coworkers" type="Node3D"]
 
@@ -227,38 +226,3 @@ transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.0000
 
 [node name="CoworkerMono2_29" parent="." instance=ExtResource("2_mono2")]
 transform = Transform3D(2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 0.000000, 0.000000, 0.000000, 2.503510, 33.065040, 26.562040, 63.810340)
-
-[node name="Whisper_01" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.420000, 17.810590, -94.180000)
-MinDistance = 1.0
-MaxMinDistance = 10.0
-
-[node name="Whisper_02" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.610000, 14.630000, -57.600000)
-MinDistance = 40.0
-MaxMinDistance = 45.0
-
-[node name="Whisper_03" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.310000, 20.120000, -45.400000)
-MinDistance = 40.0
-MaxMinDistance = 45.0
-
-[node name="Whisper_04" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56.930000, 26.910000, -14.086890)
-MinDistance = 40.0
-MaxMinDistance = 45.0
-
-[node name="Whisper_05" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.920000, 26.890000, 21.790000)
-MinDistance = 40.0
-MaxMinDistance = 45.0
-
-[node name="Whisper_06" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.710160, 25.380000, 58.120000)
-MinDistance = 1.0
-MaxMinDistance = 10.0
-
-[node name="Whisper_07" parent="." instance=ExtResource("3_whisper")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.640000, 26.890000, 58.120000)
-MinDistance = 40.0
-MaxMinDistance = 45.0
