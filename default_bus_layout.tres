@@ -1,4 +1,4 @@
-[gd_resource type="AudioBusLayout" format=3]
+[gd_resource type="AudioBusLayout" load_steps=2 format=3]
 
 ; Port of Assets/Sounds/ObsCourseMixer.mixer from the Unity original. Godot picks this up
 ; automatically because it sits at the default path for audio/buses/default_bus_layout, so
@@ -7,10 +7,29 @@
 ; Four groups, with the levels from the mixer's one snapshot (AudioMixerSnapshotController
 ; "Snapshot", m_FloatValues). Unity stores those by parameter GUID, so the mapping is:
 ;
-;     Fortunato   dc19826179e70c94b8b9918afdefe98b   +20.000000
+;     Fortunato   dc19826179e70c94b8b9918afdefe98b   +20.000000   -> +9.5 here, see below
 ;     Music       acde8134635d3c440b78466a9f8941fe    -5.205642
 ;     Ambience    ce19fcc7d35006f42a62dbafec043b8b    -9.332112
 ;     Coworkers   (no entry, so the group default)     0.000000
+;
+; FORTUNATO IS THE ONE DELIBERATE DEPARTURE, because +20 dB clips. step.wav peaks at
+; -12.47 dBTP and the Unity AudioSource's own m_Volume is 1, and the emitter's unit_size of 10
+; against a camera 3.16 m away means the distance attenuation is capped at 1.0 - so the footstep
+; arrived at +7.53 dBTP, 7.5 dB into the master bus's ceiling, with the whole mix reaching
+; +8.03 dBTP. Unity would have clipped identically.
+;
+; So the original's footstep prominence is NOT REPRODUCIBLE CLEANLY: a large part of it was the
+; transient being squared off by clipping. +9.5 dB puts the peak at -2.97 dBTP, which leaves the
+; footstep 4.9 dB above the music in RMS - still plainly the most forward element, but 10.5 dB
+; less dominant than Unity's 15.4 dB. That is a loss of faithfulness bought with a working mix,
+; and it is the deliberate trade.
+;
+; Master carries a hard limiter as a net rather than a sound. Three independent sources at their
+; individual true peaks - music -5.35, thirteen summed whispers -3.99, footstep -2.97 - can add
+; to +0.78 dBTP if they coincide. Going to +6.5 dB on Fortunato would close that budget with no
+; limiter, but it leaves the footstep only 1.9 dB above the music, which is too weak for a
+; gameplay cue. The limiter should essentially never engage in play; if it is working audibly,
+; something else has got too loud.
 ;
 ; The port ran with no buses at all until now, everything on Master, which means the whisper
 ; level was tuned by ear against footsteps 20 dB quieter than Unity had them. Restoring the
@@ -23,6 +42,9 @@
 ; susurro_ambience.wav are still unported. The bus exists so they land at the right level when
 ; they are.
 
+[sub_resource type="AudioEffectHardLimiter" id="1_limiter"]
+ceiling_db = -0.5
+
 [resource]
 bus/0/name = &"Master"
 bus/0/solo = false
@@ -30,6 +52,8 @@ bus/0/mute = false
 bus/0/bypass_fx = false
 bus/0/volume_db = 0.0
 bus/0/send = &""
+bus/0/effect/0/effect = SubResource("1_limiter")
+bus/0/effect/0/enabled = true
 bus/1/name = &"Music"
 bus/1/solo = false
 bus/1/mute = false
@@ -52,5 +76,5 @@ bus/4/name = &"Fortunato"
 bus/4/solo = false
 bus/4/mute = false
 bus/4/bypass_fx = false
-bus/4/volume_db = 20.0
+bus/4/volume_db = 9.5
 bus/4/send = &"Master"

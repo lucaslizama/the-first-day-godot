@@ -29,14 +29,31 @@ const FAR_AWAY := Vector3(-13.0, 4.5, -155.0)
 
 ## From ObsCourseMixer.mixer's snapshot. Tolerance is generous because these are stored as
 ## 32-bit floats in Unity and re-serialised here.
+##
+## Fortunato is DELIBERATELY not Unity's +20 dB - see default_bus_layout.tres. At +20 the footstep
+## arrived at +7.53 dBTP and clipped the master bus by 7.5 dB, so part of the original's footstep
+## prominence was the transient being squared off and cannot be reproduced cleanly.
 const EXPECTED_BUSES := {
 	"Master": 0.0,
 	"Music": -5.205642,
 	"Coworkers": 0.0,
 	"Ambience": -9.332112,
-	"Fortunato": 20.0,
+	"Fortunato": 9.5,
 }
 const BUS_TOLERANCE_DB := 0.01
+
+## True peaks come from audio/audio_levels.json, which tools/verify_audio_assets.py measures with
+## ffmpeg. Peak headroom cannot be computed in GDScript, and asserting numbers nobody measured is
+## how the whisper shipped inaudible twice.
+const LEVELS := "res://audio/audio_levels.json"
+
+## Worst-case gain when all 13 whisper emitters sum at the loudest point on the player's route at
+## full death constant, measured by tools/verify_whispers.gd. Held here so the headroom budget is
+## explicit; if the whisper count or its unit_size growth changes, re-measure.
+const WHISPER_SUM_GAIN_DB := 4.91
+
+## Ceiling the master limiter is set to, and the budget every source has to fit under.
+const MASTER_CEILING_DB := -0.5
 
 var frame := 0
 var level: Node
@@ -58,6 +75,8 @@ func _process(_delta: float) -> bool:
 	_check_present_and_playing()
 	_check_loops()
 	_check_constant_volume()
+	_check_no_source_clips()
+	_check_master_limiter()
 
 	print("")
 	if failures == 0:
@@ -171,15 +190,120 @@ func _check_constant_volume() -> void:
 		_fail("cannot sample the music volume; Music or Camera is missing")
 		return
 
+	# RESTORED afterwards. An earlier version left the camera 159 m down the level, and
+	# _check_no_source_clips then budgeted the footstep against a listener at the far end - it
+	# reported -27.03 dBTP instead of -2.97 and passed on a meaningless number. Any check that
+	# moves the world has to put it back, or it silently rewrites the ones after it.
+	var was := cam.global_position
 	var at_spawn := m.volume_db
 	cam.global_position = FAR_AWAY
 	var far := m.volume_db
+	cam.global_position = was
 
 	if is_equal_approx(at_spawn, far):
 		_ok("volume is %.2f dB at the spawn and at the far end of the level; the -5.21 dB sits on the bus" % at_spawn)
 	else:
 		_fail("volume changed from %.2f dB to %.2f dB when the listener moved %.0f m" % [
 			at_spawn, far, FAR_AWAY.length()])
+
+
+func _levels() -> Dictionary:
+	var f := FileAccess.open(LEVELS, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	return parsed if parsed is Dictionary else {}
+
+
+func _bus_db(bus_name: StringName) -> float:
+	var index := AudioServer.get_bus_index(bus_name)
+	return AudioServer.get_bus_volume_db(index) if index >= 0 else 0.0
+
+
+## Reported in play as clipping footsteps. step.wav peaks at -12.47 dBTP, its Unity AudioSource
+## volume is 1, and its emitter's unit_size of 10 against a camera 3.16 m away caps the distance
+## attenuation at 1.0 - so Unity's +20 dB bus delivered +7.53 dBTP, 7.5 dB past the ceiling.
+##
+## This is an ASSET-TIMES-BUS property. Neither the file nor the bus is wrong on its own, which is
+## why nothing caught it: verify_audio_assets checks the files, this file checked the bus levels,
+## and the product of the two was nobody's business.
+func _check_no_source_clips() -> void:
+	checks += 1
+	var levels := _levels()
+	if levels.is_empty():
+		_fail("%s is missing. Run: python3 tools/verify_audio_assets.py" % LEVELS)
+		return
+
+	# Each source's true peak once its node volume, its bus and its worst-case gain are applied.
+	var peaks := {}
+
+	var step := level.get_node_or_null("Player/StepSound") as AudioStreamPlayer3D
+	if step != null and levels.has("audio/step.wav"):
+		# unit_size 10 with the camera ~3 m away means attenuation is capped at 1.0, so the
+		# footstep gets its full gain at the listener. Not an approximation - measured.
+		var attenuation: float = minf(1.0, step.unit_size / maxf(
+			(level.get_node("Camera") as Camera3D).global_position.distance_to(step.global_position), 0.001))
+		peaks["footstep"] = float((levels["audio/step.wav"] as Dictionary)["true_peak_db"]) \
+			+ step.volume_db + _bus_db(step.bus) + linear_to_db(attenuation)
+
+	var music := level.get_node_or_null("Music") as AudioStreamPlayer
+	if music != null and levels.has("audio/guille_experimental.ogg"):
+		peaks["music"] = float((levels["audio/guille_experimental.ogg"] as Dictionary)["true_peak_db"]) \
+			+ music.volume_db + _bus_db(music.bus)
+
+	var whispers := level.get_node_or_null("Whispers")
+	if whispers != null and levels.has("audio/susurro_loko.ogg"):
+		var one := whispers.get_child(0) as AudioStreamPlayer3D
+		# PeakVolumeDb, i.e. what the emitters reach at full death constant, plus the measured
+		# worst-case summing of all 13 at the loudest point on the route.
+		var peak_volume := float(one.get("PeakVolumeDb"))
+		peaks["whispers"] = float((levels["audio/susurro_loko.ogg"] as Dictionary)["true_peak_db"]) \
+			+ peak_volume + _bus_db(one.bus) + WHISPER_SUM_GAIN_DB
+
+	if peaks.is_empty():
+		_fail("could not find any of the level's audio sources to budget")
+		return
+
+	var over: Array[String] = []
+	var power := 0.0
+	var report: Array[String] = []
+	for name in peaks:
+		var db: float = peaks[name]
+		power += db_to_linear(db) * db_to_linear(db)
+		report.append("%s %+.2f" % [name, db])
+		if db > MASTER_CEILING_DB:
+			over.append("%s alone reaches %+.2f dBTP" % [name, db])
+	var combined := linear_to_db(sqrt(power))
+
+	if over.is_empty():
+		_ok("no source clips: %s dBTP, combining to %+.2f in the pathological case where all peak at once (limiter ceiling %.1f)" % [
+			", ".join(report), combined, MASTER_CEILING_DB])
+	else:
+		_fail(("a source exceeds the master ceiling on its own: %s (ceiling %.1f dBTP)." +
+			" This is asset true peak times node volume times bus gain - check all three." +
+			" Measured: %s") % [str(over), MASTER_CEILING_DB, ", ".join(report)])
+
+
+## The limiter is a net, not a sound. It exists because three independent sources at their
+## individual true peaks can still sum past the ceiling even when none of them clips alone.
+func _check_master_limiter() -> void:
+	checks += 1
+	var master := AudioServer.get_bus_index("Master")
+	if master < 0:
+		_fail("there is no Master bus")
+		return
+
+	for i in AudioServer.get_bus_effect_count(master):
+		var effect := AudioServer.get_bus_effect(master, i)
+		if effect is AudioEffectHardLimiter:
+			var ceiling := (effect as AudioEffectHardLimiter).ceiling_db
+			if AudioServer.is_bus_effect_enabled(master, i) and ceiling <= 0.0:
+				_ok("Master carries an enabled hard limiter at %.1f dB, so coincident peaks cannot clip" % ceiling)
+			else:
+				_fail("Master's hard limiter is disabled or its ceiling is %+.1f dB" % ceiling)
+			return
+
+	_fail("Master has no AudioEffectHardLimiter. Sources that are individually safe can still sum past 0 dBTP when their peaks coincide; see default_bus_layout.tres.")
 
 
 func _players_3d(n: Node) -> Array[AudioStreamPlayer3D]:

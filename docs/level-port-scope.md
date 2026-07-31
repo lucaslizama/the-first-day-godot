@@ -588,14 +588,49 @@ needs no fudging.
 > hear" to "does the bed cut through the music", and masking depends on total energy. Both numbers
 > are reported so the 3.5 dB difference stays visible.
 >
-> **Separate defect found while measuring, not fixed, needs a decision.** `step.wav` peaks at
-> −12.5 dBTP and runs through `Fortunato` at **+20 dB** with the Unity source's `m_Volume: 1` —
-> that is **+7.5 dBTP on the master bus**, so the footsteps clip. Faithful to Unity, which would
-> have clipped identically, and unrelated to the whispers, so it is left alone pending a call on
-> whether faithfulness or a clean mix wins. Also noted: that source has `Spatialize: 0`, so the
-> footstep was 2D in the original and is an `AudioStreamPlayer3D` here — inaudible as a difference
-> because it sits on the listener, but it means its mono conversion bought correctness the
-> original never used.
+> **Separate defect found while measuring, now fixed — see below.** `step.wav` peaks at
+> −12.5 dBTP and ran through `Fortunato` at **+20 dB** with the Unity source's `m_Volume: 1` —
+> that is **+7.5 dBTP on the master bus**, so the footsteps clipped. Also noted: that source has
+> `Spatialize: 0`, so the footstep was 2D in the original and is an `AudioStreamPlayer3D` here —
+> inaudible as a difference because it sits on the listener, but it means its mono conversion
+> bought correctness the original never used.
+
+### The footsteps were clipping
+
+Measured at the listener rather than assumed: `unit_size` is **10** and the camera sits **3.16 m**
+away, so the distance attenuation is capped at 1.0 and the footstep takes its full bus gain. With
+Fortunato at Unity's +20 dB that is **+7.53 dBTP**, 7.5 dB past the ceiling, and the whole mix
+reaches +8.03. Unity would have clipped identically. RMS at the listener was −4.31 dB, **15.4 dB
+above the music bed**.
+
+**The original's footstep prominence is not reproducible cleanly**, because a large part of it was
+the transient being squared off by clipping. That is the honest trade here, not a tuning choice.
+
+| | Unity | now |
+|---|---|---|
+| `Fortunato` bus | +20 dB | **+9.5 dB** |
+| footstep true peak | +7.53 dBTP | **−2.97 dBTP** |
+| footstep RMS vs music | +15.4 dB | +4.9 dB |
+
+Still plainly the most forward element, 10.5 dB less dominant. `Master` also carries an
+`AudioEffectHardLimiter` at **−0.5 dB**, which is a **net rather than a sound**: music at −5.35,
+thirteen summed whispers at −3.99 and the footstep at −2.97 are each safe alone but add to
+**+0.78 dBTP** if their peaks coincide. Dropping Fortunato to +6.5 dB would close that budget with
+no limiter, but it leaves the footstep 1.9 dB above the music, too weak for a gameplay cue. If the
+limiter is ever audibly working, something else has got too loud.
+
+**Why nothing caught this.** It is an *asset-times-bus* property: `verify_audio_assets.py` checks
+the files, `verify_music.gd` checked the bus levels, and the product of the two was nobody's
+business. `verify_music.gd` now budgets every source's true peak through its node volume, its bus
+and its measured worst-case gain, and asserts the limiter is present and enabled. Both
+negative-tested — Fortunato at +20 is reported as "footstep alone reaches +7.53 dBTP".
+
+> **One more self-inflicted measurement bug, worth recording because it passed.** The new headroom
+> check first reported the footstep at **−27.03 dBTP** and passed. `_check_constant_volume` runs
+> before it and moves the camera 159 m down the level to prove the music does not attenuate — and
+> never put it back, so the footstep was budgeted against a listener at the far end. **A check that
+> moves the world has to restore it, or it silently rewrites every check after it.** The number was
+> 24 dB wrong and still green.
 
 Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
 constant — ramped in dB from `OnsetVolumeDb`, see the correction above — where Unity set it once in `Start`; that only works if the scene reloads
