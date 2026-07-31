@@ -485,4 +485,8 @@ surface_material_override/1 = ExtResource("19_general")
 surface_material_override/0 = ExtResource("20_transparent")
 surface_material_override/1 = ExtResource("19_general")
 
+[editable path="Shell/nivel"]
+[editable path="ShellP2/nivel_p2"]
+
 ; <<< END generated shell overrides
+

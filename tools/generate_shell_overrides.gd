@@ -94,6 +94,20 @@ func _init() -> void:
 	for shell in SHELLS:
 		_emit_shell(shell, table)
 
+	# THE OVERRIDES ABOVE DO NOT SURVIVE A SAVE WITHOUT THESE. Godot's loader applies an override
+	# on a child of an instanced sub-scene whether or not the instance is editable, but its
+	# PACKER discards it unless the instance is marked editable - so opening level.tscn in the
+	# editor and saving it deletes every block this tool writes. That happened twice, and was
+	# twice blamed on a plugin; it needs no plugin and is reproducible in one second with
+	# tools/verify_scene_survives_save.gd.
+	#
+	# Emitted from here, inside the generated region, rather than left at the end of the scene by
+	# hand: they are a property of these overrides existing, so whatever writes the overrides
+	# should write them. Godot requires them after all node blocks, which the region already is.
+	lines.append("")
+	for shell in SHELLS:
+		lines.append('[editable path="%s/%s"]' % [shell["node"], shell["instance"]])
+
 	lines.append("")
 	lines.append(END)
 

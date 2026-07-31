@@ -1440,6 +1440,39 @@ three checks.
 > project has the `godot_mcp_toolkit` addon, which exposes an `editor_save_scene` tool; that
 > is a plausible route but not something I can attribute after the fact.
 >
+> > **Correction — this diagnosis was wrong, and being satisfied with it let the same thing
+> > happen a third time.** There is no mystery actor and nothing is unattributable. **A plain
+> > open-and-save destroys these overrides, deterministically, with no plugin involved.**
+> >
+> > Godot's *loader* applies an override on a child of an instanced sub-scene whether or not the
+> > instance is editable. Godot's *packer* discards it unless the instance is marked editable. So
+> > the scene loads correctly forever and the first thing to re-save it silently drops all 73
+> > blocks. Loading is more permissive than saving, and that asymmetry is the entire bug.
+> >
+> > Reproduced headlessly in about a second — instantiate with `GEN_EDIT_STATE_MAIN`, which is
+> > what the editor does when it opens a scene, then `pack()` — giving 73 → 0 overrides and 213
+> > lines, matching the clobbered file exactly. The fix is two lines at the end of the scene:
+> >
+> > ```
+> > [editable path="Shell/nivel"]
+> > [editable path="ShellP2/nivel_p2"]
+> > ```
+> >
+> > With them, 73 → 73. They are emitted by `tools/generate_shell_overrides.gd` inside its own
+> > region rather than appended by hand, because they are a property of those overrides existing:
+> > whatever writes the overrides should write them.
+> >
+> > `tools/verify_scene_survives_save.gd` now runs that reproduction over all ten scenes. It
+> > compares the **effective state of the two instantiated trees**, not the `PackedScene`'s stored
+> > properties — the first version did the latter and produced five failures that were all its own
+> > fault, because the packer legitimately omits any property equal to its default
+> > (`volume_db = 0.0`, `attenuation_model = 0`), recomputes `layout_mode`, and round-trips 2.39 as
+> > 2.39000010490417. Without the two lines it reports 75 differences and names every one.
+> >
+> > The lesson is about the *investigation*, not about Godot. A fail-safe and a warning were built
+> > on top of "I cannot attribute this" — which is a diagnosis that was not finished. A thing that
+> > has happened twice has a reachable mechanism.
+>
 > `git checkout -- scenes/level.tscn` restored it, and `verify_level_shells.gd` did its job —
 > it failed 7 of 10 checks and named every missing override. Detection was already covered.
 > What was missing was **graceful degradation**, so the same accident is no longer alarming:
