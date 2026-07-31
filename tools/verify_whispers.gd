@@ -82,6 +82,7 @@ func _process(_delta: float) -> bool:
 
 	_check_in_level()
 	_check_becomes_audible()
+	_check_audible_while_dying()
 
 	print("")
 	if failures == 0:
@@ -259,10 +260,7 @@ func _check_becomes_audible() -> void:
 			silent_at_start += 1
 
 	# Ten deaths is Max_Meaningful_Deaths, where the death constant reaches 1.
-	var gm = Engine.get_singleton("GameManager") if Engine.has_singleton("GameManager") else null
-	var target = gm
-	if target == null:
-		target = root.get_node_or_null("/root/GameManager")
+	var target = _game_manager()
 	if target == null:
 		_fail("cannot reach the GameManager autoload, so the death constant cannot be driven")
 		return
@@ -282,6 +280,84 @@ func _check_becomes_audible() -> void:
 	else:
 		_fail("only %d of %d emitters became audible after 10 deaths; the rest never respond to the death constant" % [
 			audible, nodes.size()])
+
+
+## Reported in play as "not hearing the whispers really well", with every check above
+## passing. Two blind spots, and this one check closes both:
+##
+##   * _check_route_audibility models GEOMETRIC ATTENUATION ONLY and ignores volume_db, so a
+##     whisper turned down to a whisper of a whisper scored a perfect 0.707.
+##   * _check_becomes_audible tests 0 deaths and 10 deaths - the two ENDPOINTS. Ordinary play
+##     produces one to four deaths, so every death count a player actually reaches went
+##     untested.
+##
+## The bug that hid in the gap: volume came from Mathf.LinearToDb(deathConstant) and the
+## constant is deaths / 10, so the first death played at 0.1 amplitude, -20 dB, while the
+## player's own footsteps play at 0 dB in their ear. Full volume existed only at ten deaths.
+##
+## So this walks the death count up one at a time and reads volume_db and unit_size back OFF
+## THE LIVE NODES rather than re-deriving them. Re-implementing the formula here is what makes
+## a check drift away from the code it is checking - and this file has already been wrong
+## twice that way.
+const REFERENCE_DB := 0.0
+
+## Effective dB required at the FIRST death, averaged over the route. The old curve managed
+## about -23 dB here; the current one about -12. The bound sits between them with margin on
+## both sides, and it is expressed against the footsteps at 0 dB because that is what the
+## whisper actually competes with.
+const MIN_FIRST_DEATH_DB := -16.0
+
+## The escalation has to be real. Unity's own was minDistance 40 -> 45, a 12% change that is
+## essentially inaudible, so "it grows" is not enough - it has to grow audibly.
+const MIN_ESCALATION_DB := 8.0
+
+
+func _check_audible_while_dying() -> void:
+	checks += 1
+	var nodes := _audio_players(_whispers_root())
+	var route := _route()
+	if nodes.is_empty() or route.is_empty():
+		_fail("no emitters or no route to sample")
+		return
+
+	var gm: Variant = _game_manager()
+	if gm == null:
+		_fail("cannot reach the GameManager autoload, so the death constant cannot be driven")
+		return
+	gm.call("ResetDeaths")
+
+	var curve: Array[float] = []
+	for deaths in range(1, 11):
+		gm.call("AddDeath")
+		var total := 0.0
+		for p in route:
+			var best := 0.0
+			for n in nodes:
+				var d: float = p.distance_to(n.global_position)
+				var attenuation := minf(1.0, n.unit_size / maxf(d, 0.001))
+				best = maxf(best, db_to_linear(n.volume_db) * attenuation)
+			total += best
+		curve.append(linear_to_db(total / float(route.size())))
+
+	var first := curve[0]
+	var last := curve[curve.size() - 1]
+	var escalation := last - first
+
+	if first >= MIN_FIRST_DEATH_DB and escalation >= MIN_ESCALATION_DB:
+		_ok("audible from the first death: %.1f dB at 1 death rising to %.1f dB at 10 (%.1f dB of escalation), against footsteps at %.0f dB" % [
+			first, last, escalation, REFERENCE_DB])
+	elif first < MIN_FIRST_DEATH_DB:
+		_fail("the whisper is inaudible while dying: %.1f dB averaged over the route at ONE death (need %.1f, footsteps are %.0f). Volume must ramp in dB from an audible onset, not from a linear amplitude of deaths/10." % [
+			first, MIN_FIRST_DEATH_DB, REFERENCE_DB])
+	else:
+		_fail("the whisper does not escalate: %.1f dB at 1 death and %.1f dB at 10, only %.1f dB apart (need %.1f). An escalation nobody can hear is not one." % [
+			first, last, escalation, MIN_ESCALATION_DB])
+
+
+func _game_manager():
+	if Engine.has_singleton("GameManager"):
+		return Engine.get_singleton("GameManager")
+	return root.get_node_or_null("/root/GameManager")
 
 
 ## The instanced whispers.tscn inside the level, or the level itself if it is missing - which

@@ -469,8 +469,43 @@ needs no fudging.
 > emitters follow the death constant — all four checks negative-tested, and the one-emitter
 > case reproduces the original failure exactly.
 
+> **Correction, third pass: loud enough to place, too quiet to hear.** Reported in play as
+> "not hearing really well" *with all seven checks above passing*. Placement was fine, the
+> `.ogg` loops, the scene is instanced. The volume curve was wrong:
+> `Mathf.LinearToDb(deathConstant)` mapped the death constant onto **linear amplitude**, and
+> the constant is `deaths / 10`.
+>
+> | deaths | volume |
+> |---|---|
+> | 1 | **−20 dB** |
+> | 3 | −10.5 dB |
+> | 5 | −6 dB |
+> | 10 | 0 dB |
+>
+> The player's own `StepSound` plays at 0 dB at the listener, so the whisper sat 14–23 dB
+> underneath it across the whole span of deaths an ordinary run produces. Full volume existed
+> only at ten deaths, which almost nobody reaches. Now it ramps **in dB** from an exported
+> `OnsetVolumeDb` (−10) to 0 — the right space for it, since dB is roughly perceptual, so
+> equal death increments sound like equal steps.
+>
+> Two blind spots let this through, and both were in checks I wrote for the *previous* whisper
+> bug:
+>
+> - **Route audibility modelled geometric attenuation and ignored `volume_db` entirely**, so a
+>   whisper turned all the way down still scored a perfect 0.707.
+> - **The volume check tested 0 deaths and 10 deaths — the two endpoints.** Every death count
+>   a player actually reaches went untested.
+>
+> The lesson is not "add another check". It is that both existing checks measured a *proxy*
+> (distance; the endpoints) rather than the thing the player experiences (effective loudness,
+> during play). The new check walks the death count 1→10 and reads `volume_db` and `unit_size`
+> back **off the live nodes** instead of re-deriving the formula, because a verifier that
+> re-implements what it verifies drifts from it — which this file has now done twice. It
+> reports −11.7 dB at one death rising to −0.8 dB at ten, and it fails the old curve at
+> −22.7 dB.
+
 Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
-constant, where Unity set it once in `Start`; that only works if the scene reloads
+constant — ramped in dB from `OnsetVolumeDb`, see the correction above — where Unity set it once in `Start`; that only works if the scene reloads
 on death, and this game respawns through a fade, so on the original's code path the
 volume stays at its level-load value of zero and the whisper is never heard —
 which the script's own comment says is not the intent. And the stagger is a random
