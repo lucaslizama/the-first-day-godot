@@ -18,13 +18,13 @@ namespace TheFirstDay.Gameplay;
 ///   CheckPointZone.onCheckPointCollision  (player enters the kill volume)
 ///     1. InputManager.CanValidateInput = false
 ///     2. Fortunato.Die()
-///     3. Fortunato.transform.parent = "Temporal Target Parent"
+///     3. Camera Target.parent = "Temporal Target Parent"   -> the camera stops following
 ///     4. UI.FadeOut()
 ///     5. GameManager.SumarMuerte()          -> AddDeath
 ///     6. SetActive on a null target         -> does nothing
 ///
 ///   UI.OnFadeOutComplete
-///     1. Fortunato.transform.SetParent(null)
+///     1. Camera Target.SetParent(Camera Target Parent)     -> the camera follows again
 ///     2. UI.FadeIn()
 ///     3. Camera Target.ResetPosition()
 ///     4. Fortunato.Revive()
@@ -39,12 +39,18 @@ namespace TheFirstDay.Gameplay;
 /// while the screen is black and after Revive has cleared the fall speed, and the
 /// fade-in is already running by then.
 ///
-/// Three calls have no counterpart, all for the same reason. Calls 3 and 1 of the
-/// first two lists parked the player under a fixed node and then unparented it,
-/// which existed to undo ParentPlayer's moving-platform parenting; this port carries
-/// the player with sync_to_physics instead and never reparents it, so there is
-/// nothing to undo. The dangling SetActive did nothing in Unity either - its target
-/// is null in the scene.
+/// Only one call has no counterpart: the dangling SetActive, whose target is null in
+/// the scene, so it did nothing in Unity either.
+///
+/// CORRECTION. This file used to claim calls 3 and 1 above reparented THE PLAYER, to
+/// undo ParentPlayer's moving-platform parenting, and dropped both as unnecessary since
+/// this port carries the player with sync_to_physics. Both halves were wrong, and the
+/// omission was visible in play - the camera kept following the corpse all the way down.
+/// The reparented object is `Camera Target` (Fortunato.prefab fileID 4000011707492224),
+/// not Fortunato, and detaching it is the deliberate death effect: see
+/// DetachCameraTarget. That ResetLocalPosition exists at all should have been the tell -
+/// zeroing a local position only means something if the node has just come back from
+/// somewhere else.
 ///
 /// The timings are the fade's, not respawnDelay: 1 s of fadeOutDelay, then 2 s to
 /// black at 0.5 alpha/s, then the teleport, then a 1 s delay and 0.667 s back at
@@ -182,13 +188,18 @@ public partial class RespawnChain : Node
         }
 
         _player.Die();
+        DetachCameraTarget();
         _fade?.FadeOut();
         GameManager.Instance?.AddDeath();
     }
 
     private void OnFadeOutCompleted()
     {
-        // FadeIn first, as the original did: the fade back in overlaps the teleport
+        // Reattach before anything else, matching the original's call order: the camera
+        // must be following again before the teleport moves the player.
+        AttachCameraTarget();
+
+        // FadeIn next, as the original did: the fade back in overlaps the teleport
         // rather than waiting for it, and its own delay covers the jump.
         _fade?.FadeIn();
 
@@ -199,6 +210,50 @@ public partial class RespawnChain : Node
 
         _player?.Revive();
         _killVolume?.TransportPlayer();
+    }
+
+    /// <summary>
+    /// Cuts the camera loose from the player for the duration of the death.
+    ///
+    /// This is the effect the original was after, and it is deliberate: the camera holds
+    /// still while the corpse keeps falling, so the player drops out of frame and you do
+    /// not watch the landing. Mouse look still works, in the original and here, because
+    /// the camera reads the mouse directly rather than through the input manager that
+    /// death disables.
+    ///
+    /// Unity did it by reparenting: `Camera Target` was lifted out of Fortunato and
+    /// parented to a static scene node called "Temporal Target Parent", then put back and
+    /// zeroed on the fade. Since Unity's parent setter keeps world position, the target
+    /// simply froze where it was. TopLevel is Godot's equivalent and needs no node outside
+    /// the player - it makes CameraTarget ignore its parents and treat its own transform
+    /// as global - so player.tscn stays self-contained. The observable behaviour is the
+    /// same, which is what matters; the mechanism is not part of the port's contract.
+    /// </summary>
+    private void DetachCameraTarget()
+    {
+        if (_cameraTarget is null || _cameraTarget.TopLevel)
+        {
+            return;
+        }
+
+        // Assign the global transform back afterwards: with TopLevel set, `Transform` IS
+        // the global transform, so without this the target would snap to wherever the
+        // player-relative offset happens to point in world space.
+        Transform3D frozen = _cameraTarget.GlobalTransform;
+        _cameraTarget.TopLevel = true;
+        _cameraTarget.GlobalTransform = frozen;
+    }
+
+    /// <summary>
+    /// Hands the camera back to the player. The caller zeroes the local position
+    /// afterwards, which is Unity's ResetLocalPosition and what actually re-centres it.
+    /// </summary>
+    private void AttachCameraTarget()
+    {
+        if (_cameraTarget is not null)
+        {
+            _cameraTarget.TopLevel = false;
+        }
     }
 
     private void OnFadeInCompleted()

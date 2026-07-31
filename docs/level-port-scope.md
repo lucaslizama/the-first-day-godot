@@ -473,15 +473,38 @@ prefab-instance overrides. Recovered, it is:
 
 | Fires | Calls |
 |---|---|
-| `onCheckPointCollision` | `CanValidateInput = false`, `Fortunato.Die()`, reparent to "Temporal Target Parent", `UI.FadeOut()`, `SumarMuerte()`, a `SetActive` on a null target |
-| `OnFadeOutComplete` | unparent, `UI.FadeIn()`, `Camera Target.ResetPosition()`, `Fortunato.Revive()`, `TransportPlayer()` |
+| `onCheckPointCollision` | `CanValidateInput = false`, `Fortunato.Die()`, **`Camera Target` → "Temporal Target Parent"**, `UI.FadeOut()`, `SumarMuerte()`, a `SetActive` on a null target |
+| `OnFadeOutComplete` | **`Camera Target` → `Camera Target Parent`**, `UI.FadeIn()`, `Camera Target.ResetPosition()`, `Fortunato.Revive()`, `TransportPlayer()` |
 | `OnFadeInComplete` | `CanValidateInput = true`, `SetFadeInSpeed(2)`, `SetFadeInDelay(0.5)` |
 
 `RespawnChain.cs` reproduces it in that order, because the order is the behaviour:
 the teleport happens while the screen is black and after `Revive` has cleared the
-fall speed. Three calls have no counterpart — the two reparenting calls existed to
-undo `ParentPlayer`'s platform parenting, which this port never does, and the
-`SetActive` had a null target in Unity too.
+fall speed. Only the `SetActive` has no counterpart; its target is null in Unity too.
+
+> **Correction.** This said the two reparenting calls moved **the player**, to undo
+> `ParentPlayer`'s platform parenting, and that dropping them was therefore safe. Wrong
+> on both counts, and the user caught it in play: *"in the original when dying, the camera
+> would stop following the player once the dying animation started — it was intentional,
+> to give a certain effect to death."*
+>
+> The reparented object is `Camera Target` (`Fortunato.prefab` fileID 4000011707492224),
+> a child of `Camera Target Parent` inside Fortunato, and the camera follows it. Lifting
+> it onto the static `Temporal Target Parent` freezes it — Unity's parent setter keeps
+> world position — so the camera holds still while the corpse keeps falling and the player
+> drops out of frame. You never watch the landing. `SetParent` and `ResetLocalPosition`
+> put it back afterwards.
+>
+> Two things should have prevented this. The chain was read as "reparent to Temporal
+> Target Parent" without resolving *which* transform the call targeted — a stripped
+> prefab transform whose name only appears in `Fortunato.prefab`. And
+> `ResetLocalPosition.cs` (`self.localPosition = Vector3.zero`), wired to `Camera Target`
+> on the very next event, was recorded without asking why zeroing a local position would
+> be needed at all: it only means something if the node has just returned from another
+> parent. A call whose purpose is unexplained is not a call that can be safely dropped.
+>
+> Ported in `RespawnChain.DetachCameraTarget` using Godot's `TopLevel` rather than
+> reparenting, so the effect needs no node outside `player.tscn`. Measured in
+> `tools/verify_death_camera.gd`.
 
 **This settles the `respawnDelay` question.** The real timing is the fade's:
 1 s `fadeOutDelay`, 2 s to black at 0.5 alpha/s, then the teleport, then 1 s and
