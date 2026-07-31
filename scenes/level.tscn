@@ -29,6 +29,9 @@
 ; tools/generate_whispers_scene.py.
 [ext_resource type="PackedScene" path="res://scenes/whispers.tscn" id="21_whispers"]
 
+; The level's music, 68.4 s looping - see the Music node below.
+[ext_resource type="AudioStream" path="res://audio/guille_experimental.ogg" id="22_music"]
+
 ; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
 size = Vector3(4, 4, 1)
@@ -92,6 +95,27 @@ script = ExtResource("3_shell")
 ; Silent until the player starts dying; WhisperEmitter drives volume from the death
 ; constant, which is 0 at level start.
 [node name="Whispers" parent="." instance=ExtResource("21_whispers")]
+
+; The Music GameObject from nivelEscena. It carried only a Transform and an AudioSource - no
+; script - so nothing in the original ever faded, ducked or restarted it: play on awake, loop,
+; volume 1, for as long as the level is open.
+;
+; An AudioStreamPlayer rather than an AudioStreamPlayer3D, and that is the faithful choice, not
+; a simplification: the Unity source has Spatialize 0 and a panLevelCustomCurve that is flat at
+; 0, so it was fully 2D. A non-positional player has no attenuation and no panning by
+; construction, which is exactly "the same volume everywhere in the level".
+;
+; Its -5.21 dB lives on the Music bus, not here - see default_bus_layout.tres. Keeping the
+; mixer's levels in the mixer means volume_db on this node stays available for anything that
+; wants to fade the music later, without that fade having to know the mixer value.
+;
+; The .ogg import needed loop=true set by hand and reimported; Godot defaults it to false, so
+; this would otherwise stop after 68.4 s and never come back.
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("22_music")
+volume_db = 0.0
+autoplay = true
+bus = &"Music"
 
 [node name="Hammers" parent="." instance=ExtResource("7_hammers")]
 

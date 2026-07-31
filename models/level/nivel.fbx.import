@@ -44,12 +44,12 @@ _subresources={
 "lambert1": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://materials/level_general.tres",
-"use_external/path": "uid://cvv8yqfd2y8ku"
+"use_external/path": "res://materials/level_general.tres"
 },
 "lambert2": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://materials/level_general.tres",
-"use_external/path": "uid://cvv8yqfd2y8ku"
+"use_external/path": "res://materials/level_general.tres"
 }
 }
 }

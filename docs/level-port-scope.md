@@ -173,7 +173,8 @@ sprites and audio.
 Audio referenced by the level scene:
 
 - `susurro_loko.wav` — 2.4 MB, referenced 12×, the whisper driven by `SoundAttenuationByDeath`
-- `guille_experimental.wav` — 11.8 MB
+- `guille_experimental.wav` — 11.8 MB, the level's music. **Now ported**, 68.4 s stereo at
+  1.3 MB of Ogg Vorbis — see "Music and the mixer" below
 - `robinhood76__looping-hollow-open-air-wind.wav` — 8.6 MB
 
 Two more WAVs exist in the project but are **not** referenced by this scene:
@@ -544,6 +545,69 @@ volume stays at its level-load value of zero and the whisper is never heard —
 which the script's own comment says is not the intent. And the stagger is a random
 start position rather than `PlayDelayed` of a random offset; both desynchronise the
 emitters, but Unity's leaves each silent for up to 14 seconds first.
+
+## Music and the mixer
+
+`guille_experimental`, 68.4 s, on a GameObject called `Music` in `nivelEscena`. That object
+carries **only a Transform and an AudioSource** — no script — so nothing in the original ever
+faded, ducked or restarted it: `m_PlayOnAwake: 1`, `Loop: 1`, `m_Volume: 1`, for as long as the
+level is open.
+
+It is an `AudioStreamPlayer`, not an `AudioStreamPlayer3D`, and that is the faithful choice
+rather than a simplification. The Unity source has `Spatialize: 0` and a `panLevelCustomCurve`
+flat at 0 — fully 2D. A non-positional player has no attenuation and no panning *by
+construction*, which is a stronger guarantee of "the same volume everywhere" than measuring a
+flat level at sampled points would be.
+
+Kept **stereo**, unlike the 3D emitters. The mono rule in `tools/verify_audio_assets.py` exists
+because Godot does not spatialise a stereo stream; a 2D player never pans by position, so its
+channels reach both ears as authored.
+
+11.8 MB of WAV to 1.3 MB of Ogg Vorbis at `-q:a 5`. Unity's importer has `normalize: 1`, but the
+source peaks at −0.22 dBFS, so that normalisation is worth 0.22 dB. Applying it made the Vorbis
+encode overshoot to **+0.07 dBFS**, so it is deliberately *not* applied — 0.22 dB of inaudible
+fidelity is not worth a clipping risk. The shipped file peaks at −0.14 dBFS.
+
+`loop=true` had to be set in the `.import` by hand and reimported, since Godot defaults `.ogg`
+to `loop=false`. `tools/verify_music.gd` reads the flag off the **imported stream** rather than
+the `.import` file, so a change that was never reimported cannot pass it.
+
+### The mixer
+
+Porting the music surfaced `Assets/Sounds/ObsCourseMixer.mixer`, which the port had been
+ignoring entirely — everything ran on Master. Its one snapshot holds, by parameter GUID:
+
+| group | Unity | ported to |
+|---|---|---|
+| `Fortunato` | **+20.00 dB** | `StepSound` |
+| `Music` | −5.21 dB | `Music` |
+| `Ambience` | −9.33 dB | nothing yet |
+| `Coworkers` | 0.00 dB (no snapshot entry) | the 13 whisper emitters |
+
+Now `default_bus_layout.tres`, at the project root so Godot loads it with no project setting to
+keep in sync.
+
+**This was a deliberate decision with a known cost, taken by the user after being shown it.**
+The whisper level had just been tuned by ear *with no mixer*, i.e. against footsteps 20 dB
+quieter than the original's. Restoring the mixer puts the whispers back about 20 dB under the
+footsteps — which is what the original mix was, but it is not the balance that was signed off by
+listening. If it wants changing, **change `Fortunato` in the bus layout**, not
+`WhisperEmitter.OnsetVolumeDb`, so the emitter keeps matching the level settled on by ear.
+
+`Ambience` carries nothing yet; the wind and `susurro_ambience` are still unported. The bus
+exists so they arrive at the right level when they do.
+
+One incidental fix. `tools/verify_whispers.gd` expressed its audibility bound "against the
+footsteps at 0 dB", which stopped being true the moment `Fortunato` went in. It now measures
+against **full scale**, which does not move when a mixer value changes.
+
+And one self-inflicted bug found while here: the `.import` material fail-safe added for the red
+incident had been rewritten by Godot from a `res://` path to `uid://cvv8yqfd2y8ku`, a UID that
+resolves to nothing — because reverting Godot's churn on `materials/*.tres` stripped the `uid=`
+lines the `.import` had just been pointed at. It still worked, via the `fallback_path` Godot
+also wrote, but every load logged a warning and the primary reference was dead. Repointed at the
+resource path. **Reverting churn in one file can break a reference in another**; the warning was
+the only symptom.
 
 ## Hazards and the respawn chain
 

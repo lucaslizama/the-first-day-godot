@@ -299,12 +299,18 @@ func _check_becomes_audible() -> void:
 ## THE LIVE NODES rather than re-deriving them. Re-implementing the formula here is what makes
 ## a check drift away from the code it is checking - and this file has already been wrong
 ## twice that way.
-const REFERENCE_DB := 0.0
-
-## Effective dB required at the FIRST death, averaged over the route. The old curve managed
-## about -23 dB here; the current one about -12. The bound sits between them with margin on
-## both sides, and it is expressed against the footsteps at 0 dB because that is what the
-## whisper actually competes with.
+## Effective dB required at the FIRST death, averaged over the route, measured against FULL
+## SCALE. The old curve managed about -23 dB here; the current one about -12, which is the level
+## that was settled on by listening.
+##
+## It used to be phrased "against the footsteps at 0 dB", which stopped being true the moment
+## the Unity mixer was ported: StepSound now runs through the Fortunato bus at +20 dB, so the
+## footsteps are a moving target and referencing them would make this bound drift with a mixer
+## change it has no opinion about. Full scale does not move.
+##
+## Worth knowing while reading the numbers below: the whispers are on the Coworkers bus at 0 dB
+## and so sit about 20 dB under the footsteps. That is what the original's mix was, chosen
+## deliberately - see default_bus_layout.tres. If it wants changing, change the bus.
 const MIN_FIRST_DEATH_DB := -16.0
 
 ## The escalation has to be real. Unity's own was minDistance 40 -> 45, a 12% change that is
@@ -344,11 +350,11 @@ func _check_audible_while_dying() -> void:
 	var escalation := last - first
 
 	if first >= MIN_FIRST_DEATH_DB and escalation >= MIN_ESCALATION_DB:
-		_ok("audible from the first death: %.1f dB at 1 death rising to %.1f dB at 10 (%.1f dB of escalation), against footsteps at %.0f dB" % [
-			first, last, escalation, REFERENCE_DB])
+		_ok("audible from the first death: %.1f dB at 1 death rising to %.1f dB at 10 (%.1f dB of escalation), below full scale" % [
+			first, last, escalation])
 	elif first < MIN_FIRST_DEATH_DB:
-		_fail("the whisper is inaudible while dying: %.1f dB averaged over the route at ONE death (need %.1f, footsteps are %.0f). Volume must ramp in dB from an audible onset, not from a linear amplitude of deaths/10." % [
-			first, MIN_FIRST_DEATH_DB, REFERENCE_DB])
+		_fail("the whisper is inaudible while dying: %.1f dB below full scale, averaged over the route at ONE death (need %.1f). Volume must ramp in dB from an audible onset, not from a linear amplitude of deaths/10." % [
+			first, MIN_FIRST_DEATH_DB])
 	else:
 		_fail("the whisper does not escalate: %.1f dB at 1 death and %.1f dB at 10, only %.1f dB apart (need %.1f). An escalation nobody can hear is not one." % [
 			first, last, escalation, MIN_ESCALATION_DB])

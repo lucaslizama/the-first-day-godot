@@ -27,6 +27,10 @@
 
 [node name="Whisper" type="AudioStreamPlayer3D"]
 stream = ExtResource("1_whisper")
+; The Coworkers group in ObsCourseMixer, whose snapshot has no entry for it and so leaves it
+; at 0 dB. Routed anyway rather than left on Master, so a later change to the group's level
+; reaches these without anyone having to remember they were the exception.
+bus = &"Coworkers"
 attenuation_model = 0
 volume_db = -80.0
 unit_size = 1.0

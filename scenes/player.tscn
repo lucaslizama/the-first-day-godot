@@ -29,6 +29,10 @@ libraries/ = ExtResource("3_anims")
 ; 37 ms, so there is nothing for Ogg to save, and short sounds survive better uncompressed.
 [node name="StepSound" type="AudioStreamPlayer3D" parent="." unique_id=1120041755]
 stream = ExtResource("4_step")
+; The Fortunato group in ObsCourseMixer, +20 dB in its snapshot. That is a large boost and it
+; is the original's: footsteps sit well above everything else in Unity's mix, including the
+; whispers at 0 dB. See default_bus_layout.tres.
+bus = &"Fortunato"
 
 [node name="CameraTargetParent" type="Node3D" parent="." unique_id=1894699775]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)

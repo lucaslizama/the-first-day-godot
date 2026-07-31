@@ -1,0 +1,56 @@
+[gd_resource type="AudioBusLayout" format=3]
+
+; Port of Assets/Sounds/ObsCourseMixer.mixer from the Unity original. Godot picks this up
+; automatically because it sits at the default path for audio/buses/default_bus_layout, so
+; there is no project setting to keep in sync.
+;
+; Four groups, with the levels from the mixer's one snapshot (AudioMixerSnapshotController
+; "Snapshot", m_FloatValues). Unity stores those by parameter GUID, so the mapping is:
+;
+;     Fortunato   dc19826179e70c94b8b9918afdefe98b   +20.000000
+;     Music       acde8134635d3c440b78466a9f8941fe    -5.205642
+;     Ambience    ce19fcc7d35006f42a62dbafec043b8b    -9.332112
+;     Coworkers   (no entry, so the group default)     0.000000
+;
+; The port ran with no buses at all until now, everything on Master, which means the whisper
+; level was tuned by ear against footsteps 20 dB quieter than Unity had them. Restoring the
+; mixer puts the whispers 20 dB under the footsteps again - which is what the original mix
+; actually was, and is a deliberate choice rather than a regression. If it wants changing,
+; change Fortunato here rather than WhisperEmitter's OnsetVolumeDb, so the emitter keeps
+; matching the level that was settled on by listening.
+;
+; Ambience carries nothing yet: robinhood76__looping-hollow-open-air-wind.wav and
+; susurro_ambience.wav are still unported. The bus exists so they land at the right level when
+; they are.
+
+[resource]
+bus/0/name = &"Master"
+bus/0/solo = false
+bus/0/mute = false
+bus/0/bypass_fx = false
+bus/0/volume_db = 0.0
+bus/0/send = &""
+bus/1/name = &"Music"
+bus/1/solo = false
+bus/1/mute = false
+bus/1/bypass_fx = false
+bus/1/volume_db = -5.205642
+bus/1/send = &"Master"
+bus/2/name = &"Coworkers"
+bus/2/solo = false
+bus/2/mute = false
+bus/2/bypass_fx = false
+bus/2/volume_db = 0.0
+bus/2/send = &"Master"
+bus/3/name = &"Ambience"
+bus/3/solo = false
+bus/3/mute = false
+bus/3/bypass_fx = false
+bus/3/volume_db = -9.332112
+bus/3/send = &"Master"
+bus/4/name = &"Fortunato"
+bus/4/solo = false
+bus/4/mute = false
+bus/4/bypass_fx = false
+bus/4/volume_db = 20.0
+bus/4/send = &"Master"

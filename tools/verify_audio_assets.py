@@ -25,8 +25,13 @@ acceptable when its two channels are identical. step.wav was exactly that case: 
 channel difference peaking at -68 dB, so it sounded centred and correct while never actually
 being spatialised. Both are mono now.
 
-Non-3D players (music, UI) are exempt and may be stereo; this only walks the 3D ones. Needs
-ffprobe and ffmpeg on PATH.
+Non-3D players are exempt and may be stereo, and this only walks the 3D ones. That exemption is
+correct rather than an oversight: a plain AudioStreamPlayer never pans by position, so its two
+channels reach both ears as authored - which is why the level's music is deliberately kept
+stereo. The music has its own checks in tools/verify_music.gd, covering the things that DO
+matter for it: that it loops, autoplays, is non-positional, and sits on the right mixer bus.
+
+Needs ffprobe and ffmpeg on PATH.
 """
 
 import json
