@@ -29,8 +29,14 @@ and upward in y** — which is what the falling platforms are for.
 > meaningless.
 
 The level can still be ported in **slices along z**, one checkpoint stretch at a
-time, with the sandbox scene as the harness — that part holds. Nothing requires
-the whole level standing up before any of it is playable.
+time — that part holds. Nothing requires the whole level standing up before any of
+it is playable.
+
+`scenes/sandbox.tscn` used to be the harness for that: a ground plane, one pillar, the
+player and the camera. It is gone. Nothing referenced it any more — every verifier and
+screenshot tool loads `level.tscn` — so it was a scene that would drift out of step with
+the real one without anything noticing. If a bare harness is wanted again, it is four
+nodes.
 
 ### Unity → Godot placement convention
 
