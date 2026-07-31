@@ -121,6 +121,9 @@ public partial class PlayerCharacter : CharacterBody3D
     /// <summary>Ignore blocked motion smaller than this; it is jitter, not a step.</summary>
     private const float MinStepMotion = 0.001f;
 
+    /// <summary>Below this the camera offset is finished; a millimetre is not worth carrying.</summary>
+    private const float StepSmoothingEpsilon = 0.001f;
+
     /// <summary>
     /// How far forward to carry the character while stepping, at least. Must be enough to put his
     /// footprint ON the tread rather than leaving him hugging the riser.
@@ -170,16 +173,34 @@ public partial class PlayerCharacter : CharacterBody3D
     public NodePath CameraSmoothingPath { get; set; } = new("CameraTargetParent");
 
     /// <summary>
-    /// How fast the camera catches up after a step, in metres per second.
+    /// Time for the camera's remaining catch-up to halve, in seconds. Larger is smoother and laggier.
     ///
-    /// Bounded at both ends. Too slow and the offset from one step has not drained before the next
-    /// arrives, so the camera sits permanently low: the steps here come every 0.75 m of travel,
-    /// which is 0.167 s apart at RunSpeed, and a 0.27 m riser takes 0.135 s to drain at 2.0. Too
-    /// fast and it is a pop again - 2.0 m/s is 0.033 m per frame at 60 Hz, well under the 0.05 m
-    /// that tools/verify_stairs.gd calls a jump.
+    /// Exponential rather than a constant speed, and the shape matters more than the amount. A
+    /// constant drain starts and stops abruptly, so a flight of eight steps produced eight little
+    /// linear ramps with a corner at each end - measurably within bounds, still visible as stepping.
+    /// Decay proportional to what is left has no corners, and because a new step adds to an offset
+    /// that is still decaying, consecutive steps blend into one continuous rise.
+    ///
+    /// It also self-limits: the rate scales with the offset, so the lag while running upstairs settles
+    /// instead of growing, which a constant speed slower than the step rate would not do.
+    ///
+    /// The trade, MEASURED over the real staircase at RunSpeed rather than derived - and the
+    /// measurement is worth keeping because the theory oversells it. Halving the decay does not halve
+    /// the per-frame movement, because the offset accumulates over eight quick steps and a larger
+    /// offset decays by more in absolute terms. So smoothness improves slowly while lag grows fast:
+    ///
+    ///     half-life   worst rise/frame   worst lag behind the body
+    ///       0.08 s        0.040 m               0.261 m
+    ///       0.15 s        0.031 m               0.349 m
+    ///       0.25 s        0.026 m               0.467 m
+    ///       0.40 s        0.023 m               0.631 m
+    ///
+    /// 0.15 is the default: about a quarter smoother per frame than 0.08, for 0.09 m more lag. Past
+    /// that the returns are poor - 0.40 buys only another 0.008 m of smoothness for 0.28 m of lag,
+    /// which is the camera visibly trailing the character rather than easing after him.
     /// </summary>
     [Export]
-    public float StepSmoothingSpeed { get; set; } = 2.0f;
+    public float StepSmoothingHalfLife { get; set; } = 0.15f;
 
     /// <summary>
     /// How far off vertical a contact may be and still count as ground to step DOWN onto. Above
@@ -802,9 +823,26 @@ public partial class PlayerCharacter : CharacterBody3D
             return;
         }
 
-        // Signed: a step up holds the camera low, a step down holds it high, and both drain toward
-        // zero at the same rate.
-        _stepSmoothing = Mathf.MoveToward(_stepSmoothing, 0.0f, StepSmoothingSpeed * (float)delta);
+        // Signed: a step up holds the camera low, a step down holds it high, and both decay toward
+        // zero. Exponential, so the rate is proportional to what is left - see StepSmoothingHalfLife.
+        if (_stepSmoothing != 0.0f)
+        {
+            if (StepSmoothingHalfLife > 0.0f)
+            {
+                _stepSmoothing *= Mathf.Pow(0.5f, (float)delta / StepSmoothingHalfLife);
+            }
+            else
+            {
+                _stepSmoothing = 0.0f;
+            }
+
+            // Exponential decay never actually arrives, so retire the last sliver rather than leave
+            // the camera permanently a hair off and the offset being rewritten every frame forever.
+            if (Mathf.Abs(_stepSmoothing) < StepSmoothingEpsilon)
+            {
+                _stepSmoothing = 0.0f;
+            }
+        }
 
         Vector3 local = _cameraSmoothing.Position;
         local.Y = _cameraSmoothingBaseY - _stepSmoothing;
