@@ -111,6 +111,27 @@ public partial class ThirdPersonCamera : Camera3D
     [Export]
     public float ZoomOutSeconds { get; set; } = 0.6f;
 
+    /// <summary>
+    /// Fastest the camera may travel INWARD when geometry blocks the view, in metres per second.
+    /// Set to 0 for the original behaviour, which was an unbounded snap in a single frame.
+    ///
+    /// A DELIBERATE ADDITION. The original snapped, and on the staircase that reads as the camera
+    /// jumping: each tread the character climbs becomes the nearest occluder in turn, so the distance
+    /// is rewritten step after step. Measured on the flight, with no respawn in the sample, the
+    /// distance moved inward by up to 2.77 m in one tick and by more than 5 cm seven times.
+    ///
+    /// 20 m/s spreads a 3 m correction over about nine frames at 60 fps - fast enough to keep up with
+    /// walking into a wall, slow enough not to register as a jolt.
+    ///
+    /// The cost of not snapping is that the camera can sit briefly further out than the obstruction
+    /// allows, i.e. inside geometry. That is much cheaper here than it would normally be, because
+    /// this project already fades surfaces within 1.8 m of the camera - see the proximity fade in
+    /// docs/level-port-scope.md - so anything it passes through dissolves rather than filling the
+    /// frame. If clipping ever does show, raise this rather than returning to a snap.
+    /// </summary>
+    [Export]
+    public float ZoomInMetresPerSecond { get; set; } = 20.0f;
+
     private float _yawDegrees;
     private float _pitchDegrees;
     private float _currentDistance;
@@ -254,17 +275,31 @@ public partial class ThirdPersonCamera : Camera3D
     }
 
     /// <summary>
-    /// Snaps inward the instant something blocks the view, then eases back out over
-    /// ZoomOutSeconds once there is room again. The original's zoom-*in* branch is
-    /// unreachable here because DesiredDistance is also the maximum.
+    /// Pulls inward when something blocks the view, then eases back out over ZoomOutSeconds once
+    /// there is room again. The original's zoom-*in* branch is unreachable here because
+    /// DesiredDistance is also the maximum.
     /// </summary>
     private float ResolveDistance(float actual, float calculated, float desired, double delta)
     {
-        // Something moved closer than we currently are: snap, no easing.
+        // Something is closer than we currently are. This used to snap with no easing at all, which
+        // is the camera jump reported on the stairs: every tread the character climbs becomes the
+        // nearest occluder in turn, so the view distance was being rewritten from scratch step after
+        // step. Measured on the flight - with no respawn in the sample - the distance moved inward by
+        // up to 2.77 m in a single tick, 7 times by more than 5 cm.
+        //
+        // Bounded instead of instant, at ZoomInMetresPerSecond. It still arrives; it just cannot do
+        // the whole distance in one frame.
         if (actual - calculated > FloatTolerance)
         {
             _zoomingOut = false;
-            return Mathf.Max(Mathf.Min(calculated, desired), MinimumDistance);
+            float closest = Mathf.Max(Mathf.Min(calculated, desired), MinimumDistance);
+            if (ZoomInMetresPerSecond <= 0.0f)
+            {
+                return closest;
+            }
+
+            // Never further out than we already are, and never past the obstruction.
+            return Mathf.Max(closest, actual - (ZoomInMetresPerSecond * (float)delta));
         }
 
         bool roomToGrow = calculated - actual > FloatTolerance;
