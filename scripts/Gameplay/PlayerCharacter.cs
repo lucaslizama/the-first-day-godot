@@ -57,6 +57,23 @@ public partial class PlayerCharacter : CharacterBody3D
     private const float DeathBlendSeconds = 0.1f;
 
     /// <summary>
+    /// The death -> idle transition's m_TransitionDuration, taken when Revive fires.
+    ///
+    /// Read out of the Fortunato Controller rather than chosen. Every OTHER transition in that
+    /// controller is a hard cut - walk_run_tree to jump, jump to fall, fall to land, land back to
+    /// locomotion are all m_TransitionDuration 0 - which is why this port plays those clips with no
+    /// blend, and why an earlier attempt to blend into the jump clips was wrong in principle rather
+    /// than merely wrong by feel. The only non-zero durations in the whole controller are the 0.1 s
+    /// into death, this 0.25 s back out of it, and 0.25 s on the land states' re-fall.
+    ///
+    /// HONEST NOTE ON WHAT THIS BUYS: nothing visible today. RespawnChain calls Revive at
+    /// OnFadeOutComplete, i.e. while the screen is fully black, so the blend runs behind the fade.
+    /// It is ported because it is the controller's value and because the fade timing is not
+    /// guaranteed to stay where it is.
+    /// </summary>
+    private const float ReviveBlendSeconds = 0.25f;
+
+    /// <summary>
     /// The eight movement directions in camera space, using Godot's -Z forward.
     /// Indexed by <see cref="WasDirection"/>.
     /// </summary>
@@ -283,6 +300,13 @@ public partial class PlayerCharacter : CharacterBody3D
 
     /// <summary>Set by <see cref="Cry"/>; see the guard in UpdateAnimation.</summary>
     private bool _crying;
+
+    /// <summary>
+    /// Blend to use for the NEXT clip change only, in seconds, or -1 for the player's default.
+    /// Armed by <see cref="Revive"/> so the way out of the death pose is Unity's 0.25 s rather than a
+    /// cut; every other transition in the controller is a cut, so this is spent immediately and reset.
+    /// </summary>
+    private float _pendingBlendSeconds = -1.0f;
 
     /// <summary>
     /// The clip last asked for, which is NOT the same as AnimationPlayer.CurrentAnimation.
@@ -539,6 +563,9 @@ public partial class PlayerCharacter : CharacterBody3D
     {
         IsDead = false;
         _crying = false;
+
+        // Unity's death -> idle transition. Spent by the next clip change in UpdateAnimation.
+        _pendingBlendSeconds = ReviveBlendSeconds;
         IsFalling = false;
         IsJumping = false;
         _checkingForFall = false;
@@ -599,7 +626,8 @@ public partial class PlayerCharacter : CharacterBody3D
         if (_requestedClip != next)
         {
             _requestedClip = next;
-            _animation.Play(next);
+            _animation.Play(next, _pendingBlendSeconds);
+            _pendingBlendSeconds = -1.0f;
         }
     }
 

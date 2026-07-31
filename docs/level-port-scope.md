@@ -2196,3 +2196,39 @@ about 0.217 s earlier on walk's — which is the `animation/trimming` offset thi
 placement needs no correction. Unity fired three events per footfall where we fire one:
 `PlayStepSound` does the pitch randomisation itself, since two method keys at the same time would
 depend on insertion order.
+
+### Every animator transition duration, read from the controller
+
+With the Unity project available, the Fortunato Controller's `m_TransitionDuration` values are no
+longer guesswork. The whole table:
+
+| transition | duration | notes |
+|---|---|---|
+| `walk_run_tree` → `idle`, → jump, → fall | **0** | |
+| `idle` → `walk_run_tree`, → jump | **0** | |
+| `jump` → `fall`, → `idle`, → `walk_run_tree` | **0** | and the same for `jump_moving` |
+| `fall` → `land`, `fall_moving` → `land_moving` | **0** | |
+| `land` → `idle`, → `walk_run_tree` | **0** | and the same for `land_moving` |
+| `land` → `fall`, `land_moving` → `fall_moving` | 0.25 | `m_HasExitTime: 1` — the land states' re-fall |
+| ANY STATE → `death` | 0.1 | already ported as `DeathBlendSeconds` |
+| ANY STATE → `cry` | 0 | already correct, `Cry` cuts |
+| **`death` → `idle` on `Revive`** | **0.25** | **was missing; now `ReviveBlendSeconds`** |
+
+**This retires the blend question for good. Unity cut between locomotion and the airborne clips — every
+one of those transitions is 0.** So the port's hard cuts are correct, and the `ClipBlendSeconds` of
+0.08 s tried earlier was wrong *in principle*, not merely wrong by feel. It had been rejected in play
+and the pop confirmed against the original; now there is a number behind that rather than an
+impression. Two independent routes to the same answer, which is the pattern this document keeps
+rewarding.
+
+The one real gap it exposed is the way *out* of the death pose: Unity blended over 0.25 s and the port
+cut. Ported as a one-shot blend armed by `Revive` and spent by the next clip change, since every other
+transition must stay a cut.
+
+**Worth being clear that it buys nothing visible today.** `RespawnChain` calls `Revive` at
+`OnFadeOutComplete`, i.e. with the screen fully black, so the blend runs behind the fade. It is ported
+because it is the controller's value and because the fade timing is not guaranteed to stay where it is.
+
+Also recorded for whoever ports the `land`/`land_moving` states, still the one animator feature this
+port omits: their exit back to falling is 0.25 s **with** `m_HasExitTime`, which is the timing this
+document previously noted as "not recovered".
