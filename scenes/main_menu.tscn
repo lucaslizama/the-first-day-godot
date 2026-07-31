@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://c03m8sjcaljun" path="res://scripts/UI/MainMenu.cs" id="1_mainmenu"]
 [ext_resource type="Script" uid="uid://c1mrenfwojt7v" path="res://scripts/UI/FadeOverlay.cs" id="2_ekxnf"]
+[ext_resource type="PackedScene" uid="uid://3l0ohghk8b6j" path="res://scenes/main_menu_background.tscn" id="3_bqqt6"]
+[ext_resource type="FontFile" uid="uid://iyvfq71j01xd" path="res://font/Galindo-Regular.ttf" id="3_wu84c"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ekxnf"]
 bg_color = Color(1, 1, 1, 1)
@@ -66,7 +68,11 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[node name="MainMenu" type="Control" unique_id=1784026575]
+[node name="MainMenu" type="Node" unique_id=353971181]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=331313535]
+
+[node name="MainMenu" type="Control" parent="CanvasLayer" unique_id=1784026575]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -75,16 +81,38 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_mainmenu")
 
-[node name="Background" type="ColorRect" parent="." unique_id=185039002]
+[node name="MenuArea" type="MarginContainer" parent="CanvasLayer/MainMenu" unique_id=467823193]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
+anchors_preset = -1
+anchor_right = 0.5
 anchor_bottom = 1.0
+
+[node name="UI" type="Control" parent="CanvasLayer/MainMenu/MenuArea" unique_id=543727356]
+layout_mode = 2
+
+[node name="Title" type="RichTextLabel" parent="CanvasLayer/MainMenu/MenuArea/UI" unique_id=109487907]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -450.0
+offset_top = -318.0
+offset_right = 450.0
+offset_bottom = -57.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.2205882, 0.2205882, 0.2205882, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.2)
+theme_override_constants/shadow_offset_y = 6
+theme_override_fonts/normal_font = ExtResource("3_wu84c")
+theme_override_font_sizes/normal_font_size = 100
+bbcode_enabled = true
+text = "[center][shake rate=2.0 level=12 connected=1]The First Day[/shake][/center]"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Menu" type="VBoxContainer" parent="." unique_id=1172278127]
+[node name="Menu" type="VBoxContainer" parent="CanvasLayer/MainMenu/MenuArea/UI" unique_id=1172278127]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -99,7 +127,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 55
 
-[node name="StartButton" type="Button" parent="Menu" unique_id=951820114]
+[node name="StartButton" type="Button" parent="CanvasLayer/MainMenu/MenuArea/UI/Menu" unique_id=951820114]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(394, 83)
 layout_mode = 2
@@ -108,6 +136,7 @@ theme_override_colors/font_focus_color = Color(0.19607843, 0.19607843, 0.1960784
 theme_override_colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_colors/font_disabled_color = Color(0.19607843, 0.19607843, 0.19607843, 0.5019608)
+theme_override_fonts/font = ExtResource("3_wu84c")
 theme_override_font_sizes/font_size = 46
 theme_override_styles/normal = SubResource("StyleBoxFlat_ekxnf")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_bqqt6")
@@ -116,7 +145,7 @@ theme_override_styles/disabled = SubResource("StyleBoxFlat_8ln24")
 theme_override_styles/focus = SubResource("StyleBoxFlat_rtw2f")
 text = "Start"
 
-[node name="ExitButton" type="Button" parent="Menu" unique_id=1764342692]
+[node name="ExitButton" type="Button" parent="CanvasLayer/MainMenu/MenuArea/UI/Menu" unique_id=1764342692]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(394, 83)
 layout_mode = 2
@@ -124,6 +153,7 @@ theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_colors/font_focus_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
 theme_override_colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_fonts/font = ExtResource("3_wu84c")
 theme_override_font_sizes/font_size = 46
 theme_override_styles/normal = SubResource("StyleBoxFlat_oa1go")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_tbmy8")
@@ -131,31 +161,19 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_jk1qb")
 theme_override_styles/focus = SubResource("StyleBoxFlat_5dd4i")
 text = "Exit"
 
-[node name="Title" type="Label" parent="." unique_id=1436320100]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -600.0
-offset_top = -255.0
-offset_right = 600.0
-offset_bottom = -120.0
-theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_font_sizes/font_size = 96
-text = "The First Day"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="FadeOverlay" type="ColorRect" parent="." unique_id=131709426]
+[node name="FadeOverlay" type="ColorRect" parent="CanvasLayer/MainMenu" unique_id=131709426]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
 script = ExtResource("2_ekxnf")
 FadeInSpeed = 0.8
 FadeOutSpeed = 1.5
+
+[node name="Level" parent="." unique_id=563930531 instance=ExtResource("3_bqqt6")]
