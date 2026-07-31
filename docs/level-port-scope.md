@@ -1296,6 +1296,41 @@ three checks.
 > `tools/verify_level_shells.gd` now also reads the `PackedScene`'s stored state and
 > asserts every surface has its material **before `_ready` runs** — the state the
 > editor is in on a fresh clone.
+
+> **It went red a second time, in game, and the scene file was the victim.** Reported as
+> "the materials are red again in game". The repository was intact — HEAD held all 73
+> overrides — but the **working copy** of `level.tscn` had been rewritten: 456 lines down to
+> 207, every `;` comment stripped, `uid=` added to the `ext_resource` lines, and **all 73
+> `surface_material_override` blocks plus both `polySurface16`/`17` transform overrides
+> gone.** That is the signature of a Godot **editor save**, not of anything in git. Opening
+> the editor and quitting (`--editor --quit`) provably does *not* do it, so it took an actual
+> save while the scene was in a state that could not resolve those override targets. The
+> project has the `godot_mcp_toolkit` addon, which exposes an `editor_save_scene` tool; that
+> is a plausible route but not something I can attribute after the fact.
+>
+> `git checkout -- scenes/level.tscn` restored it, and `verify_level_shells.gd` did its job —
+> it failed 7 of 10 checks and named every missing override. Detection was already covered.
+> What was missing was **graceful degradation**, so the same accident is no longer alarming:
+>
+> `nivel.fbx.import` and `nivel_p2.fbx.import` now remap `lambert1` and `lambert2` to
+> `level_general.tres` through `_subresources`. Scene overrides still win, so nothing about
+> the correct rendering changes; but when they are absent the meshes fall back to *our*
+> opaque material instead of Maya's vertex-colour-as-albedo one. Measured on the same view:
+>
+> | state | mean R,G,B |
+> |---|---|
+> | correct (overrides present) | 53, 57, 54 |
+> | overrides lost, with the remap | 52, 57, 54 |
+> | overrides lost, no remap — the bug | 44, 41, 39 (red-dominant) |
+>
+> Deliberately mapped to `level_general` (opaque) for **both** names, not to whichever is
+> statistically dominant. `level_transparent` computes `ALPHA = 1 - COLOR.r` and the level's
+> vertex red is 1, so a wrong guess there renders geometry **invisible** — worse than wrong
+> colour. The fallback fails solid.
+>
+> This does mean materials now come from two places, which is what the original per-slot
+> confusion came from. The difference is that one of them is a safety net that never wins,
+> and the verifier compares the scene's overrides against the table entry for entry.
 - **One table entry targets a non-mesh node.** Unity had a renderer on `pPlane30`;
   Godot imports it as a plain `Node3D` whose `polySurface*` children hold the
   geometry and their own materials. Harmless, and reported as an informational

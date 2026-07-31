@@ -39,7 +39,20 @@ import_script/path=""
 materials/extract=0
 materials/extract_format=0
 materials/extract_path=""
-_subresources={}
+_subresources={
+"materials": {
+"lambert1": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/level_general.tres",
+"use_external/path": "uid://cvv8yqfd2y8ku"
+},
+"lambert2": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://materials/level_general.tres",
+"use_external/path": "uid://cvv8yqfd2y8ku"
+}
+}
+}
 fbx/importer=0
 fbx/allow_geometry_helper_nodes=false
 fbx/embedded_image_handling=1
