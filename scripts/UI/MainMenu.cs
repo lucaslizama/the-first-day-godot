@@ -37,12 +37,19 @@ public partial class MainMenu : Control
         if (_startButton.Disabled)
         {
             _startButton.TooltipText = "The level scene has not been ported yet.";
-            _exitButton.GrabFocus();
         }
-        else
-        {
-            _startButton.GrabFocus();
-        }
+
+        // NOTHING IS FOCUSED ON ENTRY, and that is the original's behaviour rather than a
+        // preference: Main Menu.unity's EventSystem has m_FirstSelected: {fileID: 0}, i.e. null, so
+        // Unity highlighted no button either. This used to call GrabFocus on Start - or on Exit when
+        // Start was disabled - which drew the focus style over the button the moment the menu opened.
+        //
+        // Keyboard and gamepad still reach the menu: with no focus owner, ui_focus_next (Tab, and the
+        // gamepad's mapped equivalent) focuses the first control in the container. Note that the ARROW
+        // keys do not, because Control's focus_neighbour walk needs somewhere to start from - so the
+        // first press has to be Tab. Unity had the same shape, sending navigation events with nothing
+        // selected.
+        GetViewport().GuiReleaseFocus();
     }
 
     private void OnStartPressed()
