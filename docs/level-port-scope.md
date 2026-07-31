@@ -1139,10 +1139,42 @@ three checks.
   `mat_generalTransparencia` on `nivel`'s `pPlane*` meshes but `mat_general` on
   its `polySurface` slot 1, and `nivel_p2` reverses the `polySurface` mapping.
   Godot's importer keys external materials by name and **cannot express this**,
-  which is why the shell needs `LevelShell.cs` and a data table rather than
-  import settings. It did not recur on the platforms, whose slot mapping is
-  consistent, so it is a shell problem rather than a project-wide one — but it is
-  still worth checking per model rather than assuming.
+  which is why the shell cannot get its materials from import settings. It did not
+  recur on the platforms, whose slot mapping is consistent, so it is a shell
+  problem rather than a project-wide one — but it is still worth checking per
+  model rather than assuming.
+
+> **Correction, and it shipped a visible bug.** This used to conclude the shell
+> therefore "needs `LevelShell.cs` and a data table" — that Godot could not express
+> the mapping at all. Wrong, and the correct statement is only slightly narrower:
+> the **importer** cannot express it, because it keys by material *name* and there
+> are two names for four different (mesh-set, slot) outcomes. The **scene** expresses
+> it exactly. `surface_material_override/N` is per mesh *and* per slot, which is
+> Unity's own granularity, and setting a property on a child of an instanced scene is
+> ordinary `.tscn` syntax. No code was ever required.
+>
+> The cost: because the materials came from a `[Tool]` C# script, **the level's
+> appearance depended on a compiled C# assembly existing.** A collaborator cloned the
+> repo and saw the whole level tinted red in the editor while the running game looked
+> correct. A fresh clone has neither `.godot/` nor `bin/` — both gitignored — so the
+> first editor session has no assembly, no `[Tool]` script runs, and every mesh falls
+> back to the FBX's own `lambert1`/`lambert2`. Both of those have
+> `vertex_color_use_as_albedo = true`, and the level's vertex colours are **pure red**
+> (mean `(0.457, 0.000, 0.000)`, every sampled vertex `(1, 0, 0, 1)`) because that
+> channel is *data* for `level_fade.gdshader`'s wobble and alpha, not paint. Albedo ×
+> red = a red level. Restarting the editor fixed it, which is the signature of the
+> assembly loading at editor start.
+>
+> Now generated into `level.tscn` by `tools/generate_shell_overrides.gd` — 53 node
+> blocks, 73 surfaces — and `LevelShell.cs` is reduced to runtime collision only and
+> is no longer `[Tool]`. It was the project's only `[Tool]` script, so this failure
+> mode is gone rather than reduced.
+>
+> Note which check would *not* have caught it: "every surface has the right material"
+> passed the entire time, because the verifier always ran with the assembly built.
+> `tools/verify_level_shells.gd` now also reads the `PackedScene`'s stored state and
+> asserts every surface has its material **before `_ready` runs** — the state the
+> editor is in on a fresh clone.
 - **One table entry targets a non-mesh node.** Unity had a renderer on `pPlane30`;
   Godot imports it as a plain `Node3D` whose `polySurface*` children hold the
   geometry and their own materials. Harmless, and reported as an informational

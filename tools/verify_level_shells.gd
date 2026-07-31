@@ -25,6 +25,20 @@
 #      and polySurface18, and the imported meshes say polySurface7 and polySurface9.
 #      See tools/extract_level_materials.py.
 #   3. no surface anywhere is left on the material the FBX shipped with.
+#   4. every one of those materials comes from level.tscn itself, matching the table entry
+#      for entry, and NOTHING assigns them at load time. This is the check that closes the
+#      red-editor bug: the materials used to be applied by LevelShell.cs in _Ready with
+#      [Tool], so the level's appearance depended on a compiled C# assembly existing. A
+#      fresh clone has none on first open - .godot/ and bin/ are both gitignored - so the
+#      meshes fell back to the FBX's lambert1/lambert2, whose vertex_color_use_as_albedo is
+#      true, and the level's vertex colours are pure red (mean 0.457, 0, 0: that channel is
+#      data for level_fade.gdshader, not paint). The whole level rendered red until the
+#      editor was restarted.
+#
+#      Checking "the surfaces have the right materials" alone would NOT have caught that -
+#      it passed the whole time, because the verifier ran with the assembly built. So this
+#      reads the PackedScene's own stored state, which is what the editor sees before any
+#      script runs.
 extends SceneTree
 
 const TABLE := "res://models/level/level_materials.json"
@@ -74,6 +88,8 @@ func _process(_delta: float) -> bool:
 		_check_placement(shell_name, SHELLS[shell_name])
 	_check_second_slots()
 	_check_no_imported_materials()
+	_check_materials_are_in_the_scene()
+	_check_nothing_applies_materials()
 
 	print("")
 	if failures == 0:
@@ -190,6 +206,115 @@ func _check_no_imported_materials() -> void:
 		else:
 			_fail("%s: %d of %d surfaces keep the FBX's own material: %s" % [
 				shell_name, bare.size(), total, str(bare)])
+
+
+## Reads level.tscn's OWN stored overrides, entry for entry against the table.
+##
+## Deliberately not read off the running tree: a script could have put them there. This
+## instantiates the scene with no _ready having assigned anything - the same state the
+## editor is in on a fresh clone before any assembly exists - by checking the node's
+## surface_material_override against the table for all 73 slots.
+func _check_materials_are_in_the_scene() -> void:
+	var table: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TABLE))
+	var packed := load("res://scenes/level.tscn") as PackedScene
+	var state := packed.get_state()
+
+	# node path -> {slot: material path}, straight out of the scene file.
+	var stored := {}
+	for i in state.get_node_count():
+		var path := "%s/%s" % [String(state.get_node_path(i, true)), String(state.get_node_name(i))]
+		for p in state.get_node_property_count(i):
+			var prop := String(state.get_node_property_name(i, p))
+			if not prop.begins_with("surface_material_override/"):
+				continue
+			var slot := prop.split("/")[1]
+			var value = state.get_node_property_value(i, p)
+			var res_path := (value as Resource).resource_path if value is Resource else "<not a resource>"
+			var node_name := String(state.get_node_name(i))
+			if not stored.has(node_name):
+				stored[node_name] = {}
+			(stored[node_name] as Dictionary)[slot] = res_path
+
+	for shell_name in SHELLS:
+		checks += 1
+		var key: String = SHELLS[shell_name]
+		var problems: Array[String] = []
+		var matched := 0
+		for mesh_name in table[key]:
+			var want: Dictionary = table[key][mesh_name]
+			# pPlane30 is a node, not a mesh, and carries no surfaces of its own.
+			if not stored.has(mesh_name):
+				if _mesh_named(shell_name, mesh_name) == null:
+					continue
+				problems.append("%s has no override in level.tscn" % mesh_name)
+				continue
+			for slot in want:
+				var got = (stored[mesh_name] as Dictionary).get(slot)
+				if got == null:
+					problems.append("%s slot %s is not in level.tscn" % [mesh_name, slot])
+				elif got != want[slot]:
+					problems.append("%s slot %s is %s, the table says %s" % [
+						mesh_name, slot, got, want[slot]])
+				else:
+					matched += 1
+
+		if problems.is_empty():
+			_ok("%s: all %d surface materials are stored in level.tscn and match the table" % [
+				shell_name, matched])
+		else:
+			_fail("%s: level.tscn and the table disagree - regenerate with tools/generate_shell_overrides.gd: %s" % [
+				shell_name, str(problems)])
+
+
+## The point of baking them in was to remove the load-time dependency, so assert it is gone.
+##
+## Behavioural, not a grep: a freshly instantiated scene has NOT had _ready called on it -
+## that happens on tree entry - so whatever materials it already carries came from the scene
+## file and nothing else. An earlier version of this check searched LevelShell.cs for
+## "SetSurfaceOverrideMaterial" and "[Tool]", and failed on the file's own documentation of
+## having once done exactly that. Source text is the wrong thing to assert on.
+func _check_nothing_applies_materials() -> void:
+	checks += 1
+	var loose := (load("res://scenes/level.tscn") as PackedScene).instantiate()
+	var missing: Array[String] = []
+	var present := 0
+	for shell_name in SHELLS:
+		var shell := loose.get_node_or_null(shell_name)
+		if shell == null:
+			continue
+		for m in _meshes(shell):
+			for s in m.mesh.get_surface_count():
+				if m.get_surface_override_material(s) == null:
+					missing.append("%s slot %d" % [m.name, s])
+				else:
+					present += 1
+	loose.free()
+
+	if missing.is_empty():
+		_ok("all %d surfaces already have their material before _ready runs, so the editor needs no C# build to draw the level" % present)
+	else:
+		_fail("%d surface(s) only get a material once a script runs, so a fresh clone with no C# assembly draws the level wrong: %s" % [
+			missing.size(), str(missing.slice(0, 6))])
+
+	# The [Tool] attribute specifically, with comments stripped so the file may describe
+	# its own history without tripping this.
+	checks += 1
+	var code := ""
+	for line in FileAccess.get_file_as_string("res://scripts/Gameplay/LevelShell.cs").split("\n"):
+		var trimmed := line.strip_edges()
+		if not trimmed.begins_with("//"):
+			code += trimmed + "\n"
+	if code.contains("[Tool]"):
+		_fail("LevelShell.cs is [Tool] again; if it draws anything, the editor depends on a C# build")
+	else:
+		_ok("LevelShell.cs is not [Tool]")
+
+
+func _mesh_named(shell_name: String, mesh_name: String) -> MeshInstance3D:
+	var shell := level.get_node_or_null(shell_name)
+	if shell == null:
+		return null
+	return shell.find_child(mesh_name, true, false) as MeshInstance3D
 
 
 func _collect(n: Node, out: Dictionary) -> void:

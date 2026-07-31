@@ -19,6 +19,12 @@
 [ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
 [ext_resource type="Script" path="res://scripts/UI/PauseMenu.cs" id="18_pause"]
 
+; The shell's two materials, referenced by the generated override block at the end of
+; this file. Declared by hand so tools/generate_shell_overrides.py never has to edit this
+; header - it owns only its own delimited region, and these ids must stay stable.
+[ext_resource type="Material" path="res://materials/level_general.tres" id="19_general"]
+[ext_resource type="Material" path="res://materials/level_transparent.tres" id="20_transparent"]
+
 ; Unity's TimerZone BoxCollider: size 4 x 4 x 1, isTrigger 1.
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
 size = Vector3(4, 4, 1)
@@ -64,44 +70,14 @@ omni_range = 20.0
 [node name="Shell" type="Node3D" parent="." unique_id=746699252]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0, 0)
 script = ExtResource("3_shell")
-ModelKey = "nivel.fbx"
 
 [node name="nivel" parent="Shell" unique_id=1709712449 instance=ExtResource("1_nivel")]
 
 [node name="ShellP2" type="Node3D" parent="." unique_id=1391112274]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
 script = ExtResource("3_shell")
-ModelKey = "nivel_p2.fbx"
 
 [node name="nivel_p2" parent="ShellP2" unique_id=1113251813 instance=ExtResource("2_nivel_p2")]
-
-; nivelEscena moved two of nivel_p2's children after instancing it, and those two
-; per-child transform overrides are the whole of the level's scene-side edits to either
-; shell - nivel's remaining overrides all target objects an older export of nivel.fbx had
-; and the shipped one does not, so they are dead in Unity too.
-;
-; Left unapplied, both slabs stayed at the position Maya exported: 40 m further along +Z
-; than they belong. One bug, both symptoms reported in play - a long platform sitting in
-; the middle of the moving platforms where nothing should be, and two platforms absent
-; from the end of the level, which made it unbeatable.
-;
-; Positions are Unity's with X negated, the usual diag(-1, 1, 1) conjugation:
-;   polySurface16  (-37.26, 48.98, -0.23)  was (51.791214, 50.000011, 40.291302)
-;   polySurface17   (46.13, 50.54,  9.94)  was (51.791214, 50.000011, 50.000000)
-[node name="polySurface16" parent="ShellP2/nivel_p2/Nivel_p2" index="9"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.26, 48.98, -0.23)
-
-; The only rotated one. Unity's m_LocalRotation overrides x, y and w but not z, so z keeps
-; the FBX's 0 - and the three given components already norm to 1.000000000, which confirms
-; that is right rather than assumed. Conjugating a rotation negates y and z, so Unity's
-; y = 0.31972805 becomes -0.31972805 and the basis below is Basis(Quaternion(0,
-; -0.31972805, 0, 0.94750935)), a -37.293 degree turn about Y.
-;
-; Unity also stores m_LocalEulerAnglesHint.y = 37.555, which disagrees with its own
-; quaternion by a quarter of a degree. The hint is editor bookkeeping and can go stale;
-; the quaternion is what the engine used. Do not "fix" this to 37.555.
-[node name="polySurface17" parent="ShellP2/nivel_p2/Nivel_p2" index="10"]
-transform = Transform3D(0.795548, 0, -0.605891, 0, 1, 0, 0.605891, 0, 0.795548, -46.13, 50.54, 9.94)
 
 [node name="Props" parent="." unique_id=1592056883 instance=ExtResource("4_props")]
 
@@ -278,3 +254,203 @@ FirstZonePath = NodePath("../Zones/TriggerZone1")
 FirstZoneCheckpointPath = NodePath("../Zones/Checkpoint2")
 SecondZonePath = NodePath("../Zones/TriggerZone2")
 SecondZoneCheckpointPath = NodePath("../Zones/Checkpoint3")
+
+; >>> BEGIN generated shell overrides - tools/generate_shell_overrides.gd
+;
+; Unity assigned these per renderer-slot; see the header of the generator for why they
+; live in the scene rather than in a script. Regenerate with:
+;
+;     godot-mono --headless --path . --script tools/generate_shell_overrides.gd
+;
+; Do not edit by hand - tools/verify_level_shells.gd checks every entry against
+; models/level/level_materials.json, which tools/extract_level_materials.py derives
+; from nivelEscena.
+
+; ---- nivel.fbx, under Shell ----
+
+[node name="pPlane29" parent="Shell/nivel/Nivel" index="0"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface1" parent="Shell/nivel/Nivel/pPlane30" index="0"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface2" parent="Shell/nivel/Nivel/pPlane30" index="1"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface3" parent="Shell/nivel/Nivel/pPlane30" index="2"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface4" parent="Shell/nivel/Nivel/pPlane30" index="3"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface5" parent="Shell/nivel/Nivel/pPlane30" index="4"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface33" parent="Shell/nivel/Nivel/pPlane30" index="5"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="pPlane31" parent="Shell/nivel/Nivel" index="2"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane32" parent="Shell/nivel/Nivel" index="3"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane33" parent="Shell/nivel/Nivel" index="4"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane34" parent="Shell/nivel/Nivel" index="5"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane35" parent="Shell/nivel/Nivel" index="6"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane36" parent="Shell/nivel/Nivel" index="7"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane37" parent="Shell/nivel/Nivel" index="8"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane38" parent="Shell/nivel/Nivel" index="9"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane39" parent="Shell/nivel/Nivel" index="10"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane40" parent="Shell/nivel/Nivel" index="11"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane41" parent="Shell/nivel/Nivel" index="12"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane42" parent="Shell/nivel/Nivel" index="13"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane43" parent="Shell/nivel/Nivel" index="14"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane44" parent="Shell/nivel/Nivel" index="15"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane45" parent="Shell/nivel/Nivel" index="16"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane46" parent="Shell/nivel/Nivel" index="17"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane47" parent="Shell/nivel/Nivel" index="18"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane48" parent="Shell/nivel/Nivel" index="19"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="pPlane49" parent="Shell/nivel/Nivel" index="20"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+; ---- nivel_p2.fbx, under ShellP2 ----
+
+[node name="polySurface6" parent="ShellP2/nivel_p2/Nivel_p2" index="0"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface7" parent="ShellP2/nivel_p2/Nivel_p2" index="1"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface9" parent="ShellP2/nivel_p2/Nivel_p2" index="2"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface10" parent="ShellP2/nivel_p2/Nivel_p2" index="3"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface11" parent="ShellP2/nivel_p2/Nivel_p2" index="4"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface12" parent="ShellP2/nivel_p2/Nivel_p2" index="5"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface13" parent="ShellP2/nivel_p2/Nivel_p2" index="6"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface14" parent="ShellP2/nivel_p2/Nivel_p2" index="7"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface15" parent="ShellP2/nivel_p2/Nivel_p2" index="8"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+; Unity (-37.26, 48.98, -0.23); the FBX exports it at (51.791214, 50.000011, 40.291302).
+[node name="polySurface16" parent="ShellP2/nivel_p2/Nivel_p2" index="9"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.26, 48.98, -0.23)
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+; Unity (46.13, 50.54, 9.94) with m_LocalRotation x/y/w overridden but not z - the three given components already norm to 1.000000000, so z keeps the FBX's 0. Its m_LocalEulerAnglesHint.y of 37.555 disagrees with its own quaternion by a quarter degree; the quaternion is what the engine used.
+[node name="polySurface17" parent="ShellP2/nivel_p2/Nivel_p2" index="10"]
+transform = Transform3D(0.795548, 0, -0.605891, 0, 1, 0, 0.605891, 0, 0.795548, -46.13, 50.54, 9.94)
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface18" parent="ShellP2/nivel_p2/Nivel_p2" index="11"]
+surface_material_override/0 = ExtResource("19_general")
+surface_material_override/1 = ExtResource("20_transparent")
+
+[node name="polySurface19" parent="ShellP2/nivel_p2/Nivel_p2" index="12"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface20" parent="ShellP2/nivel_p2/Nivel_p2" index="13"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface21" parent="ShellP2/nivel_p2/Nivel_p2" index="14"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface22" parent="ShellP2/nivel_p2/Nivel_p2" index="15"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface23" parent="ShellP2/nivel_p2/Nivel_p2" index="16"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface24" parent="ShellP2/nivel_p2/Nivel_p2" index="17"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface25" parent="ShellP2/nivel_p2/Nivel_p2" index="18"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface26" parent="ShellP2/nivel_p2/Nivel_p2" index="19"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface27" parent="ShellP2/nivel_p2/Nivel_p2" index="20"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface28" parent="ShellP2/nivel_p2/Nivel_p2" index="21"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface29" parent="ShellP2/nivel_p2/Nivel_p2" index="22"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface30" parent="ShellP2/nivel_p2/Nivel_p2" index="23"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface31" parent="ShellP2/nivel_p2/Nivel_p2" index="24"]
+surface_material_override/0 = ExtResource("20_transparent")
+
+[node name="polySurface32" parent="ShellP2/nivel_p2/Nivel_p2" index="25"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+[node name="polySurface34" parent="ShellP2/nivel_p2/Nivel_p2" index="26"]
+surface_material_override/0 = ExtResource("20_transparent")
+surface_material_override/1 = ExtResource("19_general")
+
+; <<< END generated shell overrides
