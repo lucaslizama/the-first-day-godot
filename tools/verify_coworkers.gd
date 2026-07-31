@@ -223,12 +223,22 @@ func _report_whispers() -> void:
 	print("  %s at %d deaths: unit_size=%.2f volume_db=%.2f (linear %.2f)" % [
 		sample.name, GameManager_MAX_DEATHS, after.x, after.y, db_to_linear(after.y),
 	])
+	# The volume maximum is PeakVolumeDb, READ OFF THE NODE, not 0 dB. This used to assert a
+	# linear volume of 1.0 and went stale when the curve gained a ceiling: 13 emitters sum to
+	# +4.9 dB at the worst point on the route and the clip peaks at -0.9 dBTP, so full volume
+	# would drive the master limiter. Hardcoding the old maximum here made a deliberate change
+	# look like a regression - see WhisperEmitter.PeakVolumeDb.
+	var peak_volume := float(sample.get("PeakVolumeDb"))
 	if after.x <= before.x or after.y <= before.y:
 		printerr("FAIL: the whisper did not close in as deaths accumulated.")
-	elif absf(sample.unit_size - sample.MaxMinDistance) > 0.01 or absf(db_to_linear(after.y) - 1.0) > 0.01:
-		printerr("FAIL: at full deaths the radius should be MaxMinDistance and the volume 1.")
+	elif absf(sample.unit_size - sample.MaxMinDistance) > 0.01:
+		printerr("FAIL: at full deaths the radius should reach MaxMinDistance (%.2f), not %.2f." % [
+			sample.MaxMinDistance, sample.unit_size])
+	elif absf(after.y - peak_volume) > 0.01:
+		printerr("FAIL: at full deaths the volume should reach PeakVolumeDb (%.2f dB), not %.2f." % [
+			peak_volume, after.y])
 	else:
-		print("  OK - radius and volume both track the death constant to their maxima.")
+		print("  OK - radius reaches MaxMinDistance and volume reaches PeakVolumeDb (%.1f dB)." % peak_volume)
 
 ## GameManager.MaxMeaningfulDeaths, the count at which the death constant reaches 1.
 const GameManager_MAX_DEATHS := 10
