@@ -1282,6 +1282,76 @@ group actually holds `polySurface18_col` and `polySurface32_col`, because a name
 Standing consequence of opt-in, worth remembering rather than rediscovering: **any other steps in
 the level still stop him dead**, exactly as before the step-up existed, until they are tagged too.
 
+#### Two things the step-up broke, and neither was where it looked
+
+Reported in play: the camera jumped slightly on every step going up, and the walk/run animation
+restarted constantly going down. Both were reproduced as failing checks *before* being fixed, which
+is what stopped the second one being chased in the animation code.
+
+**Going up: a step-up is a teleport.** The whole riser lands in one frame, so the camera target went
+with it — measured at **0.269 m in a single frame**, which is the riser height exactly. The body must
+teleport, so the fix is to hide it from the camera rather than to soften the movement:
+`PlayerCharacter` holds a `_stepSmoothing` offset equal to the vertical gain, subtracts it from
+`CameraTargetParent`'s local Y, and drains it at `StepSmoothingSpeed` = 2.0 m/s. That is bounded at
+both ends — slower and the offset from one step has not drained before the next arrives (0.167 s apart
+at run speed, 0.135 s to drain a 0.27 m riser), faster and it is a pop again. At 60 Hz it shows
+0.033 m per frame.
+
+`TryStepUp` records the gain itself rather than leaving it to the caller, because it is the only thing
+that knows how much height the teleport gained — and a caller that forgets leaves the camera popping.
+Only the vertical part is hidden; the forward probe is along the direction of travel, where it reads
+as speed rather than a jolt.
+
+**Going down: the animation code was never at fault.** `UpdateAnimation` only replays on a *change* of
+clip, so the clip was not restarting spuriously — the **state** was flickering. Nothing kept the body
+on the ground: he left the floor for **9–12 consecutive frames on every riser**, and since falling
+0.24 m under `Gravity` 20 takes about 9 frames while `CheckForFall` commits after **5**, each step went
+walk → airborne → walk.
+
+The fix is a **step-down**, the other half of a step offset, and getting there took three wrong
+attempts worth recording because each looked right:
+
+1. **`floor_snap_length` 0.10 → 0.35 m.** Godot's default is smaller than the risers, so raising it
+   seemed obviously correct. It changed nothing — all the bursts remained. **Godot's floor snap does
+   not fire at the moment a tread is lost.** Calling `apply_floor_snap()` by hand found ground too,
+   but only after ~5 frames of falling, shortening bursts without preventing one. The setting is kept
+   because it is right in itself, but it is not what fixed this.
+2. **Sweeping straight down** and requiring a floor-angle contact. Rejected **292 calls out of 292**.
+   Measured why: leaving a tread, the capsule's round bottom lands on the **edge** between tread and
+   riser, and an edge contact reports a normal at **45.6°, 49.7°, 49.9°** — all just over the 45°
+   floor limit.
+3. **Accepting those edge contacts** (up to 60°). Still no better, for a reason that follows from the
+   same numbers: it placed him *on the edge*, which Godot also calls a wall, so he never became
+   grounded and kept sliding.
+
+What works is **forward first, then down** — the exact mirror of the step up, and needed for the same
+reason its own forward probe was: the flat tread is a few centimetres further on, so the sweep has to
+start over it rather than over the lip.
+
+Result: the longest gap off the floor is **1 frame**, down from 12. That one frame is irreducible —
+`move_and_collide` does not set `is_on_floor()`, so a successful step down always reads as one
+airborne frame — which is why the check bounds burst **length** below the 5-frame fall commit rather
+than demanding zero. He also descends in 275 frames instead of 405, no longer falling and re-settling
+on each step.
+
+Unlike the step up, this is **not** gated on `ClimbableGroup`. Refusing to place him on an untagged
+surface would leave him falling down stairs he had just walked up, and keeping a character on ground
+he is already standing over reaches nowhere he could not already go.
+
+`tools/verify_stairs.gd` is now 8 checks. Both regressions were confirmed to fail first — a 0.269 m
+camera jump and 12-frame bursts — which is what stopped the second one being chased in the animation
+code. The descent starts at z = −168.5 rather than −167 because the floor profile reads 12.000 there
+but 11.777 at −167, which would have dropped him 0.27 m before he took a step.
+
+> **The editor save cost one thing.** While this was in progress an editor save reformatted
+> `level.tscn`, and this time — thanks to the `[editable]` fix — **every override, both transform
+> overrides, `ClimbableMeshes` and the audio nodes survived**. That fix is now validated against a real
+> save rather than only a headless reproduction. But the save strips every `;` comment, and the
+> markers delimiting `generate_shell_overrides.gd`'s region *are* comments. Without them that tool
+> **appended**, which would have written a second `[node]` block for all 73 meshes and placed them
+> after the `[editable]` lines. Restoring from git brings the markers back; the tool now refuses
+> instead of appending when it finds overrides but no marker, and says which git command fixes it.
+
 ### Proximity fade
 
 Surfaces fade out as they come within `1.8 m` of the camera, so geometry between the camera

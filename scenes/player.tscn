@@ -8,7 +8,17 @@
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
 radius = 0.3
 
+; floor_snap_length has to exceed the tallest step the character can walk DOWN, or the body leaves
+; the floor on every riser. Godot's default is 0.10 m and the stairs before the end line have risers
+; up to 0.27 m, so descending them went airborne 8 separate times - and since falling 0.24 m under
+; Gravity 20 takes about 9 frames while CheckForFall commits after 5, each one flipped the state to
+; airborne and restarted the walk clip. Reported in play as the walk animation constantly
+; restarting; the animation code was never at fault.
+;
+; 0.35 m clears the 0.27 m riser. It also means drops shorter than that no longer register as falls,
+; which is the same forgiveness that makes stairs work and is why it is not set larger.
 [node name="Player" type="CharacterBody3D" unique_id=969548623]
+floor_snap_length = 0.35
 script = ExtResource("1_3vyb7")
 AnimationPlayerPath = NodePath("AnimationPlayer")
 

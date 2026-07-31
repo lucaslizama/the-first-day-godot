@@ -211,6 +211,19 @@ func _write(block: String) -> bool:
 			printerr("FAIL: %s has a BEGIN marker with no END; refusing to guess where the block ends." % SCENE)
 			return false
 		text = text.substr(0, begin) + block + text.substr(stop + END.length() + 1)
+	elif text.contains("surface_material_override"):
+		# Appending here would write a SECOND [node] block for every mesh - two blocks naming one node
+		# is not valid .tscn - and it would land after the [editable] lines, which must come last.
+		#
+		# This is reachable, not theoretical. An editor save strips every ';' comment from the scene,
+		# and the markers are comments: after one such save the region is gone while all 73 overrides
+		# remain. Restore the scene from git rather than regenerating, since the markers come back with
+		# it. See docs/level-port-scope.md.
+		printerr("FAIL: %s already contains overrides but no BEGIN marker - an editor save strips the" % SCENE)
+		printerr("      comment markers that delimit this tool's region. Refusing to append, which")
+		printerr("      would duplicate every node block. Restore the scene with:")
+		printerr("          git checkout -- %s" % SCENE)
+		return false
 	else:
 		if not text.ends_with("\n"):
 			text += "\n"

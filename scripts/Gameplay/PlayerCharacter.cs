@@ -163,6 +163,34 @@ public partial class PlayerCharacter : CharacterBody3D
     public string ClimbableGroup { get; set; } = DefaultClimbableGroup;
 
     /// <summary>
+    /// Node whose local Y is held back to hide the step-up teleport from the camera. The camera aims
+    /// at a child of this, so offsetting the parent moves the view without touching the body.
+    /// </summary>
+    [Export]
+    public NodePath CameraSmoothingPath { get; set; } = new("CameraTargetParent");
+
+    /// <summary>
+    /// How fast the camera catches up after a step, in metres per second.
+    ///
+    /// Bounded at both ends. Too slow and the offset from one step has not drained before the next
+    /// arrives, so the camera sits permanently low: the steps here come every 0.75 m of travel,
+    /// which is 0.167 s apart at RunSpeed, and a 0.27 m riser takes 0.135 s to drain at 2.0. Too
+    /// fast and it is a pop again - 2.0 m/s is 0.033 m per frame at 60 Hz, well under the 0.05 m
+    /// that tools/verify_stairs.gd calls a jump.
+    /// </summary>
+    [Export]
+    public float StepSmoothingSpeed { get; set; } = 2.0f;
+
+    /// <summary>
+    /// How far off vertical a contact may be and still count as ground to step DOWN onto. Above
+    /// FloorMaxAngle on purpose - see <see cref="HasStandableContact"/> for the measurements. 60
+    /// covers the 46-50 degree edge contacts the stairs produce with room to spare, while still
+    /// refusing anything close to a wall.
+    /// </summary>
+    [Export]
+    public float StepDownMaxAngleDegrees { get; set; } = 60.0f;
+
+    /// <summary>
     /// Supplies the movement basis. The original flattened a "YAxis" transform to
     /// strip pitch and roll; here only the camera's yaw is used, which is the same
     /// intent without mutating the camera.
@@ -191,6 +219,19 @@ public partial class PlayerCharacter : CharacterBody3D
     private Node3D? _cameraBasis;
     private AnimationPlayer? _animation;
     private AudioStreamPlayer3D? _stepSound;
+    private Node3D? _cameraSmoothing;
+    private float _cameraSmoothingBaseY;
+
+    /// <summary>
+    /// Metres of step-up gain the body has already taken but the camera has not been shown yet,
+    /// drained at <see cref="StepSmoothingSpeed"/>.
+    ///
+    /// A step-up is a teleport: the whole riser lands in one frame. That is right for the body and
+    /// wrong for the camera, which followed it and jumped 0.269 m in a single frame - a visible pop
+    /// on every step. The body stays where physics puts it and the camera target is held back by
+    /// this much, catching up over a few frames.
+    /// </summary>
+    private float _stepSmoothing;
 
     /// <summary>
     /// The animator's LeftJump bool: true when the LEFT foot was the last to land while
@@ -237,6 +278,12 @@ public partial class PlayerCharacter : CharacterBody3D
         _cameraBasis = GetNodeOrNull<Node3D>(CameraBasisPath);
         _animation = GetNodeOrNull<AnimationPlayer>(AnimationPlayerPath);
         _stepSound = GetNodeOrNull<AudioStreamPlayer3D>(StepSoundPath);
+
+        _cameraSmoothing = GetNodeOrNull<Node3D>(CameraSmoothingPath);
+        if (_cameraSmoothing is not null)
+        {
+            _cameraSmoothingBaseY = _cameraSmoothing.Position.Y;
+        }
 
         if (_cameraBasis is null)
         {
@@ -309,8 +356,14 @@ public partial class PlayerCharacter : CharacterBody3D
         Transform3D beforeMove = GlobalTransform;
         Vector3 intended = new Vector3(Velocity.X, 0.0f, Velocity.Z) * (float)delta;
 
+        bool wasOnFloor = IsOnFloor();
         MoveAndSlide();
-        TryStepUp(intended, beforeMove);
+        if (!TryStepUp(intended, beforeMove))
+        {
+            TryStepDown(wasOnFloor);
+        }
+
+        DrainStepSmoothing(delta);
         CheckForFall();
         UpdateAnimation(input.CurrentDirection);
     }
@@ -666,7 +719,123 @@ public partial class PlayerCharacter : CharacterBody3D
             return false;
         }
 
+        // Recorded here rather than by the caller, because this method is the only thing that knows
+        // how much height the teleport actually gained - and because a caller that forgets leaves
+        // the camera popping. Only the vertical part is hidden: the forward probe is along the
+        // direction of travel, where it reads as speed rather than a jolt.
+        _stepSmoothing += GlobalPosition.Y - start.Origin.Y;
         return true;
+    }
+
+    /// <summary>
+    /// Keeps the character on the stairs on the way DOWN, placing him on ground within
+    /// <see cref="StepHeight"/> below instead of letting him fall off each tread.
+    ///
+    /// The other half of the step offset, and it turned out to be needed for a reason that had
+    /// nothing to do with climbing. Walking down, the body left the floor on every riser - five
+    /// separate bursts of 9 to 12 frames each - and since CheckForFall commits after 5, every step
+    /// flipped the state to airborne and restarted the walk clip. Reported in play as the walk
+    /// animation constantly restarting; the animation code was correct throughout, since it only
+    /// replays on a CHANGE of clip and the clip genuinely kept changing.
+    ///
+    /// GODOT'S OWN FLOOR SNAP DOES NOT COVER THIS, which is worth recording because it looks like it
+    /// should. floor_snap_length is 0.35 m against drops of 0.14 to 0.19 m, and it still let all five
+    /// bursts happen; calling apply_floor_snap() by hand found ground too, but only after about five
+    /// frames of falling, so it shortened the bursts without preventing one. This runs on the frame
+    /// the floor is lost, which is the only moment that keeps the state from flipping at all.
+    ///
+    /// Deliberately NOT gated on <see cref="ClimbableGroup"/>, unlike the step up. Refusing to place
+    /// him on an untagged surface would leave him falling down stairs he had just walked up, and
+    /// keeping a character on ground he is already standing over takes no permission - it is not
+    /// reaching anywhere he could not already go.
+    /// </summary>
+    public bool TryStepDown(bool wasOnFloor)
+    {
+        // wasOnFloor matters: without it this would catch the top of a genuine fall and stick him to
+        // the first thing within StepHeight, cancelling drops the level means to be falls.
+        if (!wasOnFloor || IsOnFloor() || IsJumping || IsFalling || Velocity.Y > 0.0f)
+        {
+            return false;
+        }
+
+        Transform3D start = GlobalTransform;
+
+        // Forward FIRST, then down - the mirror of the step up, and necessary for the same reason.
+        // Sweeping straight down from the lip lands on the EDGE between tread and riser, whose normal
+        // measured 45.6 to 49.9 degrees; Godot calls that a wall, so placing him there left him
+        // ungrounded and still sliding. Moving over the tread first means the sweep finds the flat.
+        Vector3 forward = new Vector3(Velocity.X, 0.0f, Velocity.Z);
+        if (forward.LengthSquared() > MinStepMotion * MinStepMotion)
+        {
+            Vector3 advance = forward.Normalized() * StepForwardProbe;
+            if (!TestMove(start, advance))
+            {
+                GlobalTransform = new Transform3D(start.Basis, start.Origin + advance);
+            }
+        }
+
+        KinematicCollision3D? landing = MoveAndCollide(Vector3.Down * (StepHeight + StepSettleSlack), false, 0.001f, false, 6);
+        if (landing is null || !HasStandableContact(landing))
+        {
+            GlobalTransform = start;
+            return false;
+        }
+
+        // Same treatment as the step up: the body moves now, the camera is shown it gradually. The
+        // offset is signed, so a descent holds the camera high rather than low.
+        _stepSmoothing += GlobalPosition.Y - start.Origin.Y;
+
+        // Without this the fall speed built up on the way down keeps accumulating and the next frame
+        // starts already moving, which re-opens the gap this just closed.
+        Velocity = new Vector3(Velocity.X, 0.0f, Velocity.Z);
+        return true;
+    }
+
+    /// <summary>
+    /// Lets the camera catch up with a step the body has already taken. Public so
+    /// tools/verify_stairs.gd drives the same code the game does.
+    /// </summary>
+    public void DrainStepSmoothing(double delta)
+    {
+        if (_cameraSmoothing is null)
+        {
+            return;
+        }
+
+        // Signed: a step up holds the camera low, a step down holds it high, and both drain toward
+        // zero at the same rate.
+        _stepSmoothing = Mathf.MoveToward(_stepSmoothing, 0.0f, StepSmoothingSpeed * (float)delta);
+
+        Vector3 local = _cameraSmoothing.Position;
+        local.Y = _cameraSmoothingBaseY - _stepSmoothing;
+        _cameraSmoothing.Position = local;
+    }
+
+    /// <summary>
+    /// Whether a downward sweep found something the character can come to rest on, for
+    /// <see cref="TryStepDown"/>.
+    ///
+    /// Deliberately more permissive than FloorMaxAngle, and measured rather than guessed. Coming off
+    /// a tread the capsule's round bottom lands on the EDGE between tread and riser, not on the flat,
+    /// and an edge contact reports a normal tilted well off vertical - 45.6, 49.7 and 49.9 degrees at
+    /// the three steps sampled, all just over the 45 degree floor limit. Judging those by
+    /// FloorMaxAngle rejected every attempt: 292 calls, 0 accepted, and the descent kept flickering.
+    ///
+    /// The edge is a transient contact on the way to the tread below it, which is flat, so the right
+    /// question is not "could he walk up this" but "is there something under him within a step". The
+    /// tolerance below covers an edge contact while still refusing a genuine wall.
+    /// </summary>
+    private bool HasStandableContact(KinematicCollision3D collision)
+    {
+        for (int i = 0; i < collision.GetCollisionCount(); i++)
+        {
+            if (collision.GetNormal(i).AngleTo(Vector3.Up) <= Mathf.DegToRad(StepDownMaxAngleDegrees))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
