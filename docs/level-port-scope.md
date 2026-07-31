@@ -2148,3 +2148,51 @@ which is also why the Unity project being absent from the machine is a real cost
 inconvenience. Two other attempted fixes were reverted the same day for the same reason: a blend into
 the selected clips (`ClipBlendSeconds`, 0.08 s, felt wrong in play and its authentic per-transition
 duration is unrecoverable), and camera follow easing was briefly suspected and cleared.
+
+### The footsteps check was red because its bound encoded a frame rate
+
+`tools/verify_footsteps.gd` failed on every run — "run played a step 0.100 s away from any footfall
+(limit 0.083 s)" — and **the events were never wrong.** It compared the step against `_elapsed`, a sum
+of PHYSICS deltas, while an `AnimationPlayer` advances on the **idle** clock by default. So a method
+key fires up to one whole *rendered* frame after its own key time, and the measured gap was set by
+however fast the machine happened to render: five frames is comfortable at 60 fps and not at this
+environment's ~17.
+
+That is the third measurement this session whose bound was really a statement about frame pacing — the
+others being the camera-rise rate and the old stairs harness. The pattern to watch for: **if a check
+divides by, or accumulates, one clock while the thing it measures advances on another, its bound is
+hardware, not behaviour.**
+
+Fixed rather than widened, in three parts:
+
+- The player is switched to `ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS` for the duration of the check,
+  so the clip advances in lockstep with the loop that polls it. The game leaves it on Idle, which is
+  fine there — the key times inside the clip are identical either way.
+- The step is recorded at `current_animation_position`, the animation's own playhead, instead of at a
+  wall clock. It needs no `fmod` because it already wraps.
+- **The key times are now asserted statically**, straight off the clip, which is the real property and
+  needs no playback at all. Compared circularly: walk's first footfall is at t = 0 but its key is
+  written at t = length, half a frame short of the seam, because a playhead arrives at 0 by wrapping
+  rather than by advancing onto it. A linear comparison called that key 0.750 s misplaced when it is
+  exactly right — my own bug, caught by the check failing on a clip known to be good.
+
+`MAX_GAP` is now 3 frames, and bounded by mechanism instead of hardware: the key fires on the first
+tick past it (under 1 tick), the poll may see it on the following tick (1 more), so under 2. Measured
+**0.000 s on both clips across five consecutive runs**, and negative-tested — feeding a deliberately
+wrong footfall time fails both halves independently.
+
+### Unity's own event times, and why ours differ
+
+Now readable, with the Unity project on the machine:
+
+| clip | Unity's events | ours |
+|---|---|---|
+| `walk`, length 1.5333 | `SetRightJump`/`PlayStepSound`/`RandomizePitch` at **0.1667**, and at **1.0000** for the left | right 1.533 (≡ 0), left 0.783 |
+| `run`, length 1.0000 | right at **0.2000**, left at **0.7000** | right 0.100, left 0.600 |
+
+Ours come from sampling the rig, not from Unity, and they land **0.100 s earlier on both of run's** and
+about 0.217 s earlier on walk's — which is the `animation/trimming` offset this document already notes
+("our t = 0 is not Unity's first key"). So two independent methods agree to within the trim, and the
+placement needs no correction. Unity fired three events per footfall where we fire one:
+`PlayStepSound` does the pitch randomisation itself, since two method keys at the same time would
+depend on insertion order.

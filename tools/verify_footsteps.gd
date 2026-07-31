@@ -23,19 +23,27 @@ const CLIPS := {"walk": [0.0, 0.783], "run": [0.1, 0.6]}
 ## steps instead of 4.
 const CYCLES := 2.25
 
-## How far a step may land from its measured footfall.
+## How far a step may land from its measured footfall, in ANIMATION time.
 ##
-## This is frame quantisation, not drift, and it is quantised: a method key fires on the
-## first frame whose playhead has passed it, and the sound is then detected by polling
-## `playing` a frame or more later, so the gap always lands on a multiple of 1/60 s.
-## Measured across eight runs it is 2, 3 or 4 frames - 0.033, 0.050, 0.067 s.
+## THE BOUND USED TO ENCODE A FRAME RATE, which is why this check sat red. It compared the
+## step against `_elapsed`, a sum of PHYSICS deltas, while an AnimationPlayer advances on the
+## IDLE clock by default - so a method key fires up to one whole rendered frame after its own
+## key time, and the gap was set by however fast the machine happened to render. Five frames
+## is comfortable at 60 fps and not at this environment's ~17, where the gap measured 0.100 s
+## against the 0.083 s limit. The events were never wrong.
 ##
-## The old limit was 0.05 s, exactly equal to one of those values, so a `>` comparison
-## tripped on it and the check failed intermittently. Anything set to a value the gap can
-## actually take is a coin flip; the bound has to sit strictly above the largest
-## legitimate one. Five frames does, and still discriminates easily - run's footfalls are
-## 0.5 s apart, so this is a sixth of the spacing.
-const MAX_GAP := 5.0 / 60.0
+## Both halves of that are fixed rather than widened. The player is switched to the physics
+## callback mode for the duration of the check, so the clip advances in lockstep with the loop
+## that polls it, and the step is recorded at the animation's own playhead rather than at a
+## wall clock. The remaining error is then bounded by mechanism instead of by hardware: the key
+## fires on the first tick whose playhead has passed it (under 1 tick), and the poll may see it
+## on the following tick (1 more), so under 2 ticks. Three sits strictly above that, which is
+## the property the previous bound lacked - the old 0.05 s was exactly equal to a value the gap
+## could take, so a `>` comparison was a coin flip.
+##
+## Still discriminating easily: run's footfalls are 0.5 s apart, so this is a tenth of the
+## spacing.
+const MAX_GAP := 3.0 / 60.0
 
 var _frames := 0
 var _player: CharacterBody3D
@@ -44,6 +52,9 @@ var _clip_names: Array[String] = []
 var _index := -1
 var _elapsed := 0.0
 var _fired: Array[float] = []
+
+## Animation-time position of each recorded step, parallel to _fired. See MAX_GAP.
+var _fired_position: Array[float] = []
 var _failed := false
 
 func _process(_d: float) -> bool:
@@ -57,6 +68,13 @@ func _process(_d: float) -> bool:
 		# Its _PhysicsProcess is the only thing that does that; method tracks fire
 		# regardless of it.
 		_player.set_physics_process(false)
+
+		# Advance the clip on the PHYSICS clock, so it moves in lockstep with the loop below that
+		# polls for the sound. The game leaves this on Idle, and that is fine there - the key times
+		# inside the clip are identical either way - but measuring them from a differently-clocked
+		# loop is what made this check's gap a function of the render rate. See MAX_GAP.
+		_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS
+
 		for name in CLIPS:
 			_clip_names.append(name)
 		_check_tracks()
@@ -73,6 +91,10 @@ func _physics_process(delta: float) -> bool:
 	var step: AudioStreamPlayer3D = _player.get_node("StepSound")
 	if step.playing and (_fired.is_empty() or _elapsed - _fired[_fired.size() - 1] > 0.15):
 		_fired.append(_elapsed)
+		# Where in the CLIP the step landed. The dedupe above needs a monotonic clock, since the
+		# playhead wraps every cycle, so both are kept: _elapsed for counting and de-duplicating,
+		# this for the timing assertion.
+		_fired_position.append(_anim.current_animation_position)
 
 	var clip := _anim.get_animation(_clip_names[_index])
 	if _elapsed < clip.length * CYCLES:
@@ -113,10 +135,35 @@ func _check_tracks() -> void:
 			printerr("      node that does not resolve is stripped at load without a warning.")
 			_failed = true
 
+		# The key TIMES, asserted statically. This is the real property - where the events sit in the
+		# clip - and it needs no playback at all, so it cannot be perturbed by frame pacing the way the
+		# runtime measurement below can. Playing the clip then only has to show the events fire.
+		for t in clip.get_track_count():
+			if clip.track_get_type(t) != Animation.TYPE_METHOD:
+				continue
+			for k in clip.track_get_key_count(t):
+				if clip.method_track_get_name(t, k) != "PlayStepSound":
+					continue
+				var key_time := clip.track_get_key_time(t, k)
+				# Circular distance, because these clips LOOP: walk's first footfall is at t = 0 and
+				# its key is written at t = length instead, half a frame short of the seam, since a
+				# playhead arrives at 0 by wrapping rather than by advancing onto it. Comparing
+				# linearly makes that key look 0.750 s misplaced when it is exactly right.
+				var nearest := INF
+				for e in CLIPS[name]:
+					var d: float = absf(key_time - float(e))
+					nearest = minf(nearest, minf(d, clip.length - d))
+				if nearest > 0.002:
+					printerr("FAIL: %s has a PlayStepSound key at %.3f s, %.3f s from any measured footfall %s." % [
+						name, key_time, nearest, str(CLIPS[name])])
+					printerr("      Regenerate with tools/add_footstep_events.gd; the times come from the rig.")
+					_failed = true
+
 func _next_clip() -> void:
 	_index += 1
 	_elapsed = 0.0
 	_fired.clear()
+	_fired_position.clear()
 	# Silence anything still ringing from the previous clip, or its last step gets
 	# counted as this clip's first.
 	if _player != null:
@@ -140,9 +187,10 @@ func _report_clip(clip: Animation) -> void:
 		return
 
 	# Each fired step should land near one of the expected footfalls, modulo the loop.
+	# Positions come off the playhead, so they are already inside [0, length) and need no fmod of a
+	# wall clock - which is what previously compared two different clocks against each other.
 	var worst := 0.0
-	for f in _fired:
-		var phase: float = fmod(f, clip.length)
+	for phase in _fired_position:
 		var best := INF
 		for e in expected:
 			best = minf(best, minf(absf(phase - e), clip.length - absf(phase - e)))
