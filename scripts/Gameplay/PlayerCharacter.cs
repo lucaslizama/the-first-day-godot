@@ -90,6 +90,55 @@ public partial class PlayerCharacter : CharacterBody3D
     public float Gravity { get; set; } = 20.0f;
 
     /// <summary>
+    /// Tallest obstruction the character will climb by walking into it, in metres.
+    ///
+    /// A DELIBERATE ADDITION, not a port fix. Unity's CharacterController had
+    /// <c>m_StepOffset: 0</c>, so the original could not step either - the stairs before the end
+    /// line had to be jumped. This exists because walking into them and stopping dead reads as a
+    /// bug to anyone playing, whatever the original did.
+    ///
+    /// Without it the limit is set by capsule geometry alone. Contact with a step happens on its
+    /// top EDGE, and the normal runs from that edge to the bottom sphere's centre at y = radius.
+    /// move_and_slide only slides UP a surface it classifies as floor, i.e. under FloorMaxAngle,
+    /// so the tallest walkable step is r * (1 - 1/sqrt(2)) = 0.088 m for this 0.3 m capsule.
+    /// Measured at between 0.09 and 0.10 m, which is that number. The stairs' risers are 0.19 to
+    /// 0.27 m - two to three times the limit - which is why it is a hard stop rather than an
+    /// occasional snag, and why neither speed nor safe_margin made any difference.
+    ///
+    /// 0.30 m clears the tallest riser with room to spare. Raising it lets the character mount
+    /// anything shorter than the new value, so tools/verify_stairs.gd asserts both directions:
+    /// that he climbs the stairs, and that he cannot climb a ledge taller than this.
+    /// </summary>
+    [Export]
+    public float StepHeight { get; set; } = 0.3f;
+
+    /// <summary>
+    /// How far below the stepped-up position to search for ground, beyond <see cref="StepHeight"/>.
+    /// Without a little slack the settle can miss a tread that sits a hair lower than the lift.
+    /// </summary>
+    private const float StepSettleSlack = 0.05f;
+
+    /// <summary>Ignore blocked motion smaller than this; it is jitter, not a step.</summary>
+    private const float MinStepMotion = 0.001f;
+
+    /// <summary>
+    /// How far forward to carry the character while stepping, at least. Must be enough to put his
+    /// footprint ON the tread rather than leaving him hugging the riser.
+    ///
+    /// This is the whole reason the first version of the step-up did nothing. One frame of walking
+    /// is about 4 cm, so advancing by only the motion a wall swallowed left the capsule still
+    /// against the riser; the settle then contacted the riser's VERTICAL FACE, whose 90 degree
+    /// normal is correctly rejected as not-floor, and every attempt was vetoed. The gates all
+    /// passed - it failed at the last stage, for a reason that looked like the geometry's fault.
+    ///
+    /// 0.25 m is just under the 0.3 m capsule radius, so the contact point clears the edge. Being
+    /// larger than one frame's motion means a step costs slightly less ground than walking it
+    /// would, which is what every step-offset implementation trades for not sticking.
+    /// </summary>
+    [Export]
+    public float StepForwardProbe { get; set; } = 0.25f;
+
+    /// <summary>
     /// Supplies the movement basis. The original flattened a "YAxis" transform to
     /// strip pitch and roll; here only the camera's yaw is used, which is the same
     /// intent without mutating the camera.
@@ -231,7 +280,13 @@ public partial class PlayerCharacter : CharacterBody3D
         // version toggled it on every take-off, which alternates feet regardless of
         // gait and is not what the animator did.
 
+        // Captured before the slide so the step-up can tell how much of the intended horizontal
+        // motion actually happened, and retry only the part a wall swallowed.
+        Transform3D beforeMove = GlobalTransform;
+        Vector3 intended = new Vector3(Velocity.X, 0.0f, Velocity.Z) * (float)delta;
+
         MoveAndSlide();
+        TryStepUp(intended, beforeMove);
         CheckForFall();
         UpdateAnimation(input.CurrentDirection);
     }
@@ -502,6 +557,83 @@ public partial class PlayerCharacter : CharacterBody3D
         }
 
         return velocity;
+    }
+
+    /// <summary>
+    /// Climbs an obstruction up to <see cref="StepHeight"/> that stopped the slide, so the
+    /// character walks up stairs instead of standing against them. Returns true if he was moved.
+    ///
+    /// The same manoeuvre PhysX runs for Unity's <c>stepOffset</c>, done by hand because Godot's
+    /// CharacterBody3D has no equivalent property: lift, advance, settle. Every stage can veto,
+    /// and a veto restores the position the slide left, so a failed attempt costs nothing.
+    ///
+    /// Runs AFTER MoveAndSlide rather than before, which matters: it retries only the part of the
+    /// intended motion a wall actually swallowed. Attempting it first and then sliding would
+    /// advance the character twice in one frame.
+    ///
+    /// Public only so tools/verify_stairs.gd can drive the real thing. The alternative was a test
+    /// that re-implements this manoeuvre, which is how a check drifts away from the code it is
+    /// supposed to be checking.
+    /// </summary>
+    /// <param name="intended">Horizontal motion asked for this frame, before the slide.</param>
+    /// <param name="beforeMove">Global transform captured before the slide.</param>
+    public bool TryStepUp(Vector3 intended, Transform3D beforeMove)
+    {
+        // Only while walking on the ground. Without this he could mount walls in mid-air, and
+        // jumping into a ledge would snap him on top of it.
+        if (!IsOnFloor() || IsJumping || IsFalling)
+        {
+            return false;
+        }
+
+        // A wall is the only thing worth stepping over. IsOnWall is false when the slide
+        // completed, which is the common case and costs one branch.
+        if (!IsOnWall())
+        {
+            return false;
+        }
+
+        Vector3 moved = GlobalPosition - beforeMove.Origin;
+        Vector3 remaining = intended - new Vector3(moved.X, 0.0f, moved.Z);
+        remaining.Y = 0.0f;
+        if (remaining.LengthSquared() < MinStepMotion * MinStepMotion)
+        {
+            return false;
+        }
+
+        // Carried at least StepForwardProbe, in the direction the blocked motion wanted to go, so
+        // the settle lands on the tread instead of on the riser's vertical face. See that field.
+        Vector3 advance = remaining.Normalized() * Mathf.Max(remaining.Length(), StepForwardProbe);
+
+        Transform3D start = GlobalTransform;
+        Vector3 lift = Vector3.Up * StepHeight;
+
+        // 1. Headroom. Refusing here is what stops him climbing into a low overhang.
+        if (TestMove(start, lift))
+        {
+            return false;
+        }
+
+        // 2. Forward, from up there. Still blocked means a real wall rather than a step, which is
+        //    the check that keeps this from turning every wall into a staircase.
+        Transform3D lifted = new Transform3D(start.Basis, start.Origin + lift);
+        if (TestMove(lifted, advance))
+        {
+            return false;
+        }
+
+        // 3. Settle. Done by actually moving, because the landing surface's normal decides whether
+        //    this was a step at all - dropping onto something steeper than FloorMaxAngle would
+        //    leave him standing on a slope he could never have walked up.
+        GlobalTransform = new Transform3D(lifted.Basis, lifted.Origin + advance);
+        KinematicCollision3D? landing = MoveAndCollide(Vector3.Down * (StepHeight + StepSettleSlack));
+        if (landing is null || landing.GetNormal().AngleTo(Vector3.Up) > FloorMaxAngle)
+        {
+            GlobalTransform = start;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

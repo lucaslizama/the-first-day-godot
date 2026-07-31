@@ -1203,6 +1203,51 @@ behavioural work is.
 Everything else in this document is an attempt to reproduce the 2016 project. This section
 is for things the port has that the original did not, so the two are never confused.
 
+### Step-up on the character controller
+
+Reported in play as the character getting stuck on the stairs before the end line, asking whether
+it was a slope or a missing setting. Measured, not guessed: raycasting the floor there gives
+**flat treads — every hit reads 0.0°** — with eight risers of **0.19–0.27 m** carrying the player
+from y = 10.0 at z = −162 to y = 12.0 at z = −168. A staircase, so the slope limit was never
+involved.
+
+**Godot's `CharacterBody3D` has no step-offset property at all**, which is the direct answer to
+"is there a configuration for this". Without one the limit is capsule geometry alone. Contact is on
+the step's top *edge*, and the normal runs from that edge to the bottom sphere's centre at
+y = radius, so for a step of height h it sits `atan(√(r²−(r−h)²) / (r−h))` from vertical.
+`move_and_slide` only slides **up** a surface it classifies as floor, i.e. under `floor_max_angle`;
+set the components equal and the tallest walkable step is `r(1 − 1/√2)` = **0.088 m** for this
+0.3 m capsule. Measured against a real box: the cutoff is between **0.09 and 0.10 m**. The risers
+are two to three times that, which is why it is a hard stop rather than an occasional snag — and
+why neither walk/run speed nor raising `safe_margin` to Unity's `skinWidth` of 0.2 made any
+difference.
+
+**This is an addition, not a port fix.** Unity's `CharacterController` had `m_StepOffset: 0`, so the
+original could not step either — those stairs had to be jumped, and `JumpForce` 10 against
+`Gravity` 20 gives a 2.5 m jump, which clears a riser without trying. It was added because walking
+into stairs and stopping dead reads as a bug to anyone playing, whatever the original did.
+
+`PlayerCharacter.TryStepUp` runs the same manoeuvre PhysX runs for `stepOffset`, by hand: **lift,
+advance, settle**, with every stage able to veto and a veto restoring the position the slide left.
+It runs *after* `MoveAndSlide`, retrying only the motion a wall swallowed — attempting it first and
+then sliding would advance the character twice in one frame. `StepHeight` is 0.30 m, clearing the
+tallest 0.27 m riser.
+
+> **The first version did nothing, and the reason is worth keeping.** All the gates passed and it
+> still returned false every time, which made it look like the geometry's fault. It advanced by
+> only the motion the wall had swallowed — **about 4 cm**, one frame of walking — which left the
+> capsule still hugging the riser, so the downward settle contacted the riser's **vertical face**
+> and its 90° normal was correctly rejected as not-floor. The failure was at the last stage for a
+> reason that looked like an earlier one. Hence `StepForwardProbe` = 0.25 m, just under the capsule
+> radius so the contact point clears the edge.
+
+Cost of the addition, stated plainly: a step-up climbs *anything* shorter than its threshold —
+ledges and props included — and a stepped frame covers slightly less ground than walking it would.
+`tools/verify_stairs.gd` therefore asserts **both directions**: that he walks and runs up the real
+staircase, and that a 0.60 m ledge stays unclimbable. It drives the real `TryStepUp` rather than a
+copy of it, with the player's `_PhysicsProcess` disabled so `PlayerInput` does not zero the velocity
+each frame — the input path is not what is under test.
+
 ### Proximity fade
 
 Surfaces fade out as they come within `1.8 m` of the camera, so geometry between the camera
