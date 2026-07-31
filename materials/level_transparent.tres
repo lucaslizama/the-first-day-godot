@@ -20,3 +20,5 @@ shader_parameter/albedo_color = Color(0.4582, 0.522, 0.522, 1)
 shader_parameter/ambient_color = Color(0.22352943, 0.23529413, 0.22352943, 1)
 shader_parameter/wobble_speed = 2.0
 shader_parameter/wobble_amplitude = 2.0
+shader_parameter/proximity_fade_near = 0.500
+shader_parameter/proximity_fade_far = 1.800

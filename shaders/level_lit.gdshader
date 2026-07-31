@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode ambient_light_disabled;
 
 #include "res://shaders/unity_gamma.gdshaderinc"
+#include "res://shaders/proximity_fade.gdshaderinc"
 
 // Port of the Shader Forge shader "Custom/shader_general" from the Unity
 // original, used by mat_general - 27 references in nivelEscena, the level's main
@@ -37,6 +38,15 @@ vec3 output_space(vec3 c) {
 }
 
 void fragment() {
+	// Fade out when the camera is almost touching this surface. Dithered rather than
+	// blended so the material stays opaque: this is the level's main opaque surface, and
+	// making it transparent would reorder it against everything else. Done first so a
+	// discarded pixel costs nothing further. NOT from the Unity original - see
+	// proximity_fade.gdshaderinc for why it was added.
+	if (proximity_fade_discard(proximity_fade_factor(VERTEX), FRAGCOORD.xy)) {
+		discard;
+	}
+
 	// 1.0, not albedo_color: Godot multiplies DIFFUSE_LIGHT by ALBEDO after
 	// light() returns, so the real albedo is applied inside light() instead.
 	ALBEDO = vec3(1.0);

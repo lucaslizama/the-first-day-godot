@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_never, shadows_disabled, ambient_light_disabled;
 
 #include "res://shaders/unity_gamma.gdshaderinc"
+#include "res://shaders/proximity_fade.gdshaderinc"
 
 // Port of the Shader Forge shader "Custom/shader_generalTransparencia" from the
 // Unity original, used by mat_generalTransparencia - 57 references in
@@ -62,7 +63,12 @@ void fragment() {
 	ALBEDO = vec3(1.0);
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
-	ALPHA = 1.0 - COLOR.r;
+	// Vertex-colour transparency from the original, times the proximity fade. Multiplied
+	// into ALPHA rather than dithered, unlike level_lit: this surface is alpha-blended
+	// already, so a smooth fade is free here and dithering it would only add grain.
+	// The multiply keeps the original's own transparency intact - a column that is
+	// half see-through stays half see-through until the camera closes in on it.
+	ALPHA = (1.0 - COLOR.r) * proximity_fade_factor(VERTEX);
 
 	EMISSION = output_space(shading_space(ambient_color.rgb) * shading_space(albedo_color.rgb));
 }

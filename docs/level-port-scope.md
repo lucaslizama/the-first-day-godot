@@ -813,6 +813,57 @@ the material mapping — the mapping is confirmed above by fileID.
 Steps 2–4 are mostly mechanical volume. Steps 5–6 are where the real
 behavioural work is.
 
+## Deliberate additions (not in the original)
+
+Everything else in this document is an attempt to reproduce the 2016 project. This section
+is for things the port has that the original did not, so the two are never confused.
+
+### Proximity fade
+
+Surfaces fade out as they come within `1.8 m` of the camera, so geometry between the camera
+and the player stops filling the screen. Configure with
+`python3 tools/set_proximity_fade.py --near 0.5 --far 1.8`, which writes the same two
+distances into all 16 affected materials; `tools/verify_proximity_fade.gd` (run under
+`xvfb-run`, since it renders) requires them to agree.
+
+**Why it was needed, measured rather than assumed.** `ThirdPersonCamera` enforces a hard
+`MinimumDistance` of 2 m from the player — Unity's own `Zoom.MinimumDistance` — so in the
+starting room, which is smaller than that, the camera cannot retreat and ends up inside the
+walls. At the spawn point the nearest wall is **0.677 m** from the camera, and sampling the
+room on a 1 m grid, **11 to 15 of every 24 view angles** put a wall between the camera and
+the player.
+
+**Not a missed port.** The original had no distance fade at all. Its camera asset ships a
+`ThicknessChecking` feature that `nivelEscena` leaves disabled, and
+`mat_generalTransparencia`'s transparency comes from vertex colour — the dissolving platform
+columns — not from distance.
+
+**Dither, not smooth alpha, and this is measured, not taste.** Alpha looks cleaner in the
+fade tail, but it takes a surface off the opaque path and changes how it is *lit*. On the
+starting-room view:
+
+| configuration | mean frame colour |
+|---|---|
+| no fade (baseline) | 67, 72, 83 |
+| dither (`DISTANCE_FADE_PIXEL_DITHER`) | **67, 72, 83** |
+| props on alpha, shell dithered | 101, 106, 109 |
+| alpha everywhere | 101, 106, 109 |
+
+A visibly brighter floor, plus a player shadow the original does not have. Note the third
+row: the shift comes from the **props**, because the starting room's walls and floor *are*
+props (`piezaParede`) — so "only the props use alpha" is not a way out. Dither leaves the
+view identical, 29 differing pixels out of 630,000.
+
+The cost of dither is real and worth stating: a surface at low opacity is drawn as isolated
+pixels rather than a faint wash, so mid-fade shows a screen-door pattern — clearly visible
+on the flat dark monitor screens at the spawn desk. That is the cheaper of the two evils,
+since the alternative alters the whole level's shading. If it needs softening, narrowing the
+band (`--near 0.9 --far 1.5`) reduces how much of the screen is mid-fade at once, at the
+price of surfaces popping out more abruptly.
+
+`far` must stay **below** the camera's 2 m minimum distance, or the ground under the player
+starts dissolving; the verifier asserts this.
+
 ## Risks and open questions
 
 - **`respawnDelay` is unread.** Confirmed in the Unity source; the actual delay

@@ -11,3 +11,6 @@ resource_name = "MAT_Screen"
 albedo_color = Color(0.0, 0.07, 0.051153656, 1.0)
 metallic = 0
 roughness = 0.5
+distance_fade_mode = 2
+distance_fade_min_distance = 0.500
+distance_fade_max_distance = 1.800

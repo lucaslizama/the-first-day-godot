@@ -11,3 +11,6 @@ resource_name = "lambert3"
 albedo_color = Color(0.27205884, 0.15003245, 0.15003245, 1.0)
 metallic = 0
 roughness = 0.5
+distance_fade_mode = 2
+distance_fade_min_distance = 0.500
+distance_fade_max_distance = 1.800
