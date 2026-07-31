@@ -67,26 +67,30 @@ public partial class WhisperEmitter : AudioStreamPlayer3D
     /// equal steps, which is what an escalation wants to be.
     /// </summary>
     [Export]
-    public float OnsetVolumeDb { get; set; } = -11.0f;
+    public float OnsetVolumeDb { get; set; } = -8.5f;
 
     /// <summary>
-    /// Volume at the full death constant, in dB. Not 0: the ceiling here is set by CLIPPING, not
+    /// Volume at the full death constant, in dB. Not 0: the ceiling here is set by HEADROOM, not
     /// by taste.
     ///
     /// Thirteen emitters sum, and their unit_size has grown by then, so several are loud at once.
     /// Measured over the sampled route, the worst point sums to +4.9 dB of gain while the clip's
-    /// own true peak is -0.9 dBTP - so a peak of 0 dB here would put about +4 dBTP on the master
-    /// bus and clip it. -8 leaves about 4 dB of headroom.
+    /// own true peak is -0.9 dBTP. Master carries a hard limiter at -0.5 dB, so the hard ceiling
+    /// on this value is -4.5 dB - past that the whispers alone drive the limiter, which is meant
+    /// to be a net for coincident peaks rather than something that works during normal play.
+    /// -6.0 keeps 1.5 dB below it.
     ///
-    /// Consequence worth understanding before changing any of this: the escalation cannot be
-    /// large in VOLUME, because the top is pinned by headroom and the bottom has to stay audible.
-    /// It is about 6 dB. The rest of the escalation is carried by density instead - as unit_size
-    /// widens, more emitters become audible at once, which the summed level shows growing 0.5 ->
-    /// 4.4 dB while the nearest single emitter only grows 1.7 dB. More voices, not just louder
-    /// ones, which is closer to what "the whispers close in" should feel like anyway.
+    /// Two consequences worth understanding before changing any of this. At -6.0 the whisper bed
+    /// measures 0.8 LU under the music at ten deaths, so it is already about level with the score
+    /// at the top of the curve; more than this makes the whispers the loudest thing in the game.
+    /// And the escalation cannot be large in VOLUME, because the top is pinned by headroom and the
+    /// bottom has to stay audible - it is about 5.5 dB. The rest is carried by density instead: as
+    /// unit_size widens, more emitters become audible at once, which the summed level shows
+    /// growing 0.5 -> 4.4 dB while the nearest single emitter only grows 1.7 dB. More voices, not
+    /// just louder ones, which is closer to what "the whispers close in" should feel like anyway.
     /// </summary>
     [Export]
-    public float PeakVolumeDb { get; set; } = -8.0f;
+    public float PeakVolumeDb { get; set; } = -6.0f;
 
     /// <summary>
     /// Shapes how the ramp is spent across the death count. Below 1 is concave: early deaths
@@ -98,12 +102,12 @@ public partial class WhisperEmitter : AudioStreamPlayer3D
     /// anyone reaches, which is the same mistake as the linear-amplitude version in a subtler
     /// form: fixing the units did not fix where the range was spent.
     ///
-    /// At 0.5 the first death lands 2.6 dB higher than a linear ramp would put it and the third
-    /// 2.0 dB higher, while ten deaths is unchanged at 0 dB - so the escalation still arrives
-    /// somewhere, it just stops wasting its first half.
+    /// At 0.45 the first death lands about 2.8 dB higher than a linear ramp would put it and the
+    /// third about 2.2 dB higher, while the full death constant is untouched - so the escalation
+    /// still arrives somewhere, it just stops wasting its first half.
     /// </summary>
     [Export]
-    public float DeathCurveExponent { get; set; } = 0.5f;
+    public float DeathCurveExponent { get; set; } = 0.45f;
 
     public override void _Ready()
     {

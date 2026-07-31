@@ -565,19 +565,36 @@ needs no fudging.
 >
 > The curve had a second, subtler version of the *same* bug as the third correction. Ramping in dB
 > fixed the units but not **where the range was spent**: the death constant is `deaths / 10`, so
-> deaths one to four occupy only its first 10–40%. It now ramps over `pow(constant, 0.5)`, which
-> lifts the first death 2.6 dB and the third 2.0 dB without touching the top.
+> deaths one to four occupy only its first 10–40%. It now ramps over `pow(constant, e)`, which
+> lifts the early deaths without touching the top.
 >
-> **The top is pinned by clipping, not taste.** Thirteen emitters sum; at the worst route point
-> that is +4.9 dB of gain against a clip peaking at −0.9 dBTP, so a 0 dB peak would put ≈ +4 dBTP
-> on the master bus. Hence `PeakVolumeDb = −8`, leaving 4 dB of headroom. A consequence worth
-> understanding before retuning: the escalation **cannot** be large in volume — the top is pinned
-> and the bottom must stay audible — so it is about 6 dB. The rest is carried by *density*: as
-> `unit_size` widens, more emitters overlap, and the summed level grows 0.5 → 4.4 dB where the
-> nearest single emitter grows only 1.7 dB. More voices rather than louder ones, which is closer
-> to "the whispers close in" than a volume ramp is.
+> **The top is pinned by headroom, not taste.** Thirteen emitters sum; at the worst route point
+> that is +4.9 dB of gain against a clip peaking at −0.9 dBTP. With the master limiter at −0.5 dB
+> (added with the footstep fix below), the hard ceiling on `PeakVolumeDb` is **−4.5 dB** — beyond
+> that the whispers alone drive the limiter, which is meant to be a net for coincident peaks rather
+> than something working during normal play.
 >
-> Result: **7.1 LU under the music at 3 deaths**, from 15.2 before, and 2.8 LU under at 10.
+> A consequence worth understanding before retuning: the escalation **cannot** be large in volume —
+> the top is pinned and the bottom must stay audible — so it is about 5.5 dB. The rest is carried by
+> *density*: as `unit_size` widens, more emitters overlap, and the summed level grows 0.5 → 4.4 dB
+> where the nearest single emitter grows only 1.7 dB. More voices rather than louder ones, which is
+> closer to "the whispers close in" than a volume ramp is.
+>
+> **Tuned by ear in two passes.** The first landed at `OnsetVolumeDb = −11`, `PeakVolumeDb = −8`,
+> exponent 0.5, giving 7.1 LU under the music at 3 deaths (from 15.2). Asked for "a little bit
+> louder", it is now **−8.5 / −6.0, exponent 0.45**:
+>
+> | deaths | under the music |
+> |---|---|
+> | 1 | 6.3 LU |
+> | 3 | **4.8 LU** |
+> | 10 | 0.8 LU |
+>
+> So at ten deaths the bed is about **level with the score**, which is the top of what makes sense —
+> louder makes the whispers the loudest thing in the game. The cost of this pass is headroom: the
+> pathological all-peaks-coincide case moved from +0.78 to **+1.55 dBTP**, so the limiter would pull
+> back about 2 dB in that rare coincidence instead of about 1.3. Every source is still safely under
+> the ceiling on its own.
 >
 > Two things about the check. Loudness cannot be measured from GDScript, so
 > `tools/verify_audio_assets.py` now writes `audio/audio_levels.json` and the check reads it —
@@ -614,8 +631,8 @@ the transient being squared off by clipping. That is the honest trade here, not 
 
 Still plainly the most forward element, 10.5 dB less dominant. `Master` also carries an
 `AudioEffectHardLimiter` at **−0.5 dB**, which is a **net rather than a sound**: music at −5.35,
-thirteen summed whispers at −3.99 and the footstep at −2.97 are each safe alone but add to
-**+0.78 dBTP** if their peaks coincide. Dropping Fortunato to +6.5 dB would close that budget with
+thirteen summed whispers at −1.99 and the footstep at −2.97 are each safe alone but add to
+**+1.55 dBTP** if their peaks coincide. Dropping Fortunato to +6.5 dB would close that budget with
 no limiter, but it leaves the footstep 1.9 dB above the music, too weak for a gameplay cue. If the
 limiter is ever audibly working, something else has got too loud.
 
