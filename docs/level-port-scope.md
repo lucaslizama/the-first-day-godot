@@ -2038,9 +2038,14 @@ not an improvement.
 
 The camera-rise table in `PlayerCharacter.StepSmoothingHalfLife` was measured through the
 overspeeding harness. Re-measured at `RunSpeed` in a real loop: 0.15 s gives **0.053 m** of camera
-rise in a single tick, over the 0.050 the verifier allows. 0.20 → 0.049, **0.25 → 0.045**,
-0.35 → 0.040. Now 0.25, chosen over 0.20 because a one-millimetre margin is how a check comes to
-fail one run in three.
+rise in a single tick, against the 0.050 per tick the verifier allowed at the time. 0.20 → 0.049,
+**0.25 → 0.045**, 0.35 → 0.040. Now 0.25, chosen over 0.20 because a one-millimetre margin is how a
+check comes to fail one run in three.
+
+> **Those numbers are per physics tick, and the check no longer works that way.** The smoothing was
+> moved to the render clock immediately afterwards, which makes a per-tick distance meaningless —
+> see "The camera stutter on every lift was a clock mismatch" below. The bound is now a rate. The
+> comparison between half-lives still holds, since all four were measured the same way.
 
 **The lag half of that trade is unmeasured.** The instrumentation for it returned 0.000 at every
 half-life, i.e. it measured nothing, and it was removed rather than left to mislead. So the cost of
@@ -2053,3 +2058,45 @@ second: measured leaving the flight at x = −1.54 and falling out of the level,
 the kill volume. That is not a step-up failure and no step-up change will address it. If "the stairs
 don't work" is ever reported again, **falling off the side and stopping dead against a riser are
 different symptoms** and the first one is level design.
+
+### The camera stutter on every lift was a clock mismatch
+
+Reported in play once the stairs themselves felt right: going up and down was fine, but every lift
+put a minor stutter in the camera. Not a tuning problem — no value of `StepSmoothingHalfLife` fixes
+it, because it only makes each jump smaller.
+
+`_stepSmoothing` is a **visual** quantity. It exists so the camera is never shown the step-up's
+teleport, and `ThirdPersonCamera.UpdateCamera` reads its target in **`_Process`**, once per rendered
+frame. But the offset was being drained in `_PhysicsProcess`, so the value the camera samples only
+changed 60 times a second: above 60 fps the camera repeated a position and then jumped, over and
+over. The decay now runs in `PlayerCharacter._Process`, so it advances exactly as often as the camera
+reads it. It was already exponential in `delta`, so it was already frame-rate independent.
+
+> **The first attempt made it worse, by 5.5 m/s.** Moving the whole thing to `_Process` meant the
+> offset was *incremented* on a physics tick but not *written to the node* until the next rendered
+> frame — and the camera, reading its target in `_Process` and quite possibly running before the
+> player node does, then saw the raw teleport. The write and the decay live on different clocks, so
+> `ApplyStepSmoothing` is called from **both** `_PhysicsProcess` (where the offset changes) and
+> `_Process` (where it decays). A single call site cannot serve two clocks.
+
+**The check had to change with it.** Camera rise per *tick* is meaningless once the smoothing runs on
+the render clock, because it scales with whatever frame rate the machine happens to render at — under
+`xvfb` this project renders about 17 fps against 60 physics ticks, the inverse of a real machine. It
+is now a **rate**: the camera target may rise at no more than 3.0 m/s, sampled in `_process`. Walking
+the flight is ~0.8 m/s of honest climbing and an unsmoothed 0.24 m riser inside one tick is 14.4 m/s,
+so the bound sits an order of magnitude clear of both. Measured **1.51 m/s** walking, **2.04 m/s**
+running.
+
+**What no check here can do is prove it looks smooth**, since that depends on the render rate and this
+environment cannot reproduce the user's — an attempt to measure per-frame camera movement under
+`xvfb` returned 59% of frames with no movement at all and a 20 m outlier, because rendering was
+*slower* than physics and the character fell off the stairs mid-measurement. The check proves the
+offset is eased rather than handed over whole. Stutter is confirmed by eye.
+
+**Not done, and the bigger answer if it is ever wanted.** The body's own position still only changes
+on physics ticks, so *all* motion is sampled at 60 Hz by a faster camera; the step-up is merely the
+most visible case because it is a teleport. The engine-level fix is
+`physics/common/physics_interpolation`, which is off in this project (absent from `project.godot`, and
+it defaults to false). Turning it on would need the camera opted out, since it is driven per-frame,
+and `reset_physics_interpolation()` on the respawn teleport — and it would also smooth the platforms
+and the hammers. That is a project-wide change and was deliberately not made as part of a camera fix.
