@@ -264,6 +264,23 @@ public partial class PlayerCharacter : CharacterBody3D
     [Export]
     public NodePath StepSoundPath { get; set; } = new("StepSound");
 
+    /// <summary>
+    /// Stick magnitude above which the run clip is used instead of the walk clip.
+    ///
+    /// A DOCUMENTED DIVERGENCE. Unity's animator had a walk_run_tree blend tree and the gamepad
+    /// module fed it <c>MoveSpeed = magnitude</c>, so walk blended CONTINUOUSLY into run as the stick
+    /// was pushed. This port drives the AnimationPlayer directly and picks one clip or the other -
+    /// which the ledger already records for the keyboard, where Unity only ever received 0 or 1 and
+    /// so blended nothing. With a stick the difference is real: at 0.6 magnitude Unity showed a
+    /// 60% run, and this shows a run.
+    ///
+    /// Reproducing the blend needs an AnimationTree with a Blend2 driven by this magnitude, which is
+    /// a rebuild of how animation is driven here and carries real regression risk for the death, cry
+    /// and airborne paths. Left as a threshold deliberately; the MOVEMENT is analog either way.
+    /// </summary>
+    [Export]
+    public float AnalogRunThreshold { get; set; } = 0.7f;
+
     /// <summary>Random.Range(0.8f, 1.2f) in RandomizePitch.</summary>
     [Export]
     public float MinStepPitch { get; set; } = 0.8f;
@@ -335,6 +352,9 @@ public partial class PlayerCharacter : CharacterBody3D
     private bool _checkingForFall;
     private int _fallCheckTicks;
 
+    /// <summary>Clamped stick magnitude this tick, or 0 when the keyboard is driving.</summary>
+    private float _analogMagnitude;
+
     public override void _Ready()
     {
         _cameraBasis = GetNodeOrNull<Node3D>(CameraBasisPath);
@@ -401,9 +421,19 @@ public partial class PlayerCharacter : CharacterBody3D
             return;
         }
 
-        IsRunning = input.Run;
+        // The gamepad is analog: direction is continuous and speed scales with how far the stick is
+        // pushed, up to RunSpeed. The keyboard is eight-way with a separate run button. Unity kept
+        // these as two separate movement modules selected by InputManager.CurrentType; here they are
+        // two branches selected by the same last-device-wins flag.
+        _analogMagnitude = input.UsingGamepad ? Mathf.Min(input.MoveVector.Length(), 1.0f) : 0.0f;
 
-        Vector3 direction = GetDirection(input.CurrentDirection);
+        IsRunning = input.UsingGamepad
+            ? _analogMagnitude > AnalogRunThreshold
+            : input.Run;
+
+        Vector3 direction = input.UsingGamepad
+            ? GetAnalogDirection(input.MoveVector)
+            : GetDirection(input.CurrentDirection);
         ApplyRotation(direction, input.CurrentDirection, delta);
 
         Velocity = BuildVelocity(direction, input.Jump, delta);
@@ -663,6 +693,36 @@ public partial class PlayerCharacter : CharacterBody3D
     }
 
     /// <summary>
+    /// The stick's direction in world space, using the camera's yaw - the continuous equivalent of
+    /// <see cref="GetDirection"/>. Unity built this as
+    /// <c>cameraYAxis.TransformDirection(new Vector3(h, 0, v)).normalized</c>, i.e. the raw stick
+    /// vector rotated into camera space, which is what this reproduces.
+    /// </summary>
+    private Vector3 GetAnalogDirection(Vector2 stick)
+    {
+        if (stick.LengthSquared() < 0.000001f)
+        {
+            return Vector3.Zero;
+        }
+
+        Vector3 forward = Vector3.Forward;
+        if (_cameraBasis is not null)
+        {
+            forward = -_cameraBasis.GlobalBasis.Z;
+        }
+
+        forward.Y = 0.0f;
+        if (forward.LengthSquared() < 0.0001f)
+        {
+            return Vector3.Zero;
+        }
+
+        forward = forward.Normalized();
+        Vector3 right = forward.Cross(Vector3.Up);
+        return ((right * stick.X) + (forward * stick.Y)).Normalized();
+    }
+
+    /// <summary>
     /// Turns toward the direction of travel at a capped rate. The original stored
     /// a table of per-direction yaw offsets (0, 180, 270, 90, 45, 315, 135, 225)
     /// added to the camera's yaw, which reduces exactly to "face where you move".
@@ -691,7 +751,11 @@ public partial class PlayerCharacter : CharacterBody3D
     private Vector3 BuildVelocity(Vector3 direction, bool jumpPressed, double delta)
     {
         Vector3 velocity = Velocity;
-        float speed = IsRunning ? RunSpeed : WalkSpeed;
+        // Unity's gamepad module used runSpeed * Clamp01(magnitude) - no walk speed at all, so a
+        // half-pushed stick is a walk by arithmetic rather than by a separate constant.
+        float speed = _analogMagnitude > 0.0f
+            ? RunSpeed * _analogMagnitude
+            : (IsRunning ? RunSpeed : WalkSpeed);
 
         velocity.X = direction.X * speed;
         velocity.Z = direction.Z * speed;

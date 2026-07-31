@@ -1631,8 +1631,14 @@ identical from three different prior clips, and the blend matches Unity's transi
 Confirmed to catch the original bug — restoring the pre-fix `fall.res` fails two of its
 three checks.
 
-- **Gamepad movement not ported.** `YelenaGamePadMovement` (139 lines) is
-  unported; keyboard only for now.
+- **Gamepad movement is ported.**
+
+  > **Correction.** This said `YelenaGamePadMovement` (139 lines) was unported and the port was
+  > "keyboard only for now". It is ported — see "The gamepad path" below. Worth noting why it was
+  > easy to under-rate: the class is not a `MonoBehaviour` and its guid appears in **no scene or
+  > prefab at all**, so it looks like dead code. `YelenaMovementModule.ProcessMovement` constructs
+  > it and branches on `input.CurrentType` every frame, so the shipped game did support a
+  > controller.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth
   converting to Ogg Vorbis rather than vendoring raw, given the repo already
   avoids large binaries. Done for `susurro_loko` — 2.5 MB to 134 KB, downmixed to
@@ -2303,3 +2309,79 @@ the scene was demonstrably correct — a whole diagnostic pass spent on a bug th
 instrument. `basis * Vector3(1, 0, 0)` is unambiguous: it is where the local X axis ends up, and its
 length is the world size along it. GDScript also has **no 12-float `Transform3D` constructor**; that
 form exists only in the `.tscn` text format.
+
+## The land states — nothing to port
+
+`land` and `land_moving` were the last animator feature this document listed as omitted, kept open
+because "the exit timing was not recovered". It is recovered now, and it says there is nothing to do.
+
+| transition | duration | `m_ExitTime` | `m_HasExitTime` | condition |
+|---|---|---|---|---|
+| `fall` → `land` | 0 | 1 | **0** | `IsFalling == false` |
+| `land` → `idle` | 0 | 0.9 | **0** | `IsMoving == false` |
+| `land` → `walk_run_tree` | 0 | 0.9 | **0** | `IsMoving == true` |
+| `land` → `fall` | 0.25 | 0 | 1 | `IsFalling == true` |
+
+**`m_ExitTime: 0.9` is inert, because `m_HasExitTime: 0`.** That is the trap here: read the exit time
+without checking the flag beside it and you would conclude the state holds for 90% of its clip. Unity
+ignores it entirely.
+
+So both of `land`'s exits fire the instant their condition holds, and `IsMoving` is always either true
+or false — one of them always fires immediately. The state lasts a single frame, and its clip is
+`jumpR1Frame`, **the same clip `fall` was already showing**. Its only behavioural contribution was
+that `Fortunato.Update` played the step sound while the animator sat in `land`/`land_moving`, which
+this port already does on touchdown.
+
+Reproducing it would add two states that show the pose already on screen for one frame and do nothing
+else. Closed as nothing to port, rather than left open.
+
+## The gamepad path
+
+Ported, and it is not just "a controller works" — the two schemes are genuinely different, which is
+why Unity had two movement modules and selected between them every frame:
+
+| | keyboard | gamepad |
+|---|---|---|
+| direction | eight-way, from `WasDirection` | **continuous**, the stick rotated into camera space |
+| speed | `WalkSpeed`, or `RunSpeed` while the run button is held | **`RunSpeed × Clamp01(magnitude)`** |
+| jump | `keyboard_jump` | `xinput_jump` |
+
+So a half-pushed stick walks *by arithmetic*, with no walk speed involved at all. `PlayerInput` now
+exposes `MoveVector` — read through the action map, since `move_left/right` are already bound to
+joypad axis 0 and `move_forward/back` to axis 1 — and `PlayerCharacter` branches on it.
+
+**The device switch is last-one-wins, both ways**, as Unity's `InputManager` did: any joypad axis or
+button selects the gamepad, any key selects keyboard-and-mouse. Reproduced from the event stream in
+`_Input`, because Godot's action map merges the devices into one set of actions and `IsActionPressed`
+cannot say which device pressed a thing. Mouse motion is deliberately not a signal — it belongs to the
+keyboard scheme and the camera consumes it every frame, so treating it as one would flip modes
+continuously while a stick was held.
+
+### The one divergence, and why it was not closed
+
+Unity fed the animator `MoveSpeed = magnitude`, so its `walk_run_tree` blended walk into run
+**continuously** with the stick. This port drives the `AnimationPlayer` directly and selects one clip
+or the other at `AnalogRunThreshold` (0.7). For the keyboard that is not a divergence at all — Unity
+only ever received 0 or 1 there, as this document already records — but with a stick it is real: at 0.6
+magnitude Unity showed a 60% blend and this shows a run.
+
+Closing it needs an `AnimationTree` with a `Blend2` driven by the magnitude, which is a rebuild of how
+animation is driven here and would put the death, cry and airborne paths — all of which took several
+passes to get right — back at risk. The **movement** is analog either way; only the clip selection is
+quantised.
+
+### The check drives a real stick
+
+`tools/verify_gamepad.gd` injects `InputEventJoypadMotion` through `Input.parse_input_event`, so the
+whole chain runs: the event sets the device flag, the action map turns axes into `MoveVector`, and the
+player consumes it. Two things learned writing it:
+
+- **Calling `_physics_process` through `call` does not invoke a C# override**, and an event handed to
+  `parse_input_event` does not reach the action state until the engine processes it on a later frame.
+  The first version did both and every one of its six checks failed against a working feature.
+- **Measure the magnitude at more than one deflection.** Deliberately breaking the code to ignore
+  magnitude still passes at full stick — 4.50 m/s is correct there — so a single check at 1.0 would
+  have proved nothing. It fails at 0.5 and 0.75, which is why three are measured.
+
+Deadzone rescaling is worth knowing when reading its output: the action deadzone is 0.2, and Godot
+rescales it out, so a raw stick of 0.5 arrives as a magnitude of 0.38 and moves at 1.69 m/s.

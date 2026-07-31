@@ -49,6 +49,27 @@ public partial class PlayerInput : Node
 
     public bool Run { get; private set; }
 
+    /// <summary>
+    /// The left stick, deadzoned, with its MAGNITUDE intact - which is the whole point of it. A
+    /// gamepad moved Fortunato at <c>runSpeed * Clamp01(magnitude)</c> in the original, so a half-
+    /// pushed stick walked; the keyboard path has no such notion and uses the eight-way
+    /// <see cref="CurrentDirection"/> with a separate run button.
+    ///
+    /// Read through the action map rather than off raw axes, so the bindings in project.godot stay
+    /// the single source of truth: move_left/right are joypad axis 0 and move_forward/back axis 1.
+    /// Godot's Y is positive downward on a stick, so this is negated to match Unity's convention of
+    /// positive-forward, the same correction the camera's vertical axis needed.
+    /// </summary>
+    public Vector2 MoveVector { get; private set; }
+
+    /// <summary>
+    /// Which device was used last. Unity kept this as InputManager.CurrentType and switched it BOTH
+    /// ways - any gamepad input selected XINPUT, any keyboard input selected MOUSE_KEYBOARD - so the
+    /// two schemes never fought. Reproduced from the event stream, because Godot's action map merges
+    /// the devices into one set of actions and IsActionPressed cannot say which one pressed it.
+    /// </summary>
+    public bool UsingGamepad { get; private set; }
+
     private bool _jumpHeldPreviously;
     private bool _attackHeldPreviously;
 
@@ -89,6 +110,29 @@ public partial class PlayerInput : Node
         _attackHeldPreviously = attackHeld;
 
         Run = Input.IsActionPressed("run") && CanValidateInput;
+
+        MoveVector = CanValidateInput
+            ? Input.GetVector("move_left", "move_right", "move_forward", "move_back") * new Vector2(1.0f, -1.0f)
+            : Vector2.Zero;
+    }
+
+    /// <summary>
+    /// Tracks which device is in use, the way Unity's InputManager did - last one wins. A joypad
+    /// axis or button selects the gamepad; a key selects keyboard-and-mouse. Mouse motion is
+    /// deliberately NOT a signal: it is part of the keyboard-and-mouse scheme, and the camera
+    /// consumes it continuously, so treating it as one would make holding a stick while nudging the
+    /// mouse flip modes every frame.
+    /// </summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventJoypadMotion or InputEventJoypadButton)
+        {
+            UsingGamepad = true;
+        }
+        else if (@event is InputEventKey)
+        {
+            UsingGamepad = false;
+        }
     }
 
     /// <summary>
