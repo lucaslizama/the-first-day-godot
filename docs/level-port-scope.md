@@ -2232,3 +2232,74 @@ because it is the controller's value and because the fade timing is not guarante
 Also recorded for whoever ports the `land`/`land_moving` states, still the one animator feature this
 port omits: their exit back to falling is 0.25 s **with** `m_HasExitTime`, which is the timing this
 document previously noted as "not recovered".
+
+## The tutorial key signs — done
+
+The last piece of unported level content. Five quads at the level's start: a board and four key
+prompts on it, extracted by `tools/extract_tutorial_keys.py` and generated into
+`scenes/tutorial_keys.tscn` by `tools/generate_tutorial_keys_scene.py`.
+
+> **Two corrections to what this document said about them.**
+>
+> They are Unity's built-in **Quad** (fileID 10210), **not the cube**. A cube would have made them
+> metre-thick slabs. And `Tutorial` is not a fifth key prompt but the **parent board** the other four
+> hang on, using Unity's own default material — so four materials needed porting, and the fifth
+> surface is a plain white one.
+
+| sign | material | world size | origin |
+|---|---|---|---|
+| `Tutorial` | default white | 5.880 × 2.987 | (−2.700, 1.510, 3.930) |
+| `WASD` | `wasd.png` | 1.596 × 0.981 | (−2.652, 2.273, 5.686) |
+| `Spacebar` | `space_key_l.png` | 3.032 × 0.628 | (−2.652, 0.856, 4.021) |
+| `Shift` | `shift_key.png` | 2.018 × 0.721 | (−2.652, 2.240, 2.884) |
+| `WASD (1)` | `controller.jpg` | 2.691 × 1.464 | (−0.190, 1.868, 6.829) |
+
+All five carry `m_Convex: 0, m_IsTrigger: 0` in Unity — **solid**, so the signs are walls. Emitted as
+one `ConcavePolygonShape3D` of ten triangles with the vertices baked in scene space.
+
+The materials are Standard-shader ports and follow the rule already recorded here: `roughness =
+1 − _Glossiness = 0.5`, metallic 0, `_MainTex` as albedo. **`wasd.png` has an alpha channel that Unity
+ignored**, since the material's `_Mode` is 0 (Opaque), so the port ignores it too. They live in
+`materials/props/`, which means `set_proximity_fade.py` covers them — 21 materials now — and the spawn
+room is exactly where that fade earns its keep.
+
+### Three traps, all specific to placing a NATIVE mesh rather than an imported one
+
+**1. The `Transform3D` literal in a `.tscn` is ROW-major.** The generator first emitted the basis as
+columns, and the transpose is not harmless: for a rotation times a non-uniform scale,
+`(R·S)ᵀ = S·Rᵀ` moves each scale factor onto a different axis. The board measured **1 m wide instead
+of 5.88 while its height stayed correct** — a half-right result that survives a glance at a
+screenshot. Caught by checking the sizes against Unity's own parent × child scale products.
+
+**2. A native mesh needs the local mirror an imported one already has.** Every other prop here is an
+FBX, and Godot's importer already mirrored its local geometry by `M = diag(-1, 1, 1)`; a `QuadMesh`
+has had no such pass. Conjugating the placement alone puts the quad's local +X where Unity's −X was,
+so **the textures render mirrored — "WASD" reads "DSAW"**. The mesh transform is therefore
+`(M W M) · M = M W`, i.e. the conjugated basis with its X column negated.
+
+**3. Unity's built-in Quad faces local −Z; Godot's `QuadMesh` faces +Z.** So one net flip remains
+after the mirror, and the signs were invisible from inside the room while readable from outside the
+level. Fixed by negating the **Z column**, which for a flat quad moves no vertex — every vertex has
+z = 0 — so it flips the winding and the normal without touching the texture's orientation. Verified
+numerically against `M ·` (Unity's world normal) for all five, and by rendering the room and reading
+the signs.
+
+### `WASD (1)` shears, and that is why the basis is carried as a matrix
+
+Its own −90.3° Y rotation sits under the parent's non-uniform (5.88, 2.99, 1) scale, and that product
+is not orthogonal: **0.0304 between the X and Z axes.** Any round-trip through position–rotation–scale
+would orthogonalise it away, so the extractor emits a 3×3 basis and an origin rather than a TRS
+triple. For a flat quad the X–Z shear moves no vertex and only tilts the normal slightly, but it is
+pinned in `tools/verify_tutorial_keys.gd` as the fingerprint of the composition being carried whole.
+
+> Two of my own measurements of that shear were wrong before this one. An un-normalised dot product
+> reported **0.4812**, and the first version of the check looked at the **X–Y** pair, which is
+> genuinely 0.0000 — a check aimed at the wrong pair of axes reads exactly like a broken feature.
+
+### And one wasted cycle worth recording
+
+`Basis.get_column` **does not exist in GDScript**, and `basis.x` reported every sign as 1 × 1 m while
+the scene was demonstrably correct — a whole diagnostic pass spent on a bug that was in the
+instrument. `basis * Vector3(1, 0, 0)` is unambiguous: it is where the local X axis ends up, and its
+length is the world size along it. GDScript also has **no 12-float `Transform3D` constructor**; that
+form exists only in the `.tscn` text format.

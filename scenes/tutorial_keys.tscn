@@ -1,0 +1,44 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Material" path="res://materials/props/wasd.tres" id="1_mat"]
+[ext_resource type="Material" path="res://materials/props/controller.tres" id="2_mat"]
+[ext_resource type="Material" path="res://materials/props/space_key_l.tres" id="3_mat"]
+[ext_resource type="Material" path="res://materials/props/shift_key.tres" id="4_mat"]
+[ext_resource type="Material" path="res://materials/props/tutorial_board.tres" id="5_mat"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_key"]
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_keys"]
+data = PackedVector3Array(-2.652000, 1.782492, 6.483806, -2.652000, 1.782492, 4.888194, -2.652000, 2.763508, 4.888194, -2.652000, 1.782492, 6.483806, -2.652000, 2.763508, 4.888194, -2.652000, 2.763508, 6.483806, 1.154981, 1.136649, 6.786869, -1.534981, 1.136649, 6.871131, -1.534981, 2.600185, 6.871131, 1.154981, 1.136649, 6.786869, -1.534981, 2.600185, 6.871131, 1.154981, 2.600185, 6.786869, -2.652000, 0.541896, 5.536854, -2.652000, 0.541896, 2.505146, -2.652000, 1.170104, 2.505146, -2.652000, 0.541896, 5.536854, -2.652000, 1.170104, 2.505146, -2.652000, 1.170104, 5.536854, -2.652000, 1.879294, 3.892920, -2.652000, 1.879294, 1.875079, -2.652000, 2.600706, 1.875079, -2.652000, 1.879294, 3.892920, -2.652000, 2.600706, 1.875079, -2.652000, 2.600706, 3.892920, -2.700000, 0.016596, 6.870162, -2.700000, 0.016596, 0.989838, -2.700000, 3.003404, 0.989838, -2.700000, 0.016596, 6.870162, -2.700000, 3.003404, 0.989838, -2.700000, 3.003404, 6.870162)
+
+[node name="TutorialKeys" type="Node3D"]
+
+[node name="WASD" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.000000, -0.000000, 1.000000, 0.000000, 0.981015, -0.000000, -1.595612, 0.000000, 0.000000, -2.652000, 2.273000, 5.686000)
+mesh = SubResource("QuadMesh_key")
+surface_material_override/0 = ExtResource("1_mat")
+
+[node name="WASD_1" type="MeshInstance3D" parent="."]
+transform = Transform3D(-2.689962, -0.000000, -0.005327, 0.000000, 1.463536, -0.000000, 0.084262, 0.000000, -5.880244, -0.190000, 1.868417, 6.829000)
+mesh = SubResource("QuadMesh_key")
+surface_material_override/0 = ExtResource("2_mat")
+
+[node name="Spacebar" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.000000, -0.000000, 1.000000, 0.000000, 0.628207, -0.000000, -3.031708, 0.000000, 0.000000, -2.652000, 0.856000, 4.021000)
+mesh = SubResource("QuadMesh_key")
+surface_material_override/0 = ExtResource("3_mat")
+
+[node name="Shift" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.000000, -0.000000, 1.000000, 0.000000, 0.721413, -0.000000, -2.017841, 0.000000, 0.000000, -2.652000, 2.240000, 2.883999)
+mesh = SubResource("QuadMesh_key")
+surface_material_override/0 = ExtResource("4_mat")
+
+[node name="Tutorial" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.000000, -0.000000, 1.000000, 0.000000, 2.986807, -0.000000, -5.880324, 0.000000, 0.000000, -2.700000, 1.510000, 3.930000)
+mesh = SubResource("QuadMesh_key")
+surface_material_override/0 = ExtResource("5_mat")
+
+[node name="Collision" type="StaticBody3D" parent="."]
+
+[node name="Shape" type="CollisionShape3D" parent="Collision"]
+shape = SubResource("ConcavePolygonShape3D_keys")

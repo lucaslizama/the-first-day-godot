@@ -23,6 +23,7 @@
 [ext_resource type="Material" path="res://materials/level_transparent.tres" id="20_transparent"]
 
 [ext_resource type="PackedScene" path="res://scenes/whispers.tscn" id="21_whispers"]
+[ext_resource type="PackedScene" path="res://scenes/tutorial_keys.tscn" id="24_tutorial"]
 
 [ext_resource type="AudioStream" path="res://audio/guille_experimental.ogg" id="22_music"]
 
@@ -67,6 +68,8 @@ ClimbableMeshes = PackedStringArray("polySurface18", "polySurface32")
 [node name="nivel_p2" parent="ShellP2" unique_id=1113251813 instance=ExtResource("2_nivel_p2")]
 
 [node name="Props" parent="." unique_id=1592056883 instance=ExtResource("4_props")]
+
+[node name="TutorialKeys" parent="." instance=ExtResource("24_tutorial")]
 
 [node name="Platforms" parent="." instance=ExtResource("5_platforms")]
 
