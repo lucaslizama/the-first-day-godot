@@ -110,15 +110,34 @@ var obstacle: StaticBody3D
 var _sampling := false
 var _worst_rise_rate := 0.0
 var _last_target_y := INF
+var _window_elapsed := 0.0
+
+
+## Averaged over a fixed WINDOW rather than differentiated frame to frame.
+##
+## Dividing by a single frame's delta makes the peak an artefact of frame pacing: with the smoothing
+## code untouched, the per-frame form measured 1.51 and 2.04 m/s on one run and 2.27 and 4.00 on the
+## next, because this environment renders at a variable ~17 fps and a short frame inflates the
+## quotient. That is a bound the measurement can take by luck, which is the definition of a flaky
+## check. A window of RATE_WINDOW seconds spans several frames, so pacing averages out - and it is
+## also closer to what "a jolt" means to a player than an instantaneous derivative is.
+const RATE_WINDOW := 0.1
 
 
 func _process(delta: float) -> void:
 	if not _sampling or camera_target == null or delta <= 0.0:
 		return
 	var y := camera_target.global_position.y
-	if _last_target_y != INF:
-		_worst_rise_rate = maxf(_worst_rise_rate, (y - _last_target_y) / delta)
-	_last_target_y = y
+	if _last_target_y == INF:
+		_last_target_y = y
+		_window_elapsed = 0.0
+		return
+
+	_window_elapsed += delta
+	if _window_elapsed >= RATE_WINDOW:
+		_worst_rise_rate = maxf(_worst_rise_rate, (y - _last_target_y) / _window_elapsed)
+		_last_target_y = y
+		_window_elapsed = 0.0
 
 
 func _ready() -> void:
@@ -215,6 +234,7 @@ func _ascent(label: String, running: bool) -> void:
 	# camera reads. _sample_camera_rate is connected for the duration of the case.
 	_worst_rise_rate = 0.0
 	_last_target_y = INF
+	_window_elapsed = 0.0
 	_sampling = true
 
 	while ticks < 420:
