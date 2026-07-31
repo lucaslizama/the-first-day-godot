@@ -132,9 +132,48 @@ public partial class ThirdPersonCamera : Camera3D
     [Export]
     public float ZoomInMetresPerSecond { get; set; } = 20.0f;
 
+    /// <summary>
+    /// Time for the camera's remaining distance to its pivot to halve, in seconds. 0 follows rigidly,
+    /// which is what this did before.
+    ///
+    /// A DELIBERATE ADDITION, and the reason it is needed is a clock mismatch rather than a taste.
+    /// The camera is NOT parented to the player - it is a sibling that writes its own GlobalPosition -
+    /// but the follow was a rigid copy of the target's position, which behaves exactly like being
+    /// parented. The target only moves on PHYSICS ticks, 60 times a second, while this runs in
+    /// _Process once per rendered frame; so above 60 fps the camera reproduced each 60 Hz step
+    /// verbatim, holding still for some frames and then moving. That is bumpiness no amount of
+    /// step-offset smoothing can remove, because it is not about steps at all - it affects ordinary
+    /// walking just as much.
+    ///
+    /// Only the PIVOT is eased, never the rotation. Mouse look still applies the same frame it is
+    /// read, so aiming stays crisp; what lags slightly is the camera trailing the character's
+    /// movement, which is what a third-person camera is supposed to do.
+    ///
+    /// 0.05 s spreads one 60 Hz step over roughly five frames at 144 fps. The steady-state cost is a
+    /// constant trailing offset of about v * halfLife / ln2 - some 0.18 m at walk speed, along the
+    /// direction of travel, where it reads as follow rather than as lag.
+    /// </summary>
+    [Export]
+    public float FollowHalfLife { get; set; } = 0.05f;
+
+    /// <summary>
+    /// Metres of pivot movement in one frame that is treated as a teleport rather than motion, and so
+    /// snapped instead of eased.
+    ///
+    /// Without this the respawn chain would send the camera gliding across the level from wherever the
+    /// player died to the checkpoint, easing the whole way. A step is at most 0.3 m and a running
+    /// frame is under 0.1 m, so 2 m cannot be reached by anything the character does on foot.
+    /// </summary>
+    [Export]
+    public float FollowSnapDistance { get; set; } = 2.0f;
+
     private float _yawDegrees;
     private float _pitchDegrees;
     private float _currentDistance;
+
+    /// <summary>The eased pivot the camera is placed from. See <see cref="FollowHalfLife"/>.</summary>
+    private Vector3 _followPivot;
+    private bool _hasFollowPivot;
 
     private Vector2 _pendingMouseDelta;
 
@@ -195,16 +234,50 @@ public partial class ThirdPersonCamera : Camera3D
         ApplyRotation();
 
         Vector3 target = _target.GlobalPosition;
+        Vector3 pivot = FollowPivot(target, delta);
 
         // Rotation must already be applied: the line-of-sight rays are cast along
         // the camera's own axes.
+        //
+        // Cast from the TRUE target, not the eased pivot: what must stay visible is the character,
+        // and the pivot trails him by a few centimetres.
         float actual = _currentDistance;
         float furthest = Mathf.Max(DesiredDistance, actual);
         float calculated = CalculateMaximumDistance(target, furthest);
         float distance = ResolveDistance(actual, calculated, DesiredDistance, delta);
 
-        GlobalPosition = target - (-GlobalBasis.Z * distance);
+        GlobalPosition = pivot - (-GlobalBasis.Z * distance);
+
+        // Measured against the true target, so the distance the occlusion logic reasons about is the
+        // distance to the character rather than to the pivot.
         _currentDistance = GlobalPosition.DistanceTo(target);
+    }
+
+    /// <summary>
+    /// The eased position the camera is placed from, so a target that only moves on physics ticks does
+    /// not arrive at the camera in 60 Hz steps. See <see cref="FollowHalfLife"/>.
+    /// </summary>
+    private Vector3 FollowPivot(Vector3 target, double delta)
+    {
+        if (!_hasFollowPivot)
+        {
+            _hasFollowPivot = true;
+            _followPivot = target;
+            return _followPivot;
+        }
+
+        // A teleport is not motion. Respawning would otherwise send the camera gliding across the
+        // level from the place of death to the checkpoint.
+        if (FollowHalfLife <= 0.0f
+            || _followPivot.DistanceSquaredTo(target) > FollowSnapDistance * FollowSnapDistance)
+        {
+            _followPivot = target;
+            return _followPivot;
+        }
+
+        float t = 1.0f - Mathf.Pow(0.5f, (float)delta / FollowHalfLife);
+        _followPivot = _followPivot.Lerp(target, t);
+        return _followPivot;
     }
 
     private void ApplyRotation()
