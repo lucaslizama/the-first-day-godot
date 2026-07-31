@@ -175,7 +175,8 @@ Audio referenced by the level scene:
 - `susurro_loko.wav` — 2.4 MB, referenced 12×, the whisper driven by `SoundAttenuationByDeath`
 - `guille_experimental.wav` — 11.8 MB, the level's music. **Now ported**, 68.4 s stereo at
   1.3 MB of Ogg Vorbis — see "Music and the mixer" below
-- `robinhood76__looping-hollow-open-air-wind.wav` — 8.6 MB
+- `robinhood76__looping-hollow-open-air-wind.wav` — 8.4 MB, the level's wind bed. **Now ported**,
+  49.8 s stereo at 0.87 MB of Ogg Vorbis — see "The wind ambience" below
 
 Two more WAVs exist in the project but are **not** referenced by this scene:
 
@@ -705,8 +706,33 @@ footsteps — which is what the original mix was, but it is not the balance that
 listening. If it wants changing, **change `Fortunato` in the bus layout**, not
 `WhisperEmitter.OnsetVolumeDb`, so the emitter keeps matching the level settled on by ear.
 
-`Ambience` carries nothing yet; the wind and `susurro_ambience` are still unported. The bus
-exists so they arrive at the right level when they do.
+`Ambience` was created empty and now carries the wind — see below. `susurro_ambience` is *not*
+coming: it is referenced by nothing anywhere in the Unity project.
+
+### The wind ambience
+
+`robinhood76__looping-hollow-open-air-wind`, 49.8 s, on a GameObject called `Ambience` in
+`nivelEscena` — the same shape as the music, and checked by the same code as a result: only a
+Transform and an AudioSource, `m_PlayOnAwake: 1`, `Loop: 1`, `m_Volume: 1`, `Spatialize: 0`, no
+script, routed to the mixer's `Ambience` group. So it is an `AudioStreamPlayer` on the `Ambience`
+bus at −9.33 dB, and **stereo**, for the same reason the music is: a non-positional player never
+pans by position, and a wind bed wants the width.
+
+8.4 MB of WAV to **0.87 MB** of Ogg at `-q:a 5`. The source peaks at −0.1 dBTP and the Vorbis
+encode pushed that to **+0.2**, so a −0.5 dB trim went in first — the same overshoot the music had,
+and the reason that check exists. `loop=true` set in the `.import` and reimported.
+
+**It makes the whisper's job harder, which was checked before it was called finished.** The bed the
+whisper competes with is now two sounds, not one: Music at −19.7 and Ambience at −25.1 sum to
+**−18.6 LUFS**, 1.1 dB louder than music alone. The whisper's margin at 3 deaths therefore moves
+from 4.8 to **5.9 LU under** — well inside the 10 LU limit, so nothing needed retuning.
+
+`tools/verify_whispers.gd` now measures against **every** bed rather than the music alone.
+Comparing against one of two masking sounds is the same shape of mistake as comparing against full
+scale when the music arrived — what masks a sound is everything else that is playing.
+`tools/verify_music.gd` likewise runs its present/playing, looping and bus checks over both beds,
+and includes the wind in the clipping budget (ambience −9.80 dBTP; the pathological all-peaks case
+moves +1.55 → +1.86, still the limiter's business).
 
 One incidental fix. `tools/verify_whispers.gd` expressed its audibility bound "against the
 footsteps at 0 dB", which stopped being true the moment `Fortunato` went in. It now measures

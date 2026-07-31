@@ -13,5 +13,10 @@
   "from_rms": false,
   "lufs": -18.94,
   "true_peak_db": -0.9
+ },
+ "audio/wind_ambience.ogg": {
+  "from_rms": false,
+  "lufs": -15.81,
+  "true_peak_db": -0.47
  }
 }

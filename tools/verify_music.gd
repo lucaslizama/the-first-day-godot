@@ -132,59 +132,81 @@ func _check_routing() -> void:
 		_fail("audio routing is wrong: %s" % str(problems))
 
 
-func _music() -> Node:
-	return level.get_node_or_null("Music")
+## The level's continuous 2D beds, checked identically because they ARE identical in kind: both are
+## a GameObject in nivelEscena carrying only a Transform and an AudioSource, with PlayOnAwake 1,
+## Loop 1, volume 1, Spatialize 0 and no script. Listed rather than discovered so that a bed going
+## missing fails instead of silently reducing the number of things checked.
+const BEDS := [
+	{"node": "Music", "bus": "Music"},
+	{"node": "Ambience", "bus": "Ambience"},
+]
+
+
+func _bed(name: String) -> Node:
+	return level.get_node_or_null(name)
 
 
 func _check_present_and_playing() -> void:
-	checks += 1
-	var m := _music()
+	for bed in BEDS:
+		checks += 1
+		_check_one_bed(String(bed["node"]), String(bed["bus"]))
+
+
+func _check_one_bed(node_name: String, bus_name: String) -> void:
+	var m := _bed(node_name)
 	if m == null:
-		_fail("the level has no Music node")
+		_fail("the level has no %s node" % node_name)
 		return
 	if m is AudioStreamPlayer3D:
-		_fail("Music is an AudioStreamPlayer3D, so its volume changes with the listener's position. Unity's source had Spatialize 0 and a flat pan curve - it must be a plain AudioStreamPlayer.")
+		_fail("%s is an AudioStreamPlayer3D, so its volume changes with the listener's position. Unity's source had Spatialize 0 and a flat pan curve - it must be a plain AudioStreamPlayer." % node_name)
 		return
 	if not (m is AudioStreamPlayer):
-		_fail("Music is a %s, not an AudioStreamPlayer" % m.get_class())
+		_fail("%s is a %s, not an AudioStreamPlayer" % [node_name, m.get_class()])
 		return
 
 	var player := m as AudioStreamPlayer
 	if player.stream == null:
-		_fail("the Music node has no stream assigned")
+		_fail("the %s node has no stream assigned" % node_name)
 	elif not player.autoplay:
-		_fail("Music has autoplay off, so nothing starts it - the original's AudioSource had PlayOnAwake 1 and no script to start it")
+		_fail("%s has autoplay off, so nothing starts it - the original's AudioSource had PlayOnAwake 1 and no script to start it" % node_name)
 	elif not player.playing:
-		_fail("Music has autoplay on but is not playing after %d frames" % frame)
-	elif String(player.bus) != "Music":
-		_fail("Music plays on bus '%s' rather than the Music group" % player.bus)
+		_fail("%s has autoplay on but is not playing after %d frames" % [node_name, frame])
+	elif String(player.bus) != bus_name:
+		_fail("%s plays on bus '%s' rather than the %s group" % [node_name, player.bus, bus_name])
 	else:
-		_ok("Music is a non-positional AudioStreamPlayer, autoplaying on the Music bus (%.1f s of audio)" % player.stream.get_length())
+		_ok("%s is a non-positional AudioStreamPlayer, autoplaying on the %s bus (%.1f s of audio)" % [
+			node_name, bus_name, player.stream.get_length()])
 
 
 ## Reads the flag off the IMPORTED stream, not the .import file, so an un-reimported change
 ## cannot pass this.
 func _check_loops() -> void:
-	checks += 1
-	var m := _music() as AudioStreamPlayer
+	for bed in BEDS:
+		checks += 1
+		_check_one_loops(String(bed["node"]))
+
+
+func _check_one_loops(node_name: String) -> void:
+	var m := _bed(node_name) as AudioStreamPlayer
 	if m == null or m.stream == null:
-		_fail("no music stream to check for looping")
+		_fail("no %s stream to check for looping" % node_name)
 		return
 	var stream := m.stream
 	var loops: Variant = stream.get("loop")
 	if loops == null:
 		_fail("cannot read a loop flag off a %s" % stream.get_class())
 	elif bool(loops):
-		_ok("the music stream loops, so it carries past its %.1f s" % stream.get_length())
+		_ok("the %s stream loops, so it carries past its %.1f s" % [node_name, stream.get_length()])
 	else:
-		_fail("the music stream does not loop: it will stop after %.1f s and never restart. Set loop=true in audio/guille_experimental.ogg.import and REIMPORT - Godot defaults .ogg to loop=false." % stream.get_length())
+		_fail("the %s stream does not loop: it will stop after %.1f s and never restart. Set loop=true in its .import and REIMPORT - Godot defaults .ogg to loop=false." % [
+			node_name, stream.get_length()])
 
 
 ## "The same volume" - a non-positional player is unaffected by where the listener stands, so
 ## this moves the camera the length of the level and requires the mixed level to be identical.
 func _check_constant_volume() -> void:
 	checks += 1
-	var m := _music() as AudioStreamPlayer
+	var m := _bed("Music") as AudioStreamPlayer
 	var cam := level.get_node_or_null("Camera") as Camera3D
 	if m == null or cam == null:
 		_fail("cannot sample the music volume; Music or Camera is missing")
@@ -246,10 +268,11 @@ func _check_no_source_clips() -> void:
 		peaks["footstep"] = float((levels["audio/step.wav"] as Dictionary)["true_peak_db"]) \
 			+ step.volume_db + _bus_db(step.bus) + linear_to_db(attenuation)
 
-	var music := level.get_node_or_null("Music") as AudioStreamPlayer
-	if music != null and levels.has("audio/guille_experimental.ogg"):
-		peaks["music"] = float((levels["audio/guille_experimental.ogg"] as Dictionary)["true_peak_db"]) \
-			+ music.volume_db + _bus_db(music.bus)
+	for pair in [["Music", "audio/guille_experimental.ogg"], ["Ambience", "audio/wind_ambience.ogg"]]:
+		var bed := level.get_node_or_null(String(pair[0])) as AudioStreamPlayer
+		if bed != null and levels.has(pair[1]):
+			peaks[String(pair[0]).to_lower()] = float((levels[pair[1]] as Dictionary)["true_peak_db"]) \
+				+ bed.volume_db + _bus_db(bed.bus)
 
 	var whispers := level.get_node_or_null("Whispers")
 	if whispers != null and levels.has("audio/susurro_loko.ogg"):

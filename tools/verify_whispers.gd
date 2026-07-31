@@ -319,7 +319,15 @@ func _check_becomes_audible() -> void:
 ## measured.
 const LEVELS := "res://audio/audio_levels.json"
 const WHISPER_ASSET := "audio/susurro_loko.ogg"
-const MUSIC_ASSET := "audio/guille_experimental.ogg"
+
+## EVERY continuous 2D bed the whisper has to be heard past, not just the music. The wind ambience
+## joined later, and comparing against the music alone would have quietly understated the masking
+## by the 1.2 dB the two beds sum to - the same shape of mistake as measuring against full scale
+## when the music arrived. What masks a sound is everything else that is playing.
+const BEDS := {
+	"audio/guille_experimental.ogg": &"Music",
+	"audio/wind_ambience.ogg": &"Ambience",
+}
 
 ## How far under the music bed the whisper may sit, at the death count that matters most.
 ## Beyond roughly 12 LU a continuous sound stops registering under another continuous sound;
@@ -378,14 +386,27 @@ func _check_audible_while_dying() -> void:
 		return
 
 	var levels := _levels()
-	if not levels.has(WHISPER_ASSET) or not levels.has(MUSIC_ASSET):
-		_fail("%s is missing or has no entry for the whisper and the music. Run: python3 tools/verify_audio_assets.py" % LEVELS)
+	var missing: Array[String] = []
+	if not levels.has(WHISPER_ASSET):
+		missing.append(WHISPER_ASSET)
+	for asset in BEDS:
+		if not levels.has(asset):
+			missing.append(asset)
+	if not missing.is_empty():
+		_fail("%s has no entry for %s. Run: python3 tools/verify_audio_assets.py" % [LEVELS, str(missing)])
 		return
 
 	var whisper_lufs := float((levels[WHISPER_ASSET] as Dictionary)["lufs"])
 	var whisper_peak := float((levels[WHISPER_ASSET] as Dictionary)["true_peak_db"])
-	var music_lufs := float((levels[MUSIC_ASSET] as Dictionary)["lufs"])
-	var music_effective := music_lufs + _bus_db(&"Music")
+
+	# The beds sum incoherently into one thing to be heard past.
+	var bed_power := 0.0
+	var bed_parts: Array[String] = []
+	for asset in BEDS:
+		var effective := float((levels[asset] as Dictionary)["lufs"]) + _bus_db(BEDS[asset])
+		bed_power += db_to_linear(effective) * db_to_linear(effective)
+		bed_parts.append("%s %.1f" % [String(BEDS[asset]), effective])
+	var music_effective := linear_to_db(sqrt(bed_power))
 
 	var gm: Variant = _game_manager()
 	if gm == null:
@@ -444,12 +465,12 @@ func _check_audible_while_dying() -> void:
 			headroom, nodes.size(), MIN_HEADROOM_DB])
 
 	if problems.is_empty():
-		_ok(("audible against the music: the whisper bed measures %.1f LUFS at 1 death, %.1f at 3," +
-			" %.1f at 10, against the music at %.1f - so %.1f LU under it at 3 deaths and %.1f at" +
+		_ok(("audible against the beds: the whisper measures %.1f LUFS at 1 death, %.1f at 3," +
+			" %.1f at 10, against %s summing to %.1f - so %.1f LU under at 3 deaths and %.1f at" +
 			" 10. %.1f dB of escalation, %.1f dB of headroom. (Nearest single emitter alone:" +
 			" %.1f at 3 deaths.)") % [
-				at_1, at_3, at_10, music_effective, under_at_3, under_at_10, escalation, headroom,
-				mean_loudest[2]])
+				at_1, at_3, at_10, ", ".join(bed_parts), music_effective, under_at_3, under_at_10,
+				escalation, headroom, mean_loudest[2]])
 	else:
 		_fail("the whisper does not sit right in the mix: %s" % str(problems))
 
