@@ -3,8 +3,11 @@ using Godot;
 namespace TheFirstDay.UI;
 
 /// <summary>
-/// Port of PauseMenu. Escape toggles a translucent overlay with one button, "Salir",
-/// which returns to the main menu.
+/// Port of PauseMenu. Escape toggles a translucent overlay with one button, which returns to the
+/// main menu.
+///
+/// The button reads "Exit". Unity's said "Salir" - the original is in Spanish - so this is a
+/// deliberate divergence, changed on request, not a translation the port inferred.
 ///
 /// Unity's ToggleMenuPausa flipped four things independently:
 ///
@@ -105,7 +108,7 @@ public partial class PauseMenu : Node
         }
     }
 
-    /// <summary>The "Salir" button. Unity wired it to this in the prefab.</summary>
+    /// <summary>The exit button ("Salir" in Unity). Wired to this in the prefab.</summary>
     public void GoToMainMenu()
     {
         // Unpause first. SceneTree.Paused survives a scene change, so leaving it set
