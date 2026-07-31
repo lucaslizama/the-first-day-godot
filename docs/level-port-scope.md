@@ -291,7 +291,7 @@ Everything left is small. Largest is 78 lines.
 | 51 | `ParentPlayer.cs` | — | **not ported**, and not needed — see below |
 | 50 | `FallingPlatform.cs` | 8 | **done**, `scripts/Gameplay/FallingPlatform.cs` |
 | 43 | `TriggerZone.cs` | 2 | **done** — wired directly in `RespawnChain.cs`, not as a generic emitter |
-| 39 | `SoundAttenuationByDeath.cs` | 12 sources in the scene | **done**, `WhisperEmitter.cs`; 15 emitters, clustered rather than copied — see "Coworkers" |
+| 39 | `SoundAttenuationByDeath.cs` | 12 sources in the scene | **done**, `WhisperEmitter.cs`; 13 emitters, clustered rather than copied — see "Coworkers" |
 | 34 | `Credits.cs` | 1 | **done**, `scripts/UI/Credits.cs` |
 | 31 | `FortunatoAnimFunctions.cs` | — | **done** — footstep events re-added; `Die`/`Cry` have no clips to fire from |
 | 30 | `TimerZone.cs` | 1 | **done**, `scripts/Gameplay/TimerZone.cs` — carries the ending chain |
@@ -424,10 +424,37 @@ needs no fudging.
 >
 > Fixed by **deriving** the emitters instead of extracting them.
 > `tools/generate_whispers_scene.py` clusters our own verified coworker placement (greedy,
-> densest-first, 18 m radius) and writes one emitter per cluster into `scenes/whispers.tscn`:
-> **15 emitters, 9 left and 6 right, no coworker further than 13.0 m from one.** Coverage is
+> densest-first, 25 m radius) and writes one emitter per cluster into `scenes/whispers.tscn`:
+> **13 emitters, 6 left and 7 right, no coworker further than 25.9 m from one.** Coverage is
 > now a property of where the coworkers actually are, and cannot depend on how the Unity scene
 > happened to be organised.
+>
+> > **Second correction: the first fix silenced them everywhere.** Reported in play as "I'm not
+> > hearing the whispers anymore, from any side." The first attempt clustered at **18 m**, which
+> > put an emitter within 13 m of every coworker — and was inaudible, because `unit_size` is
+> > derived from the *cluster extent*, so a smaller radius makes every emitter **quieter** as
+> > well as more numerous. Sampled over 28 route points (platform tops, spawn, the level's end),
+> > taking the loudest emitter at each:
+> >
+> > | configuration | mean | points ≥ 0.5 | summed loudness |
+> > |---|---|---|---|
+> > | the original 7 emitters | 0.610 | 21 / 28 | 2.22 |
+> > | 18 m radius — the mistake | 0.431 | **3 / 28** | 2.19 |
+> > | 25 m radius — current | 0.707 | 27 / 28 | 2.69 |
+> > | 18 m radius, 20 m floor | 0.760 | 28 / 28 | 4.39 |
+> >
+> > I had optimised the wrong quantity: how close an emitter is to a **coworker**, when what a
+> > player notices is whether they can **hear** one. 25 m matches the original's total loudness
+> > to within about a decibel while covering both sides. Raising the `unit_size` floor instead
+> > reaches the same audibility at roughly twice the original's loudness, which is a different
+> > mix rather than a fix.
+> >
+> > `tools/verify_whispers.gd` now asserts route audibility directly, bounded at "no worse than
+> > the original" — and the 18 m configuration fails it, so this cannot come back quietly.
+> >
+> > The death-driven growth also changed while here: `MaxMinDistance` is now `unit_size + 15 m`,
+> > where Unity's went 40 → 45. A 12% widening is inaudible, so the mechanic its own author
+> > described ("the sounds are heard from closer the more the player dies") barely existed.
 >
 > The per-cluster attenuation is deliberately *not* Unity's. Its own values were inconsistent
 > between groups — `minDistance` 1 with `maxMinDistance` 10 on some and 40/45 on others, an
@@ -680,7 +707,7 @@ prefab. `tools/platform_report.gd` measures the models and the placement, and
    `scenes/moving_platform.tscn` and `scenes/falling_platform.tscn`.
    `ParentPlayer` was not needed. See "Platforms" below.
 5. ~~**Coworkers**~~ — **done**. `scenes/coworkers.tscn` places all 74;
-   `scenes/whispers.tscn` carries the 15 whisper emitters, which closes the
+   `scenes/whispers.tscn` carries the 13 whisper emitters, which closes the
    death-constant loop `GameManager` was ported for. See "Coworkers" above.
 6. ~~**Hazards and the respawn chain**~~ — **done**, footstep events included.
    See "Hazards and the respawn chain" above.

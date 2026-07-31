@@ -4,7 +4,7 @@ namespace TheFirstDay.Gameplay;
 
 /// <summary>
 /// Port of Unity's SoundAttenuationByDeath.cs - the whisper that closes in on the
-/// player the more they die. 15 of these, one per cluster of coworkers, placed by
+/// player the more they die. 13 of these, one per cluster of coworkers, placed by
 /// tools/generate_whispers_scene.py into scenes/whispers.tscn.
 ///
 /// The original's own comment says it plainly: "Los sonidos de esta audio source se

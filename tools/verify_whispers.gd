@@ -41,6 +41,22 @@ const MIN_SIDE_SHARE := 0.25
 
 const SILENCE_DB := -80.0
 
+## Route audibility, the property that broke on the FIRST attempt at this fix and that no
+## check here covered. Coverage of the coworkers and audibility to the player are different
+## things: clustering at 18 m put an emitter within 13 m of every coworker and was audible on
+## only 3 of 28 route points, because unit_size comes from the cluster extent and small
+## clusters are quiet. Sampled over the platform tops plus the spawn and the end of the level,
+## taking the loudest emitter at each point:
+##
+##     the original 7 emitters      mean 0.610    21 / 28 above 0.5
+##     18 m radius (the mistake)    mean 0.431     3 / 28
+##     25 m radius (current)        mean 0.707    27 / 28
+##
+## The bounds are "at least as good as the original", which the mistake fails on both counts.
+const MIN_ROUTE_MEAN := 0.55
+const MIN_ROUTE_AUDIBLE_SHARE := 0.7
+const AUDIBLE := 0.5
+
 var frame := 0
 var level: Node3D
 var checks := 0
@@ -57,6 +73,7 @@ func _process(_delta: float) -> bool:
 		_check_both_sides()
 		_check_unit_sizes()
 		_check_separation()
+		_check_route_audibility()
 		level = (load(LEVEL) as PackedScene).instantiate()
 		root.add_child(level)
 		return false
@@ -152,6 +169,54 @@ func _check_unit_sizes() -> void:
 		_ok("all %d emitters have a positive unit_size that grows with the death constant" % emitters.size())
 	else:
 		_fail("emitter attenuation is wrong: %s" % str(problems))
+
+
+## Godot's ATTENUATION_INVERSE_DISTANCE is unit_size / distance, capped at unattenuated.
+func _attenuation_at(p: Vector3) -> float:
+	var best := 0.0
+	for e in emitters:
+		var d: float = p.distance_to(e["pos"] as Vector3)
+		best = maxf(best, minf(1.0, float(e["unit"]) / maxf(d, 0.001)))
+	return best
+
+
+## Where the player actually goes: the platform tops, the spawn, and the end of the level.
+func _route() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	var plats := (load("res://scenes/platforms.tscn") as PackedScene).instantiate()
+	for c in plats.get_children():
+		out.append((c as Node3D).position + Vector3(0.0, 1.5, 0.0))
+	plats.free()
+	out.append(Vector3(0.0, 1.5, 4.018))
+	out.append(Vector3(-13.0, 4.5, -155.0))
+	return out
+
+
+func _check_route_audibility() -> void:
+	checks += 1
+	var route := _route()
+	if route.is_empty():
+		_fail("could not build a route to sample; platforms.tscn gave no children")
+		return
+
+	var total := 0.0
+	var audible := 0
+	var worst := INF
+	for p in route:
+		var a := _attenuation_at(p)
+		total += a
+		worst = minf(worst, a)
+		if a >= AUDIBLE:
+			audible += 1
+	var mean := total / float(route.size())
+	var share := float(audible) / float(route.size())
+
+	if mean >= MIN_ROUTE_MEAN and share >= MIN_ROUTE_AUDIBLE_SHARE:
+		_ok("audible along the route: mean %.3f over %d points, %d of them at or above %.1f (quietest %.3f)" % [
+			mean, route.size(), audible, AUDIBLE, worst])
+	else:
+		_fail("the whispers do not carry: mean %.3f (need %.2f) and %d of %d points at or above %.1f (need %d%%). unit_size comes from the cluster extent, so a SMALLER --radius makes them quieter as well as more numerous." % [
+			mean, MIN_ROUTE_MEAN, audible, route.size(), AUDIBLE, int(MIN_ROUTE_AUDIBLE_SHARE * 100.0)])
 
 
 ## What the user asked for: the audio is not part of the coworkers scene any more.
