@@ -40,18 +40,35 @@
 # same - and it is immune to how Godot chooses to serialise any of it.
 extends SceneTree
 
-const SCENES := [
-	"res://scenes/level.tscn",
-	"res://scenes/whisper.tscn",
-	"res://scenes/whispers.tscn",
-	"res://scenes/player.tscn",
-	"res://scenes/props.tscn",
-	"res://scenes/platforms.tscn",
-	"res://scenes/coworkers.tscn",
-	"res://scenes/hammers.tscn",
-	"res://scenes/zones.tscn",
-	"res://scenes/confetti.tscn",
-]
+## Every scene in the project, found by scanning rather than listed. It was a hardcoded list of
+## ten, which silently stopped covering the project the moment a teammate added main_menu.tscn and
+## main_menu_background.tscn - two scenes authored IN THE EDITOR, which is exactly the situation
+## this check exists for. A list of things to protect is a list that goes stale.
+const SCENE_DIR := "res://scenes"
+
+
+func _scenes() -> Array[String]:
+	var out: Array[String] = []
+	_collect(SCENE_DIR, out)
+	out.sort()
+	return out
+
+
+func _collect(dir_path: String, out: Array[String]) -> void:
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var name := dir.get_next()
+	while name != "":
+		var full := "%s/%s" % [dir_path, name]
+		if dir.current_is_dir():
+			if not name.begins_with("."):
+				_collect(full, out)
+		elif name.ends_with(".tscn"):
+			out.append(full)
+		name = dir.get_next()
+	dir.list_dir_end()
 
 ## Float32 round-tripping through the scene format changes 2.39 into 2.39000010490417. Relative,
 ## so it holds for the level's ~180 m coordinates as well as for a 0.8 ratio.
@@ -65,7 +82,12 @@ var failures := 0
 
 
 func _process(_delta: float) -> bool:
-	for path in SCENES:
+	var scenes := _scenes()
+	if scenes.is_empty():
+		print("FAIL: found no scenes under %s; has the layout changed?" % SCENE_DIR)
+		quit(1)
+		return true
+	for path in scenes:
 		_check(path)
 
 	print("")

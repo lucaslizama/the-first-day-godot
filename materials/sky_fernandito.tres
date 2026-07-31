@@ -1,4 +1,4 @@
-[gd_resource type="Sky" load_steps=3 format=3]
+[gd_resource type="Sky" load_steps=3 format=3 uid="uid://2ub5vhde6en"]
 
 ; Ported from mat_skyboxFernandito, which used Unity's built-in Skybox/6 Sided
 ; shader with six 1016x1016 faces. Godot has no six-sided sky material, so the

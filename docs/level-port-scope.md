@@ -720,6 +720,52 @@ also wrote, but every load logged a warning and the primary reference was dead. 
 resource path. **Reverting churn in one file can break a reference in another**; the warning was
 the only symptom.
 
+### UIDs, and why one of them resolved on only one machine
+
+A second `invalid UID` warning arrived with `main_menu_background.tscn`, referencing
+`uid://2ub5vhde6en` for `materials/sky_fernandito.tres`. The first suspicion was the habit above —
+reverting Godot's `uid=` churn on `.tres` files to keep their comments. **That was wrong**, and
+checked rather than assumed: `sky_fernandito.tres` has never carried a `uid=` line in any commit,
+so nothing was stripped.
+
+The real mechanism: Godot writes both a `uid` and a `path` on every reference, the uid being
+authoritative. A uid is only portable if the **target** declares it, and where that declaration
+lives depends on the resource:
+
+| kind | where its uid lives |
+|---|---|
+| imported assets (`.fbx`, `.ogg`, `.png`) | `uid=` in the sibling `.import` |
+| scripts (`.cs`, `.gd`) | a `.uid` sidecar beside the script |
+| hand-written resources (`.tres`) | `uid=` in the `[gd_resource …]` header |
+
+When the target declares nothing, Godot invents a uid, keeps it **only** in
+`.godot/uid_cache.bin` — local and gitignored — and writes that into whatever scene references it.
+So it resolved in the editor that authored the scene and nowhere else. It kept working via the path
+fallback, which is precisely why it survived review.
+
+Fixed with one line in the `.tres` header. Note that adding it is not enough on its own:
+`.godot/uid_cache.bin` has to be deleted and the project reimported before Godot registers it.
+
+`tools/verify_resource_uids.py` now resolves every uid-bearing reference in the project against
+what its target actually declares, handling all three declaration sites — 28 references across 24
+targets. Negative-tested against the exact broken state. This also makes the comment-preserving
+habit safe: reverting a `uid=` line now fails a check instead of producing a warning nobody reads.
+
+### Protecting every scene, not a list of them
+
+`tools/verify_scene_survives_save.gd` was checking a hardcoded list of ten scenes, and had silently
+stopped covering the project the moment `main_menu.tscn` and `main_menu_background.tscn` arrived —
+two scenes authored **in the editor**, which is the exact situation it exists for. It now scans
+`res://scenes` recursively: **19 scenes**, all passing. A list of things to protect is a list that
+goes stale.
+
+One incidental finding from covering the new scenes: `main_menu_background.tscn` drops
+`ModelKey = nivel.fbx` and `ModelKey = nivel_p2.fbx` when re-packed. That is **not** the
+editable-instance hazard — `ModelKey` belonged to the old `[Tool]` `LevelShell` design deleted when
+the materials were baked into the scene, so the packer is correctly discarding a property that no
+longer exists. Its Shell nodes were evidently copied from a pre-fix level. Harmless, and left
+alone.
+
 ## Hazards and the respawn chain
 
 **The hammers do no damage.** Both of `martillo_prefab`'s box colliders are solid,
