@@ -31,10 +31,25 @@ channels reach both ears as authored - which is why the level's music is deliber
 stereo. The music has its own checks in tools/verify_music.gd, covering the things that DO
 matter for it: that it loops, autoplays, is non-positional, and sits on the right mixer bus.
 
+It also WRITES audio/audio_levels.json: the integrated loudness (LUFS) and true peak of every
+audio asset. That exists because the third whisper complaint - "at 3 deaths I hear almost
+nothing" - came from a factor no check was looking at. The audibility check measured volume_db
+and distance attenuation but never the loudness of the STREAM ITSELF, and the whisper recording
+is intrinsically 12.5 LU quieter than the music:
+
+    susurro_loko      -27.0 LUFS   (before this was fixed)
+    guille_experimental -14.5 LUFS
+
+So a whisper at a perfectly reasonable volume_db was 17 LU under the music bed and effectively
+inaudible. Loudness cannot be measured from GDScript, and hardcoding the numbers into the check
+would let them drift away from the files silently - which is the failure mode that produced two
+of the three whisper bugs. Publishing them here keeps the check derived from the assets.
+
 Needs ffprobe and ffmpeg on PATH.
 """
 
 import json
+import math
 import re
 import subprocess
 import sys
@@ -75,6 +90,50 @@ def channel_rms(path, channel):
             value = line.split(":")[-1].strip()
             return -999.0 if value.lstrip("-").startswith("inf") else float(value)
     raise SystemExit("could not read the RMS of channel %d of %s" % (channel, path))
+
+
+def loudness(path):
+    """{"lufs": float, "true_peak_db": float, "from_rms": bool} via ffmpeg's EBU R128 meter.
+
+    EBU R128 integrates over 400 ms blocks, so anything shorter has no integrated loudness at
+    all and ffmpeg reports -inf. step.wav is 37 ms. Falling back to RMS for those keeps the
+    output usable and, critically, FINITE - GDScript's JSON parser rejects -Infinity, which is
+    what a naive version of this wrote.
+    """
+    out = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-i", str(path),
+         "-af", "loudnorm=print_format=json", "-f", "null", "-"],
+        capture_output=True, text=True,
+    )
+    # loudnorm prints a JSON object at the end of stderr.
+    start = out.stderr.rfind("{")
+    end = out.stderr.rfind("}")
+    if start < 0 or end < start:
+        raise SystemExit("could not read the loudness of %s" % path)
+    measured = json.loads(out.stderr[start:end + 1])
+
+    lufs = float(measured["input_i"])
+    from_rms = not math.isfinite(lufs)
+    if from_rms:
+        # Mean RMS across channels. Not the same quantity as LUFS - no K-weighting and no
+        # gating - but for a 37 ms transient it is the honest available answer.
+        channels = probe_channels(path)
+        levels = [channel_rms(path, c) for c in range(channels)]
+        lufs = max(levels)
+
+    peak = float(measured["input_tp"])
+    if not math.isfinite(peak):
+        peak = 0.0
+    return {"lufs": round(lufs, 2), "true_peak_db": round(peak, 2), "from_rms": from_rms}
+
+
+def all_audio_assets():
+    """Every audio file under audio/, res-relative."""
+    out = []
+    for f in sorted((ROOT / "audio").iterdir()):
+        if f.suffix.lower() in (".ogg", ".wav"):
+            out.append(str(f.relative_to(ROOT)))
+    return out
 
 
 def streams_of_3d_players():
@@ -129,11 +188,25 @@ def main():
             print("  ok    %s is mono at %.1f dB RMS, used by %s"
                   % (rel, levels[0], ", ".join(users)))
 
+    # Loudness for EVERY asset, not just the 3D ones, because the check that consumes this has
+    # to compare a 3D emitter against the 2D music bed it competes with.
+    measured = {}
+    for rel in all_audio_assets():
+        measured[rel] = loudness(ROOT / rel)
+        print("  ok    %s measures %.1f LUFS, true peak %.1f dBTP"
+              % (rel, measured[rel]["lufs"], measured[rel]["true_peak_db"]))
+
+    out = ROOT / "audio" / "audio_levels.json"
+    with open(out, "w") as f:
+        json.dump(measured, f, indent=1, sort_keys=True)
+        f.write("\n")
+    print("  ok    wrote %s" % out.relative_to(ROOT))
+
     print("")
     if failures:
         print("FAIL: %d of %d 3D audio asset(s) failed" % (failures, len(players)))
     else:
-        print("PASS: %d 3D audio asset(s)" % len(players))
+        print("PASS: %d 3D audio asset(s), %d measured" % (len(players), len(measured)))
     return 1 if failures else 0
 
 

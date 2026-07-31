@@ -67,7 +67,43 @@ public partial class WhisperEmitter : AudioStreamPlayer3D
     /// equal steps, which is what an escalation wants to be.
     /// </summary>
     [Export]
-    public float OnsetVolumeDb { get; set; } = -10.0f;
+    public float OnsetVolumeDb { get; set; } = -11.0f;
+
+    /// <summary>
+    /// Volume at the full death constant, in dB. Not 0: the ceiling here is set by CLIPPING, not
+    /// by taste.
+    ///
+    /// Thirteen emitters sum, and their unit_size has grown by then, so several are loud at once.
+    /// Measured over the sampled route, the worst point sums to +4.9 dB of gain while the clip's
+    /// own true peak is -0.9 dBTP - so a peak of 0 dB here would put about +4 dBTP on the master
+    /// bus and clip it. -8 leaves about 4 dB of headroom.
+    ///
+    /// Consequence worth understanding before changing any of this: the escalation cannot be
+    /// large in VOLUME, because the top is pinned by headroom and the bottom has to stay audible.
+    /// It is about 6 dB. The rest of the escalation is carried by density instead - as unit_size
+    /// widens, more emitters become audible at once, which the summed level shows growing 0.5 ->
+    /// 4.4 dB while the nearest single emitter only grows 1.7 dB. More voices, not just louder
+    /// ones, which is closer to what "the whispers close in" should feel like anyway.
+    /// </summary>
+    [Export]
+    public float PeakVolumeDb { get; set; } = -8.0f;
+
+    /// <summary>
+    /// Shapes how the ramp is spent across the death count. Below 1 is concave: early deaths
+    /// gain more than late ones.
+    ///
+    /// Needed because the death constant is deaths / 10, so deaths one to four - which is what
+    /// an ordinary run produces - occupy only the first 10 to 40% of it. Ramping LINEARLY in the
+    /// constant therefore still handed the quiet end of the range to the only death counts
+    /// anyone reaches, which is the same mistake as the linear-amplitude version in a subtler
+    /// form: fixing the units did not fix where the range was spent.
+    ///
+    /// At 0.5 the first death lands 2.6 dB higher than a linear ramp would put it and the third
+    /// 2.0 dB higher, while ten deaths is unchanged at 0 dB - so the escalation still arrives
+    /// somewhere, it just stops wasting its first half.
+    /// </summary>
+    [Export]
+    public float DeathCurveExponent { get; set; } = 0.5f;
 
     public override void _Ready()
     {
@@ -108,8 +144,13 @@ public partial class WhisperEmitter : AudioStreamPlayer3D
         // effect - then straight to an audible level and up from there. The step at zero is
         // deliberate: a ramp that starts inaudible and passes through audible would spend
         // its first few deaths on volumes nobody can hear, which is the bug this replaces.
+        //
+        // The exponent shapes WHERE the range is spent; see DeathCurveExponent. Note that
+        // UnitSize above stays linear in the constant on purpose - it is a distance, and the
+        // original's mechanic was a distance widening, so bending it would change what the
+        // effect is rather than how loud it is.
         VolumeDb = deathConstant <= 0.0f
             ? SilenceDb
-            : Mathf.Lerp(OnsetVolumeDb, 0.0f, deathConstant);
+            : Mathf.Lerp(OnsetVolumeDb, PeakVolumeDb, Mathf.Pow(deathConstant, DeathCurveExponent));
     }
 }

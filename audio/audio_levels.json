@@ -1,0 +1,17 @@
+{
+ "audio/guille_experimental.ogg": {
+  "from_rms": false,
+  "lufs": -14.51,
+  "true_peak_db": -0.14
+ },
+ "audio/step.wav": {
+  "from_rms": true,
+  "lufs": -24.31,
+  "true_peak_db": -12.47
+ },
+ "audio/susurro_loko.ogg": {
+  "from_rms": false,
+  "lufs": -18.94,
+  "true_peak_db": -0.9
+ }
+}

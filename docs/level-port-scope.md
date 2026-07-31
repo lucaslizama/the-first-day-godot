@@ -538,6 +538,65 @@ needs no fudging.
 > is, and what the sound itself contains. The pattern worth remembering is that each fix's
 > verification stopped at the layer it had just fixed.
 
+> **Correction, fifth pass: I broke it myself by adding the music.** Reported as "at 3 deaths I
+> hear almost nothing", with all eight checks passing. Two more factors nothing was measuring:
+>
+> | | source | after its bus |
+> |---|---|---|
+> | music | −14.5 LUFS | **−19.7** |
+> | whisper | −27.0 LUFS | — |
+>
+> - **The loudness of the stream itself.** Every check measured `volume_db` and distance and
+>   nothing about the recording. The whisper was **12.5 LU quieter than the music in the source
+>   files**, before any setting.
+> - **What it competes with.** The previous check measured against full scale, which is a fixed
+>   reference — but nothing is masked by full scale. Adding the music created a continuous bed the
+>   whisper then sat 15 LU beneath. A quiet sound alone in a mix is audible; the same sound under
+>   music is not. **The whisper level was approved by ear in a mix that had no music in it, and
+>   then I added music.**
+>
+> Fixed on both sides. The asset is loudness-normalised from −27.0 to **−18.9 LUFS** at −0.9 dBTP,
+> re-encoded from the original WAV so it stays one lossy generation. Two traps there: `loudnorm`
+> runs at 192 kHz internally, so an `atrim=end_sample` after it cut the clip to 3.2 s until an
+> `aresample=44100` went in between; and it falls back from linear gain to limiting when the
+> target would exceed the true peak, which took LRA from 13.0 to 8.8 — a real character change,
+> and on a background bed arguably an improvement, since the quietest parts no longer vanish.
+> Length is sample-identical to the source at 623616 samples, which matters for a looping clip.
+>
+> The curve had a second, subtler version of the *same* bug as the third correction. Ramping in dB
+> fixed the units but not **where the range was spent**: the death constant is `deaths / 10`, so
+> deaths one to four occupy only its first 10–40%. It now ramps over `pow(constant, 0.5)`, which
+> lifts the first death 2.6 dB and the third 2.0 dB without touching the top.
+>
+> **The top is pinned by clipping, not taste.** Thirteen emitters sum; at the worst route point
+> that is +4.9 dB of gain against a clip peaking at −0.9 dBTP, so a 0 dB peak would put ≈ +4 dBTP
+> on the master bus. Hence `PeakVolumeDb = −8`, leaving 4 dB of headroom. A consequence worth
+> understanding before retuning: the escalation **cannot** be large in volume — the top is pinned
+> and the bottom must stay audible — so it is about 6 dB. The rest is carried by *density*: as
+> `unit_size` widens, more emitters overlap, and the summed level grows 0.5 → 4.4 dB where the
+> nearest single emitter grows only 1.7 dB. More voices rather than louder ones, which is closer
+> to "the whispers close in" than a volume ramp is.
+>
+> Result: **7.1 LU under the music at 3 deaths**, from 15.2 before, and 2.8 LU under at 10.
+>
+> Two things about the check. Loudness cannot be measured from GDScript, so
+> `tools/verify_audio_assets.py` now writes `audio/audio_levels.json` and the check reads it —
+> hardcoding the numbers would let them drift from the files, which caused two of these five bugs.
+> And the audibility metric changed from the **nearest** emitter to the **summed** level of all
+> thirteen. That is a metric change, which is also how a check gets quietly bent until it passes,
+> so the justification is on the record: the question changed from "is an emitter near enough to
+> hear" to "does the bed cut through the music", and masking depends on total energy. Both numbers
+> are reported so the 3.5 dB difference stays visible.
+>
+> **Separate defect found while measuring, not fixed, needs a decision.** `step.wav` peaks at
+> −12.5 dBTP and runs through `Fortunato` at **+20 dB** with the Unity source's `m_Volume: 1` —
+> that is **+7.5 dBTP on the master bus**, so the footsteps clip. Faithful to Unity, which would
+> have clipped identically, and unrelated to the whispers, so it is left alone pending a call on
+> whether faithfulness or a clean mix wins. Also noted: that source has `Spatialize: 0`, so the
+> footstep was 2D in the original and is an `AudioStreamPlayer3D` here — inaudible as a difference
+> because it sits on the listener, but it means its mono conversion bought correctness the
+> original never used.
+
 Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
 constant — ramped in dB from `OnsetVolumeDb`, see the correction above — where Unity set it once in `Start`; that only works if the scene reloads
 on death, and this game respawns through a fade, so on the original's code path the

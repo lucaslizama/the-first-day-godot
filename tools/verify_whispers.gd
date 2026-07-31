@@ -299,23 +299,74 @@ func _check_becomes_audible() -> void:
 ## THE LIVE NODES rather than re-deriving them. Re-implementing the formula here is what makes
 ## a check drift away from the code it is checking - and this file has already been wrong
 ## twice that way.
-## Effective dB required at the FIRST death, averaged over the route, measured against FULL
-## SCALE. The old curve managed about -23 dB here; the current one about -12, which is the level
-## that was settled on by listening.
+## Reported a THIRD time, as "at 3 deaths I hear almost nothing", with all eight checks passing.
+## Two more factors that nothing here was looking at:
 ##
-## It used to be phrased "against the footsteps at 0 dB", which stopped being true the moment
-## the Unity mixer was ported: StepSound now runs through the Fortunato bus at +20 dB, so the
-## footsteps are a moving target and referencing them would make this bound drift with a mixer
-## change it has no opinion about. Full scale does not move.
+##   * THE LOUDNESS OF THE STREAM ITSELF. Everything above measures volume_db and distance and
+##     nothing about the recording. susurro_loko was -27.0 LUFS against the music's -14.5 - a
+##     12.5 LU gap in the source files, before any setting. Fixed in the asset (now -18.9 LUFS),
+##     and measured here rather than assumed.
+##   * WHAT IT COMPETES WITH. Full scale is a fixed reference, which is why the previous version
+##     used it - but nothing is masked by full scale. The level gained a continuous music bed at
+##     -19.7 LUFS after the bus and the whisper was 17 LU beneath it, which is what "almost
+##     nothing" was. A quiet sound alone in a mix is audible; the same sound under music is not.
 ##
-## Worth knowing while reading the numbers below: the whispers are on the Coworkers bus at 0 dB
-## and so sit about 20 dB under the footsteps. That is what the original's mix was, chosen
-## deliberately - see default_bus_layout.tres. If it wants changing, change the bus.
-const MIN_FIRST_DEATH_DB := -16.0
+## So this measures the whisper's EFFECTIVE loudness - stream loudness, plus volume_db, plus its
+## bus, plus distance attenuation - and compares it against the music bed measured the same way.
+## Everything is read from the live nodes, the live bus layout, and audio/audio_levels.json,
+## which tools/verify_audio_assets.py derives from the files with ffmpeg. Nothing is hardcoded,
+## because two of the three whisper bugs came from a check asserting something it had not
+## measured.
+const LEVELS := "res://audio/audio_levels.json"
+const WHISPER_ASSET := "audio/susurro_loko.ogg"
+const MUSIC_ASSET := "audio/guille_experimental.ogg"
+
+## How far under the music bed the whisper may sit, at the death count that matters most.
+## Beyond roughly 12 LU a continuous sound stops registering under another continuous sound;
+## 10 keeps a margin. At 3 deaths it currently measures about 5.8 LU under.
+const MAX_UNDER_MUSIC_AT_3_DEATHS := 10.0
+
+## It must not be the other way round either - the whisper is an undertone, not the score.
+const MIN_UNDER_MUSIC_AT_10_DEATHS := 0.0
 
 ## The escalation has to be real. Unity's own was minDistance 40 -> 45, a 12% change that is
 ## essentially inaudible, so "it grows" is not enough - it has to grow audibly.
-const MIN_ESCALATION_DB := 8.0
+const MIN_ESCALATION_DB := 5.0
+
+## Headroom. 13 emitters sum, and their true peak is now only -0.9 dBTP, so the loudest point on
+## the route at full death constant must still leave room before the master bus clips.
+const MIN_HEADROOM_DB := 1.0
+
+
+func _levels() -> Dictionary:
+	var f := FileAccess.open(LEVELS, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	return parsed if parsed is Dictionary else {}
+
+
+func _bus_db(bus_name: StringName) -> float:
+	var index := AudioServer.get_bus_index(bus_name)
+	return AudioServer.get_bus_volume_db(index) if index >= 0 else 0.0
+
+
+## Effective loudness in LUFS-equivalent at a point: what the stream measures, shifted by the
+## node's volume, its bus, and the distance attenuation. Returns the loudest single emitter,
+## which is what a listener picks out, and the incoherent sum, which is what the mix has to fit.
+func _effective_at(p: Vector3, nodes: Array[AudioStreamPlayer3D], stream_lufs: float) -> Array:
+	var loudest := 0.0
+	var sum_power := 0.0
+	for n in nodes:
+		var d: float = p.distance_to(n.global_position)
+		var attenuation := minf(1.0, n.unit_size / maxf(d, 0.001))
+		var gain := db_to_linear(n.volume_db + _bus_db(n.bus)) * attenuation
+		loudest = maxf(loudest, gain)
+		sum_power += gain * gain
+	return [
+		stream_lufs + linear_to_db(loudest),
+		stream_lufs + linear_to_db(sqrt(sum_power)),
+	]
 
 
 func _check_audible_while_dying() -> void:
@@ -326,38 +377,81 @@ func _check_audible_while_dying() -> void:
 		_fail("no emitters or no route to sample")
 		return
 
+	var levels := _levels()
+	if not levels.has(WHISPER_ASSET) or not levels.has(MUSIC_ASSET):
+		_fail("%s is missing or has no entry for the whisper and the music. Run: python3 tools/verify_audio_assets.py" % LEVELS)
+		return
+
+	var whisper_lufs := float((levels[WHISPER_ASSET] as Dictionary)["lufs"])
+	var whisper_peak := float((levels[WHISPER_ASSET] as Dictionary)["true_peak_db"])
+	var music_lufs := float((levels[MUSIC_ASSET] as Dictionary)["lufs"])
+	var music_effective := music_lufs + _bus_db(&"Music")
+
 	var gm: Variant = _game_manager()
 	if gm == null:
 		_fail("cannot reach the GameManager autoload, so the death constant cannot be driven")
 		return
 	gm.call("ResetDeaths")
 
-	var curve: Array[float] = []
+	# Audibility uses the SUMMED level of all 13 emitters, not the nearest one. That is a
+	# deliberate change of metric and worth being explicit about, because switching metrics is
+	# also how a check gets quietly bent until it passes.
+	#
+	# The justification is that the QUESTION changed. _check_route_audibility above asks "is there
+	# an emitter near enough to hear", and for that the nearest one is the right quantity. This
+	# asks "does the whisper bed cut through the music", and masking depends on the total energy
+	# of the masked signal - 13 decorrelated sources sum incoherently into one bed. Measuring only
+	# the nearest understates what a listener actually has to hear past the music by about 3.5 dB
+	# here, and by more as unit_size grows and the emitters overlap.
+	#
+	# Both are reported, so the difference stays visible rather than becoming a hidden assumption.
+	var mean_sum: Array[float] = []
+	var mean_loudest: Array[float] = []
+	var worst_sum_gain := -INF
 	for deaths in range(1, 11):
 		gm.call("AddDeath")
-		var total := 0.0
+		var sum_power := 0.0
+		var loudest_power := 0.0
 		for p in route:
-			var best := 0.0
-			for n in nodes:
-				var d: float = p.distance_to(n.global_position)
-				var attenuation := minf(1.0, n.unit_size / maxf(d, 0.001))
-				best = maxf(best, db_to_linear(n.volume_db) * attenuation)
-			total += best
-		curve.append(linear_to_db(total / float(route.size())))
+			var pair := _effective_at(p, nodes, whisper_lufs)
+			loudest_power += db_to_linear(pair[0]) * db_to_linear(pair[0])
+			sum_power += db_to_linear(pair[1]) * db_to_linear(pair[1])
+			worst_sum_gain = maxf(worst_sum_gain, pair[1] - whisper_lufs)
+		mean_sum.append(linear_to_db(sqrt(sum_power / float(route.size()))))
+		mean_loudest.append(linear_to_db(sqrt(loudest_power / float(route.size()))))
 
-	var first := curve[0]
-	var last := curve[curve.size() - 1]
-	var escalation := last - first
+	var at_1 := mean_sum[0]
+	var at_3 := mean_sum[2]
+	var at_10 := mean_sum[9]
+	var under_at_3 := music_effective - at_3
+	var under_at_10 := music_effective - at_10
+	var escalation := at_10 - at_1
+	var headroom := -(whisper_peak + worst_sum_gain)
 
-	if first >= MIN_FIRST_DEATH_DB and escalation >= MIN_ESCALATION_DB:
-		_ok("audible from the first death: %.1f dB at 1 death rising to %.1f dB at 10 (%.1f dB of escalation), below full scale" % [
-			first, last, escalation])
-	elif first < MIN_FIRST_DEATH_DB:
-		_fail("the whisper is inaudible while dying: %.1f dB below full scale, averaged over the route at ONE death (need %.1f). Volume must ramp in dB from an audible onset, not from a linear amplitude of deaths/10." % [
-			first, MIN_FIRST_DEATH_DB])
+	var problems: Array[String] = []
+	if under_at_3 > MAX_UNDER_MUSIC_AT_3_DEATHS:
+		problems.append(("at 3 deaths the whisper is %.1f LU under the music bed (limit %.1f)." +
+			" Raise the asset's loudness, OnsetVolumeDb, or the Coworkers bus - and note the" +
+			" stream's own level counts: it was 12.5 LU under the music as authored") % [
+				under_at_3, MAX_UNDER_MUSIC_AT_3_DEATHS])
+	if under_at_10 < MIN_UNDER_MUSIC_AT_10_DEATHS:
+		problems.append("at 10 deaths the whisper is %.1f LU ABOVE the music; it is an undertone, not the score" % [-under_at_10])
+	if escalation < MIN_ESCALATION_DB:
+		problems.append("only %.1f dB between 1 and 10 deaths (need %.1f); an escalation nobody can hear is not one" % [
+			escalation, MIN_ESCALATION_DB])
+	if headroom < MIN_HEADROOM_DB:
+		problems.append("only %.1f dB of headroom once all %d emitters sum at full death constant (need %.1f); the master bus will clip" % [
+			headroom, nodes.size(), MIN_HEADROOM_DB])
+
+	if problems.is_empty():
+		_ok(("audible against the music: the whisper bed measures %.1f LUFS at 1 death, %.1f at 3," +
+			" %.1f at 10, against the music at %.1f - so %.1f LU under it at 3 deaths and %.1f at" +
+			" 10. %.1f dB of escalation, %.1f dB of headroom. (Nearest single emitter alone:" +
+			" %.1f at 3 deaths.)") % [
+				at_1, at_3, at_10, music_effective, under_at_3, under_at_10, escalation, headroom,
+				mean_loudest[2]])
 	else:
-		_fail("the whisper does not escalate: %.1f dB at 1 death and %.1f dB at 10, only %.1f dB apart (need %.1f). An escalation nobody can hear is not one." % [
-			first, last, escalation, MIN_ESCALATION_DB])
+		_fail("the whisper does not sit right in the mix: %s" % str(problems))
 
 
 func _game_manager():
