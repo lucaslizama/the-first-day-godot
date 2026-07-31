@@ -45,6 +45,11 @@ const RUN_FRAMES := 420
 ## expect you to jump onto.
 const TOO_TALL := 0.6
 
+## Must NOT be climbable either, despite being well UNDER StepHeight, because nothing tags it.
+## This is the only case that distinguishes opt-in from opt-out - every other one here behaves the
+## same whether the filter exists or not.
+const UNTAGGED_STEP := 0.2
+
 var frame := 0
 var level: Node3D
 var player: CharacterBody3D
@@ -75,14 +80,21 @@ func _process(_delta: float) -> bool:
 		# Stop _PhysicsProcess overwriting Velocity from PlayerInput every frame.
 		player.set_physics_process(false)
 		_enable_backfaces(level)
+		_check_tagging()
 		cases = [
 			{"name": "walk up the stairs", "speed": WALK_SPEED, "at": STAIRS_START, "ledge": 0.0, "expect": true},
 			{"name": "run up the stairs", "speed": RUN_SPEED, "at": STAIRS_START, "ledge": 0.0, "expect": true},
 			{"name": "a %.2f m ledge stays unclimbable" % TOO_TALL, "speed": RUN_SPEED,
 				"at": Vector3(0.0, 12.05, -172.0), "ledge": TOO_TALL, "expect": false},
+			# An UNTAGGED step, well under StepHeight, must still refuse. This is the whole point of
+			# opt-in and the only check that can tell it apart from opt-out: every other case here
+			# passes identically whether the filter exists or not.
+			{"name": "an untagged %.2f m step is refused" % UNTAGGED_STEP, "speed": WALK_SPEED,
+				"at": Vector3(0.0, 12.05, -172.0), "ledge": UNTAGGED_STEP, "expect": false},
 		]
 		_start_next()
 		return false
+
 
 	if case_index >= cases.size():
 		return true
@@ -96,6 +108,29 @@ func _process(_delta: float) -> bool:
 		_report(case, target)
 		_start_next()
 	return false
+
+
+## The filter is opt-in, so a typo in LevelShell.ClimbableMeshes silently disables the feature and
+## the character sticks with nothing to explain it. Assert the tags reached real bodies.
+func _check_tagging() -> void:
+	checks += 1
+	var group := String(player.get("ClimbableGroup"))
+	var names: Array[String] = []
+	for n in root.get_tree().get_nodes_in_group(group):
+		names.append(String(n.name))
+	names.sort()
+
+	var wanted := ["polySurface18_col", "polySurface32_col"]
+	var found_all := true
+	for w in wanted:
+		if not names.has(w):
+			found_all = false
+
+	if found_all:
+		_ok("group '%s' holds %s" % [group, str(names)])
+	else:
+		_fail("group '%s' holds %s, expected %s. A name in LevelShell.ClimbableMeshes that matches no mesh is silent - check it against the node names in level.tscn." % [
+			group, str(names), str(wanted)])
 
 
 ## One frame of movement, using the same order as PlayerCharacter._PhysicsProcess.

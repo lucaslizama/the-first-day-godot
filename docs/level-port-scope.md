@@ -1241,12 +1241,46 @@ tallest 0.27 m riser.
 > reason that looked like an earlier one. Hence `StepForwardProbe` = 0.25 m, just under the capsule
 > radius so the contact point clears the edge.
 
-Cost of the addition, stated plainly: a step-up climbs *anything* shorter than its threshold —
-ledges and props included — and a stepped frame covers slightly less ground than walking it would.
-`tools/verify_stairs.gd` therefore asserts **both directions**: that he walks and runs up the real
-staircase, and that a 0.60 m ledge stays unclimbable. It drives the real `TryStepUp` rather than a
-copy of it, with the player's `_PhysicsProcess` disabled so `PlayerInput` does not zero the velocity
-each frame — the input path is not what is under test.
+Cost of the addition: a step-up would climb *anything* shorter than its threshold — ledges and props
+included — and a stepped frame covers slightly less ground than walking it would.
+
+#### Climbability is opt-in
+
+That cost is contained by a filter, so **nothing is climbable unless marked**. Godot's equivalents of
+Unity's two mechanisms:
+
+| Unity | Godot | difference |
+|---|---|---|
+| Layer (one per object, 32 total) | `collision_layer` / `collision_mask` on `CollisionObject3D`, nameable in Project Settings | Godot's is a **bitmask**, so an object can be on several. Split into "what I am" and "what I look for", replacing Unity's one global collision matrix. |
+| Tag (one string per object) | **Groups** — `AddToGroup` / `IsInGroup` | Many per node, plus `GetNodesInGroup()` for iteration. Strictly more capable. |
+
+**Groups, not layers**, for three reasons. `TestMove` and `MoveAndCollide` use the body's *own*
+`collision_mask` and cannot be filtered per call, so a layer would need a second query — while the
+manoeuvre already holds the colliders it touched, making a group test free. Groups are already this
+project's idiom (`"player"` is tested in four scripts) whereas no layer is named or set anywhere. And
+the permission test is checked **last**, after the geometry has agreed it is a step, so the group only
+ever decides "may climb" rather than standing in for the physics.
+
+The tag lives on `LevelShell.ClimbableMeshes`, not in the scene's node blocks, because neither
+alternative works: the collision bodies it applies to are built at load by `CreateTrimeshCollision`
+and are not in the `.tscn` at all, and the mesh nodes are inside the region
+`tools/generate_shell_overrides.gd` owns, so a group written there is wiped by the next run.
+`ShellP2` carries `PackedStringArray("polySurface18", "polySurface32")`.
+
+**Both meshes are needed, which is not obvious.** `polySurface18` carries the eight risers up to
+y = 11.78, but the *final* step lands on `polySurface32` — the floor profile crosses that boundary
+between 11.78 and 12.00. Tagging only the first leaves the character stuck on the last step.
+
+`tools/verify_stairs.gd` asserts all of it, five checks, driving the real `TryStepUp` rather than a
+copy (with the player's `_PhysicsProcess` disabled so `PlayerInput` does not zero the velocity — the
+input path is not under test). The one that earns its place is **an untagged 0.20 m step being
+refused**: it is well under `StepHeight`, so it is the only case that distinguishes opt-in from
+opt-out. Every other check passes identically whether the filter exists or not. It also asserts the
+group actually holds `polySurface18_col` and `polySurface32_col`, because a name in
+`ClimbableMeshes` matching no mesh is otherwise silent — the character just sticks.
+
+Standing consequence of opt-in, worth remembering rather than rediscovering: **any other steps in
+the level still stop him dead**, exactly as before the step-up existed, until they are tagged too.
 
 ### Proximity fade
 

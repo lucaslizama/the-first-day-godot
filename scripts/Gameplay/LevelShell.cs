@@ -44,6 +44,25 @@ public partial class LevelShell : Node3D
     [Export]
     public bool GenerateCollision { get; set; } = true;
 
+    /// <summary>
+    /// Names of this shell's meshes whose collision the player may STEP UP onto - see
+    /// PlayerCharacter.ClimbableGroup, which is opt-in: nothing is climbable unless marked.
+    ///
+    /// The tag has to be applied from here rather than written into level.tscn, because the bodies
+    /// it belongs on do not exist in the scene file. CreateTrimeshCollision builds them at load,
+    /// named "&lt;mesh&gt;_col". And the mesh nodes themselves are no better a home: they live inside
+    /// the region tools/generate_shell_overrides.gd owns, so a group added there is wiped the next
+    /// time that tool runs. This list sits on the Shell node, outside that region, and the shell
+    /// that builds the collision is the honest owner of which parts of it are climbable.
+    ///
+    /// Both stair meshes are needed for the staircase before the end line, not just the obvious
+    /// one: the risers are on polySurface18, but the FINAL step lands on polySurface32, so tagging
+    /// only the first leaves the character stuck on the last one. Measured from the floor profile,
+    /// which goes 11.78 -&gt; 12.00 across that boundary.
+    /// </summary>
+    [Export]
+    public string[] ClimbableMeshes { get; set; } = System.Array.Empty<string>();
+
     public override void _Ready()
     {
         if (!GenerateCollision)
@@ -52,13 +71,46 @@ public partial class LevelShell : Node3D
         }
 
         int collided = 0;
+        int climbable = 0;
+        var wanted = new HashSet<string>(ClimbableMeshes);
         foreach (MeshInstance3D mesh in FindMeshes(this))
         {
             mesh.CreateTrimeshCollision();
             collided++;
+
+            if (!wanted.Contains(mesh.Name))
+            {
+                continue;
+            }
+
+            // CreateTrimeshCollision adds the body as a child of the mesh. Tag the body itself
+            // rather than the mesh, so the step-up can test what it actually collided with.
+            foreach (Node child in mesh.GetChildren())
+            {
+                if (child is StaticBody3D body)
+                {
+                    body.AddToGroup(PlayerCharacter.DefaultClimbableGroup);
+                    climbable++;
+                }
+            }
         }
 
-        GD.Print($"{Name}: built collision for {collided} meshes.");
+        // Named rather than counted, because a typo in ClimbableMeshes is silent otherwise: the
+        // mesh simply never matches and the character sticks with nothing to explain why.
+        var missing = new List<string>();
+        foreach (string name in wanted)
+        {
+            if (GetNodeOrNull(name) is null && FindMeshes(this).Find(m => m.Name == name) is null)
+            {
+                missing.Add(name);
+            }
+        }
+
+        GD.Print($"{Name}: built collision for {collided} meshes, {climbable} climbable.");
+        if (missing.Count > 0)
+        {
+            GD.PushWarning($"{Name}: ClimbableMeshes names no mesh called {string.Join(", ", missing)}; nothing was tagged for it.");
+        }
     }
 
     private static List<MeshInstance3D> FindMeshes(Node node)

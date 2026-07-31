@@ -138,6 +138,30 @@ public partial class PlayerCharacter : CharacterBody3D
     [Export]
     public float StepForwardProbe { get; set; } = 0.25f;
 
+    /// <summary>The group name <see cref="ClimbableGroup"/> defaults to, so taggers agree with it.</summary>
+    public const string DefaultClimbableGroup = "climbable";
+
+    /// <summary>
+    /// Group a surface must be in for the character to step up onto it. OPT-IN: nothing is
+    /// climbable unless marked, so a step-up can never happen somewhere nobody intended.
+    ///
+    /// Groups rather than collision layers, and worth saying why. Godot has both - layers are a
+    /// bitmask on the body (Unity's layers, except an object can be on several and each body
+    /// declares its own mask instead of a global matrix) and groups are many-per-node strings
+    /// (Unity's tags, except many). Either could express this, but TestMove and MoveAndCollide use
+    /// the BODY'S OWN collision_mask and cannot be filtered per call, so a layer would have to be
+    /// consulted through a second query. The manoeuvre already holds the colliders it touched, so a
+    /// group test on those costs nothing and needs no project settings. Groups are also already
+    /// this project's idiom - "player" is tested in four scripts - while no layer is named or set
+    /// anywhere.
+    ///
+    /// The cost of opt-in, so it is not a surprise later: any steps NOT tagged still stop the
+    /// character dead, exactly as they did before the step-up existed. Tagging lives on the thing
+    /// that builds the collision - see LevelShell.ClimbableMeshes.
+    /// </summary>
+    [Export]
+    public string ClimbableGroup { get; set; } = DefaultClimbableGroup;
+
     /// <summary>
     /// Supplies the movement basis. The original flattened a "YAxis" transform to
     /// strip pitch and roll; here only the camera's yaw is used, which is the same
@@ -633,7 +657,37 @@ public partial class PlayerCharacter : CharacterBody3D
             return false;
         }
 
+        // 4. Permission. Checked LAST, after the geometry has already agreed this is a step, so the
+        //    group only ever decides between "could climb" and "may climb" rather than standing in
+        //    for the physics.
+        if (!IsClimbable(landing.GetCollider() as Node))
+        {
+            GlobalTransform = start;
+            return false;
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Whether a collided body is marked climbable, itself or via an ancestor.
+    ///
+    /// The ancestor walk is what makes tagging practical at either granularity: a single generated
+    /// collision body can be tagged on its own, or a whole subtree covered by tagging its root in
+    /// the scene file. Without it, only nodes that exist in a .tscn could ever be marked, and the
+    /// level shell's collision bodies are built at load.
+    /// </summary>
+    public bool IsClimbable(Node? collider)
+    {
+        for (Node? node = collider; node is not null; node = node.GetParent())
+        {
+            if (node.IsInGroup(ClimbableGroup))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

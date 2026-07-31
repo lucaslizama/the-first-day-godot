@@ -83,9 +83,20 @@ script = ExtResource("3_shell")
 
 [node name="nivel" parent="Shell" unique_id=1709712449 instance=ExtResource("1_nivel")]
 
+; ClimbableMeshes marks the staircase before the end line as steppable - see
+; PlayerCharacter.ClimbableGroup, which is opt-in, so nothing else in the level is. It lives here
+; rather than on the mesh nodes for two reasons: those nodes sit inside the region
+; tools/generate_shell_overrides.gd owns and would be wiped by the next run, and the collision
+; bodies the tag actually lands on are built at load by CreateTrimeshCollision and are not in this
+; file at all.
+;
+; BOTH meshes are required. polySurface18 carries the eight risers from y=10.0 to y=11.78, but the
+; final step lands on polySurface32 - the floor profile crosses that boundary between 11.78 and
+; 12.00 - so tagging only the first leaves the character stuck on the last step.
 [node name="ShellP2" type="Node3D" parent="." unique_id=1391112274]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
 script = ExtResource("3_shell")
+ClimbableMeshes = PackedStringArray("polySurface18", "polySurface32")
 
 [node name="nivel_p2" parent="ShellP2" unique_id=1113251813 instance=ExtResource("2_nivel_p2")]
 
