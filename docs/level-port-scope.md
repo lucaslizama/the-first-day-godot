@@ -2100,3 +2100,51 @@ most visible case because it is a teleport. The engine-level fix is
 it defaults to false). Turning it on would need the camera opted out, since it is driven per-frame,
 and `reset_physics_interpolation()` on the respawn teleport — and it would also smooth the platforms
 and the hammers. That is a project-wide change and was deliberately not made as part of a camera fix.
+
+### The pose pop at take-off is in the original — do not "fix" it
+
+Reported in play as a glitchy frame between walking or running and the jump: the legs jump to a
+different stance before the take-off clip plays properly. **Checked against the Unity build and it is
+there too, so it is part of the animation and the port is faithful.** Closed as not-a-bug.
+
+Recorded because the investigation produced measurements that argue for a change which must NOT be
+made. Everything below is real; the conclusion drawn from it was wrong.
+
+Confirmed sound, so do not look here again: the clip sequence is `walk → jumpL → jumpL1Frame`, `fall`
+is never selected and `IsDead` never set (so it is not the death clip, which was the first guess);
+and every one of the nine clips carries **43 rotation tracks**, the full deformation set, so no clip
+is a degenerate export or history-dependent.
+
+The pose really does jump at the cut. Worst single bone between the outgoing pose and the take-off
+clip's first frame:
+
+| from | to `jumpR` |
+|---|---|
+| `walk` at 0.000 s | 137.9° (Knee_R) |
+| `run` at 0.100 s | 129.1° (Knee_R) |
+| `idle` | 104.6° (Knee_R) |
+| `walk` at 0.400 s | 90.2° (Wrist_L) |
+
+**And the trap.** At each of the four footfalls where `SetLeftJump`/`SetRightJump` fire, the clip the
+mapping selects is the *further* of the two from the current stride, on both mean and worst-bone
+metrics:
+
+| event | picks | `jumpR` mean/worst | `jumpL` mean/worst |
+|---|---|---|---|
+| `walk` 0.783 `SetLeftJump` | `jumpL` | 12.5 / 82.2 | 15.9 / 119.1 |
+| `walk` 1.533 `SetRightJump` | `jumpR` | 16.5 / 112.3 | 13.1 / 97.1 |
+| `run` 0.100 `SetRightJump` | `jumpR` | 19.0 / 129.1 | 10.7 / 64.8 |
+| `run` 0.600 `SetLeftJump` | `jumpL` | 10.0 / 44.3 | 19.8 / 123.3 |
+
+Four out of four. That looks conclusive, and the physical story is persuasive too — if the left foot
+just landed you push off the right, so `LeftJump` "should" select `jumpR`. **The mapping was swapped on
+that basis and then reverted, because the original has the same pop.** Unity's controller says
+`LeftJump true -> jumpL`, the port matches it, and the discontinuity is the animator's, not ours.
+
+The lesson is about the evidence, not the animation: **pose continuity is not a correctness criterion
+for a port.** A hand-authored 2016 jam animation is free to snap, and measuring that it snaps says
+nothing about whether we reproduced it. The only authority for a mapping like this is the original —
+which is also why the Unity project being absent from the machine is a real cost rather than an
+inconvenience. Two other attempted fixes were reverted the same day for the same reason: a blend into
+the selected clips (`ClipBlendSeconds`, 0.08 s, felt wrong in play and its authentic per-transition
+duration is unrecoverable), and camera follow easing was briefly suspected and cleared.
