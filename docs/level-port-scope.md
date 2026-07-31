@@ -399,8 +399,8 @@ on floor planes at gaps of exactly 0.0000 m, and direct instances ground at the 
 rate as group children — which is what ruled out the group composition as the culprit. `tools/verify_coworkers.gd` reports the
 distribution rather than scoring it, for exactly that reason.
 
-The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of WAV to 197 KB of
-Ogg Vorbis. Unity's logarithmic rolloff attenuates by `minDistance / distance`, which is
+The whisper — `susurro_loko`, 14.1 s, converted from 2.5 MB of stereo WAV to 134 KB of
+mono Ogg Vorbis — mono deliberately, see the fourth correction below. Unity's logarithmic rolloff attenuates by `minDistance / distance`, which is
 Godot's `ATTENUATION_INVERSE_DISTANCE` over `unit_size` exactly, so the mapping
 needs no fudging.
 
@@ -503,6 +503,39 @@ needs no fudging.
 > re-implements what it verifies drifts from it — which this file has now done twice. It
 > reports −11.7 dB at one death rising to −0.8 dB at ten, and it fails the old curve at
 > −22.7 dB.
+
+> **Correction, fourth pass: all from the right ear.** Reported next as hearing the whispers
+> "from the right ear, none from the left". Not the placement and not the code this time — the
+> geometry measures 0.75 of loudness to the listener's left against 0.88 to the right, which is
+> balanced. **The asset was half silent:**
+>
+> ```
+> susurro_loko.wav   stereo, left channel −inf dB, all content in the right
+> ```
+>
+> That is how it ships in the Unity project, and the port's Ogg conversion preserved it
+> faithfully. It was inaudible as a bug in Unity because a spatialised `AudioSource` is
+> **downmixed to mono before panning**. Godot's `AudioStreamPlayer3D` does not do that: a
+> stereo stream's channels go out to the bus and positional panning never really applies, so a
+> dead left channel stays dead wherever the emitter stands.
+>
+> Now mono, re-encoded from the original WAV (one lossy generation, not two) taking channel 1 —
+> the one with the content — since averaging with silence would have cost 6 dB. RMS is
+> unchanged at −29.13 dB, and 197 KB → 134 KB.
+>
+> The same sweep caught **`step.wav`**, which was dual mono: both channels at −24.311 dB with
+> their difference peaking at −68 dB. Audibly fine, and never actually spatialised. Converted
+> too, bit-exactly.
+>
+> `tools/verify_audio_assets.py` now asserts the general rule — **every stream feeding an
+> `AudioStreamPlayer3D` must be mono** — and names any dead channel it finds. It is a Python
+> tool rather than another GDScript check because this is a property of the *asset*: nothing in
+> the scene or the code was wrong, so nothing that inspects them could have caught it.
+> Negative-tested against both original files.
+>
+> Three bugs in one feature, each a layer down from the last: where the sound is, how loud it
+> is, and what the sound itself contains. The pattern worth remembering is that each fix's
+> verification stopped at the layer it had just fixed.
 
 Two documented divergences in `WhisperEmitter.cs`. Volume follows the death
 constant — ramped in dB from `OnsetVolumeDb`, see the correction above — where Unity set it once in `Start`; that only works if the scene reloads
@@ -1206,8 +1239,8 @@ three checks.
   unported; keyboard only for now.
 - **Audio is 22.8 MB of WAV for this scene** (27 MB across the project). Worth
   converting to Ogg Vorbis rather than vendoring raw, given the repo already
-  avoids large binaries. Done for `susurro_loko` — 2.5 MB to 197 KB at
-  `ffmpeg -c:a libvorbis -q:a 5`, same 14.1 s. Note the `.ogg` import defaults to
+  avoids large binaries. Done for `susurro_loko` — 2.5 MB to 134 KB, downmixed to
+  mono, at `ffmpeg -c:a libvorbis -q:a 5`, same 14.1 s. Note the `.ogg` import defaults to
   `loop=false`, so looping clips need it set and **reimported**: an emitter that
   starts near the end of a non-looping clip stops within a frame or two, which is
   how some whispers can play while another is silent.
