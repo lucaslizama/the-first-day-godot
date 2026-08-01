@@ -43,3 +43,7 @@ Thumbs.db
 # Python bytecode from the tools/ scripts
 __pycache__/
 *.pyc
+
+# itch.io page images - regenerate with tools/capture_itch_shots.gd, do not commit.
+# 3.7 MB of derived PNGs against an 11 MB repo, and re-shot every release.
+/docs/itch/

@@ -196,27 +196,49 @@ scares, nothing chases you.
 
 ---
 
-## Images — captured, in `docs/itch/`
+## Images — generated, not stored
 
-All from the real game at 1920×1080, positions chosen by raycasting for actual floor so nothing is
-a shot of the void. Covers are 1260×1000, twice itch's 630×500 minimum at its exact 1.26 aspect.
+**The PNGs are deliberately not committed.** They were, briefly, and they came to 3.7 MB against an
+11 MB repository — a third of it, and five of the eight largest tracked files, outweighing the
+skybox and the soundtrack. Re-shooting for each release would grow that without bound, and they are
+derived data: the game makes them on demand.
+
+Regenerate all seven, from the real game at 1920×1080:
+
+```bash
+xvfb-run -a -s "-screen 0 1920x1080x24" godot-mono --path . --script tools/capture_itch_shots.gd
+```
+
+They land in `~/.local/share/godot/app_userdata/The First Day/itch/`. `docs/itch/` is gitignored, so
+copying them there to work on is safe.
+
+Positions were found by raycasting down through the level for real floor, and the tool refuses to
+save a shot where the player has fallen — the first attempt guessed three spots that turned out to
+be over the void and produced three photographs of nothing.
+
+Then cut the two covers, 1260×1000 — twice itch's 630×500 minimum, at its exact 1.26 aspect:
+
+```bash
+cd ~/.local/share/godot/app_userdata/"The First Day"/itch
+magick 00_menu.png   -crop 1060x841+860+130 +repage -resize 1260x1000! cover_a_doorway.png
+magick 05_ending.png -crop 1361x1080+279+0  +repage -resize 1260x1000! cover_b_vista.png
+```
+
+The `+860` offset on the first one is not arbitrary: crop any further left and the tail of the
+menu's title text creeps into frame. The first cut of that cover had a stray letter in it.
 
 ### Cover — two candidates, `cover_a_doorway.png` recommended
 
 | File | What it is |
 |---|---|
-| **`cover_a_doorway.png`** | Fortunato in the doorway, from the menu. **Recommended.** |
-| `cover_b_vista.png` | The ending's canyon of office towers, coworkers watching from the ledges |
+| **`cover_a_doorway.png`** | Fortunato in the doorway, cropped from `00_menu.png`. **Recommended.** |
+| `cover_b_vista.png` | The ending's canyon of towers, cropped from `05_ending.png` |
 
 `cover_b_vista.png` is the more beautiful image, and it is the better *screenshot* — which is why
 it is already in the set below as `05_ending.png`. But the cover is displayed at **315×250** in a
 listing grid, and at that size the vista's detail collapses into grey mush while a face with two
 bright eyes still reads instantly. Pick the one that survives being small, not the one that looks
 best at full size.
-
-A note on `cover_a_doorway.png`: the first crop caught the tail of the menu's title text at the
-left edge. Re-cropped past it. If you re-cut it yourself, keep clear of the left third of
-`menu.png`.
 
 ### Screenshots, in upload order
 
