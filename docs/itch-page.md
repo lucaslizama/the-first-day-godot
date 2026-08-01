@@ -2,10 +2,15 @@
 
 Copy for `lucaslizama/the-first-day`. Field names match itch.io's edit-game form.
 
-**Everything here is drawn from what the game actually does.** The repository records no story,
-premise or design document, so nothing below invents one — the description says what the player
-does and what the game does back. If there is an intended narrative, it needs adding by someone
-who knows it; see "What I could not determine" at the end.
+**The theme below is the author's, stated 2026-07-31**, and is recorded here because it exists
+nowhere else in the project: the game is a metaphor for a first day at work — the fear, the
+expectations you put on yourself, the fear of failing, and the consequences of failing. Everything
+else on this page is drawn from what the game demonstrably does.
+
+That framing changes how the page should read. The death mechanic is not a feature sitting beside
+the theme, it **is** the theme: failure is not punished with a retry, it permanently narrows what
+you can see and raises what you can hear, and finishing never clears it. The copy below leads with
+that rather than listing obstacles.
 
 ---
 
@@ -22,22 +27,23 @@ itch shows this in listings and search, so it has to work alone. Under ~140 char
 **Recommended:**
 
 ```
-Your first day at the office. Every death makes it harder to see, and the whispering louder.
+Your first day at a new job, and the fear of failing it. Every failure makes it harder to see.
 ```
 
 Alternatives, if a different emphasis is wanted:
 
 ```
-A short 3D obstacle course through an office that gets worse the more you die.
+A game about your first day at work: the fear, the expectations, and what failing costs you.
 ```
 
 ```
-Get to the end of your first day. The office does not want you to.
+Nothing in this office chases you. You do that yourself.
 ```
 
-The recommendation leads on the death mechanic because that is the one thing the game does that a
-platformer normally does not — dying is not just a retry, it permanently degrades what you can see
-and hear for the rest of the run.
+The recommendation puts the theme and the mechanic in one sentence, in that order, because they are
+the same thing — the fear of failing is not described to the player, it is applied to them. The
+third option is the most striking and the least clear; it works if the cover carries the tone, and
+not otherwise.
 
 ## Classification
 
@@ -74,37 +80,42 @@ player asks why a jam game is 190 MB, that is the answer.
 **Tags** — itch allows up to 10; these are the ones the game can actually claim:
 
 ```
-3d, atmospheric, godot, horror, low-poly, obstacle-course, singleplayer, short, third-person, unity-port
+3d, atmospheric, godot, low-poly, psychological-horror, short, singleplayer, third-person, unity-port, work
 ```
 
-Notes on two of them:
+Notes on three of them:
 
-- **`horror`** is defensible rather than certain: the game has no monsters or chase, but it has
-  whispering that grows with failure, a screen that darkens as you fail, and it was made for a
-  horror jam. If it does not *feel* like horror in play, drop this and keep `atmospheric`.
-- **`unity-port`** is unusual as a tag but true and genuinely interesting to a slice of people. Cut
-  it if you would rather not lead with the port angle.
+- **`psychological-horror`** rather than plain `horror`, now that the theme is known. There is no
+  monster and no chase; the dread is anxiety made mechanical. Plain `horror` sets up an expectation
+  of threat that the game deliberately does not meet, and people who came for that will bounce.
+- **`work`** is a real itch tag and unusually well-earned here — it puts the game in front of people
+  looking for exactly this subject rather than for a platformer.
+- **`unity-port`** is unusual but true, and genuinely interesting to a slice of people. Cut it if you
+  would rather the port not be the first thing noticed.
 
 ## Description (page body)
 
 ```
 The First Day
 
-A short 3D obstacle course through an office, and a bad first day at work.
+It is your first day at a new job. This is a game about the fear that comes with it — the
+expectations you put on yourself, the fear of failing, and what failing does to you.
 
-Walk, run and jump your way to the far end of the floor, past swinging hammers, platforms that
-move and platforms that give way under you. Checkpoints keep you moving forward. Nothing chases
-you.
+Get to the end of the floor. Walk, run and jump past swinging hammers, platforms that move and
+platforms that give way under you. Checkpoints keep you moving forward. Nothing chases you; there
+is no monster on this floor.
 
-But the office keeps count. Every death dims the edges of the screen a little further, pulls the
-colour apart at the corners, and turns up the whispering from the desks around you. Reach the end
-and none of it lifts — you just get there, with the confetti and whatever is left of your
-composure.
+The pressure is not coming from outside. The office keeps count instead. Every death dims the edges
+of your vision a little further, pulls the colour apart at the corners, and raises the whispering
+from the desks around you. Failure is not something you retry past — it accumulates, and it stays.
+Reach the end and none of it lifts. You get there, the confetti falls, and you are still carrying
+every mistake you made getting there.
 
-Originally made in Unity for Asylum Jam 2016. This is a full port to Godot 4, rebuilt from the
-original project rather than remade from memory: the level geometry, the mixer levels, the
-animation timings and the camera behaviour are all carried over from the source, with every
-deliberate difference written down.
+Made in November 2016, in Unity, for Asylum Jam.
+
+Rebuilt in Godot 4 in July 2026 — almost ten years later — from the original project rather than
+from memory. The level geometry, the mixer levels, the animation timings and the camera behaviour
+are all carried across from the 2016 source, with every deliberate difference written down.
 
 Controls
     WASD or left stick   move
@@ -160,14 +171,19 @@ rebinding is the cheapest real win.
 itch has no formal rating, but the description should carry a line and the page has an adult-content
 toggle (leave it **off** — nothing here warrants it).
 
-What is honestly in the game: **repeated player death**, an increasingly distorted screen, and
-layered whispering voices. There is no gore, no jump scare, and no chase. A player sensitive to
-visual distortion or to whispering/voices should know before downloading; consider adding to the
-description:
+What is honestly in the game: **repeated player death**, an increasingly distorted screen, layered
+whispering voices, and — now that the theme is stated — **themes of workplace anxiety and
+self-imposed pressure to not fail**. There is no gore, no jump scare, and no chase.
+
+That last item is worth naming rather than leaving implicit. A game whose subject is the fear of
+failing at a new job, and whose mechanic is failure that accumulates and never clears, can land
+harder than a horror tag on someone going through exactly that. Naming it costs nothing and lets
+people choose.
 
 ```
-Contains repeated player death, screen distortion that intensifies as you die, and layered
-whispering voices. No gore, no jump scares, nothing chases you.
+Contains repeated player death, screen distortion that intensifies as you fail, and layered
+whispering voices. Themes of workplace anxiety and the pressure not to fail. No gore, no jump
+scares, nothing chases you.
 ```
 
 ## Links
@@ -221,13 +237,18 @@ That pair is the single most useful thing on the page.
 
 Stated plainly so nobody mistakes silence for research:
 
-- **There is no recorded story or premise.** Not in the repo, not in the Unity project, whose
-  `README.md` is the single line `AsylumJam2016`. The description above is built from what the
-  assets and code do. If the 2016 team had an intended narrative, it is not written down anywhere
-  I can see, and it should come from them rather than from me.
+- **The theme came from the author, not the repository.** It is written down here now, and nowhere
+  else in the project: the Unity `README.md` is the single line `AsylumJam2016` and there is no
+  design document. Worth keeping in mind if this page is ever rewritten from the code alone — the
+  code cannot tell you what the death mechanic is *for*.
 - **I have deliberately not characterised Asylum Jam's rules or theme.** The jam's name is a
   documented fact — it is in the credits and the Unity README — but I am not certain enough about
-  what the jam asked of entrants to put a claim about it on a public page.
+  what the jam asked of entrants to put a claim about it on a public page. The dates below are from
+  git and are solid; the jam's own framing is not mine to assert.
+- **The dates are exact, from git.** The Unity project's first commit is 2016-11-12 and its last is
+  2016-11-20. The port's first commit is 2026-07-28 and `v1.0.0` was tagged 2026-07-31. "Almost ten
+  years later" is 9 years 8 months. The page says "November 2016" rather than naming jam dates,
+  because the commit range spans nine days and I do not know which of those was the jam itself.
 - **The Windows build has never been launched.** It exported by the same path as the Linux build,
   which does run, and it is a valid PE32+ x86-64 binary with the C# assembly beside it. That is not
   the same as it starting. Worth confirming before the page gets traffic.
