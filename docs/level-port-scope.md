@@ -2618,7 +2618,8 @@ this port it had never once appeared on screen.
 
 Not because it was unwritten. `shaders/death_distortion.gdshader` existed, correct and carefully
 derived. `scripts/UI/DeathDistortion.cs` existed, wired to `GameManager.DeathConstantChanged`.
-`tools/verify_death_shader.gd` existed and passed. This document recorded the effect as **done**.
+`tools/verify_death_shader.gd` existed and reported success — though it turned out to assert
+nothing at all; see below. This document recorded the effect as **done**.
 The one thing missing was a node: no scene ever instantiated either file, so the whole apparatus
 sat inert in the repository.
 
@@ -2658,11 +2659,43 @@ failing exit code, no threshold, and no companion analyser anywhere in `tools/` 
 `death_source.png`, `death_k0.png` and `death_k1.png` to `/tmp` and exits 0. Its header describes
 comparing against an unshaded render, and that comparison is left to a human with an image viewer.
 
-It is therefore not a verifier, despite the name putting it in the same `tools/verify_*` sweep as
-the real ones, where it reports success unconditionally. **A check that cannot fail is worse than
-no check**, because it occupies the space where a real one would be noticed missing. Renaming it
-to `render_death_shader.gd` would be honest; adding the numeric comparison its own header promises
-would be better. Left as it is for now, recorded so it is not mistaken for cover.
+It was therefore not a verifier, despite the name putting it in the same `tools/verify_*` sweep as
+the real ones, where it reported success unconditionally. **A check that cannot fail is worse than
+no check**, because it occupies the space where a real one would be noticed missing.
+
+### It has been finished, and the two numbers it needed were measured
+
+It now does what its header always described: predicts every sampled pixel of the shaded render
+from the unshaded one and compares. 8 checks, `quit(1)` on failure.
+
+    mask(uv) = max(1 - cornerWeight(uv) * (1/(1-vignette) - 1), 0)
+    uvG      = uv - texel * aberration * coords * cornerWeight(uv)
+    out.r    = src.r(uv)  * mask(uv)        out.b = src.b(uv) * mask(uv)
+    out.g    = src.g(uvG) * mask(uvG)       <- only green is shifted
+
+Two facts had to be established rather than assumed, because getting either wrong produces a
+check that fails for the wrong reason and then gets "fixed" by loosening it:
+
+- **The multiply lands in stored space, not linear.** Tested both against a real render:
+  `src * mask` on the byte values matches to 0.3, while decode-multiply-re-encode is off by more
+  than 10. This is what the header's claim about colour space actually rests on — both renders
+  travel the same path, so the transform cancels.
+- **Worst error is 0.56 of an 8-bit unit** over 5329 samples per case — half a quantisation step,
+  i.e. rounding and nothing else. `TOLERANCE` is 1.0, wide over rounding and still tight enough to
+  catch any real change in the maths.
+
+Two of the eight checks are not about the shader's arithmetic at all:
+
+- **The corner clamp.** At `k1` the mask reaches −0.33 before `max(..., 0)`. Unity only avoided
+  garbage because its render target clamped; this asserts the shader does not depend on that.
+- **A negative control.** Every comparison above could pass by being insensitive — which is
+  precisely how this file spent its life. So it also predicts `k1` using `k0`'s parameters and
+  requires that to be **rejected**. It is, by 204/255. Without that, the passing numbers would
+  prove nothing.
+
+And the process-level fact, since a sweep reads exit codes rather than prose: verified by
+temporarily tightening `TOLERANCE` to 0.1, which produced `exit 1` and named the failing channels.
+It exits 0 correct, 1 wrong. It can fail now.
 
 That is the same failure as the main menu's W/S two sections above, and the same as the credits'
 first eleven checks: a check written from the implementation confirms the implementation. Twice
