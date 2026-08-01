@@ -5,7 +5,12 @@
 # Godot-specific ignores
 .import/
 export.cfg
-export_presets.cfg
+
+# export_presets.cfg is deliberately NOT ignored, though Godot's stock .gitignore ignores it.
+# CI cannot export without it: the workflow calls --export-release "Windows Desktop", and that
+# name only exists in this file. The stock rule is there because presets can hold Android
+# keystore passwords and Apple credentials; these two presets are Windows and Linux only and
+# carry no secrets. Check that stays true before adding a mobile or macOS preset.
 
 # Imported translations (automatically generated from CSV files)
 *.translation

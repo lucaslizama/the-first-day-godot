@@ -77,4 +77,36 @@ godot-mono --editor --path .                                    # editor
 godot-mono --headless --path . --script tools/verify_x.gd       # headless check
 xvfb-run -a godot-mono --path . --script tools/verify_x.gd      # checks that render
 python3 tools/verify_resource_uids.py                           # python checks
+godot-mono --headless --path . tools/verify_stairs.tscn          # the one verifier that is a SCENE
 ```
+
+## Releasing
+
+Tag and let CI do it — `.github/workflows/release.yml` builds both PC exports and pushes them to
+`lucaslizama/the-first-day` on itch.io:
+
+```bash
+git tag -a v0.2.0 -m "..." && git push origin v0.2.0
+```
+
+`workflow_dispatch` runs the same path but publishes nothing, so the pipeline can be exercised
+without cutting a tag. It needs one repository secret, `BUTLER_API_KEY`.
+
+By hand, if ever needed:
+
+```bash
+godot-mono --headless --path . --export-release "Windows Desktop" build/windows/TheFirstDay.exe
+godot-mono --headless --path . --export-release "Linux"           build/linux/TheFirstDay.x86_64
+butler push build/windows lucaslizama/the-first-day:windows --userversion 0.1.0
+butler push build/linux   lucaslizama/the-first-day:linux   --userversion 0.1.0
+```
+
+Two things about exporting that are easy to get wrong:
+
+- **`export_presets.cfg` is committed on purpose**, against Godot's stock `.gitignore`. CI exports
+  by preset *name*, and those names live only in that file. See the note in `.gitignore`.
+- **The exports exclude `addons/godot_mcp_toolkit/*`.** That addon registers an autoload which
+  opens a listening TCP socket — a development tool that must not reach players. Excluding it
+  leaves `project.godot` declaring an autoload whose script is absent; Godot tolerates that
+  silently, verified by running the exported build and grepping for autoload errors. If a future
+  Godot stops tolerating it, drop the autoload rather than shipping the addon.

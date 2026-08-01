@@ -2807,3 +2807,59 @@ checks the BEHAVIOUR, not the setting: asserting `safe_margin == 0.08` would pas
 was welded to a wall by some other cause. **Verified to fail without the fix** — with the margin
 removed it exits 1 and reports "PINNED - 20 ticks airborne at y=0.612 with no vertical movement,
 while Velocity.y=+2.00", which is the reported bug in one line.
+
+## Shipping: PC exports and itch.io
+
+Two presets in `export_presets.cfg` — `Windows Desktop` and `Linux`, both x86_64 — published to
+`lucaslizama/the-first-day` as the `windows` and `linux` channels. First builds went up as 0.1.0:
+
+    | CHANNEL |  UPLOAD   |   BUILD    | VERSION |
+    | windows | #18625882 | ✓ #1847645 | 0.1.0   |
+    | linux   | #18625885 | ✓ #1847646 | 0.1.0   |
+
+Sizes are dominated by the bundled .NET runtime: 192 MB of Windows build, 158 MB of Linux, against
+11 MB of actual game in the `.pck`. Not worth optimising, but worth knowing why a jam game is 190 MB.
+
+### Four things that had to be decided rather than defaulted
+
+**`export_presets.cfg` is committed**, against Godot's stock `.gitignore`, which ignores it. CI
+exports by preset *name* (`--export-release "Windows Desktop"`) and those names exist nowhere else,
+so an ignored presets file means a workflow that cannot build. The stock rule exists because presets
+can hold Android keystore passwords and Apple credentials; these two hold neither. That must be
+re-checked before any mobile or macOS preset is added — the reason is in `.gitignore` beside the rule.
+
+**The dev addon is excluded, and that is a safety issue rather than housekeeping.**
+`addons/godot_mcp_toolkit` registers the `MCPRuntimeServer` autoload, which opens a listening TCP
+socket on ports 6570–6585. Shipping that to players is not acceptable, so both presets exclude the
+addon. This leaves `project.godot` declaring an autoload whose script is not in the build — checked
+rather than assumed: the exported Linux build runs, prints no autoload error, and prints none of the
+`[MCPRuntimeServer] listening` lines every development run does. Only `plugin.cfg` survives into the
+`.pck`. If a future Godot stops tolerating a missing autoload, remove the autoload instead of
+shipping the addon.
+
+**`application/modify_resources=false`** on the Windows preset. True is the default and nicer — it
+stamps the company and product name into the `.exe` — but it needs `rcedit`, which a clean CI runner
+does not have, and the failure would appear only in CI. Metadata is not worth a build that works on
+one machine.
+
+**Version comes from the tag, and the engine version is asserted.** `GODOT_VERSION` in the workflow
+is checked against `project.godot`'s `config/features` before anything builds. A mismatch there does
+not fail loudly on its own; it exports the game with a different engine than it was tested against,
+which is the kind of thing that surfaces as an unreproducible player bug report.
+
+### The workflow, and what it refuses to do quietly
+
+`.github/workflows/release.yml`, on `push` of `v*`. Needs one secret, `BUTLER_API_KEY`.
+
+It fails rather than continues when: the engine version disagrees with the project; an exported
+binary is missing or empty; `TheFirstDay.dll` did not make it into either build (a C# export can
+otherwise "succeed" and ship a game with no code); or `BUTLER_API_KEY` is unset. Each of those is a
+state where publishing anyway would put something broken in front of players.
+
+`workflow_dispatch` runs the identical path and publishes **nothing**, so the pipeline can be
+exercised without cutting a tag. Builds are uploaded as run artifacts either way.
+
+Two download details found by testing rather than by reading: the Godot zip nests a versioned
+directory, so the binary is located with `find` instead of an assumed name; and butler's `broth`
+host answers `HEAD` with 403 while `GET` 307-redirects, so `curl -L` is required and a HEAD-based
+availability check would have reported the wrong thing.

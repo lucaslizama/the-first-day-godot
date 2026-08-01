@@ -1,0 +1,167 @@
+# Builds the PC exports and publishes them to itch.io when a version tag is pushed.
+#
+#     git tag -a v0.2.0 -m "..." && git push origin v0.2.0
+#
+# Needs one repository secret, BUTLER_API_KEY, from https://itch.io/user/settings/api-keys.
+#
+# Everything below is pinned to the Godot version this project is developed on. A mismatch does
+# not fail loudly - it exports with a different engine than the one the game was tested against -
+# so GODOT_VERSION is checked against project.godot's config/features before anything is built.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # So the whole path can be exercised without cutting a tag. On a manual run nothing is
+  # published; see PUBLISH below.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.1
+  ITCH_TARGET: lucaslizama/the-first-day
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag gives the itch version; a manual run is a dry run and says so.
+      - name: Work out the version, and whether this publishes
+        id: v
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Manual run - building only, nothing will be pushed to itch.io."
+          fi
+
+      # The engine version is recorded in project.godot as a feature string. If they disagree,
+      # this workflow would quietly ship a build made by a different engine than was tested.
+      - name: Check the engine version matches the project
+        run: |
+          want="${GODOT_VERSION%.*}"
+          if ! grep -q "\"$want\"" project.godot; then
+            echo "::error::GODOT_VERSION=$GODOT_VERSION but project.godot's config/features does not list \"$want\"."
+            grep -n "config/features" project.godot || true
+            exit 1
+          fi
+
+      # Cheap structural gates that need no engine and no display. They are here because a
+      # release is exactly when a silently-rotted resource file is most expensive to find.
+      - name: Structural checks
+        run: |
+          python3 tools/verify_no_resource_comments.py
+          python3 tools/verify_resource_uids.py
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache the engine and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-mono-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET) and its export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot "$HOME/.local/share/godot/export_templates"
+
+          curl -fsSL -o /tmp/godot.zip \
+            "$base/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          # The zip nests a versioned directory; find the executable rather than assume its name.
+          bin="$(find /tmp/godot-bin -type f -name 'Godot_v*_mono_linux.x86_64' | head -1)"
+          test -n "$bin" || { echo "::error::no Godot binary inside the zip"; find /tmp/godot-bin | head; exit 1; }
+          # Keep the whole directory: the .NET build needs GodotSharp/ beside the binary.
+          cp -r "$(dirname "$bin")"/. ~/godot/
+          mv "$HOME/godot/$(basename "$bin")" ~/godot/godot
+          chmod +x ~/godot/godot
+
+          curl -fsSL -o /tmp/templates.tpz \
+            "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          # The tpz contains a single templates/ directory; Godot wants its contents under a
+          # directory named exactly as the engine reports itself.
+          mv /tmp/templates/templates "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono"
+
+      - name: Report the engine actually installed
+        run: |
+          ~/godot/godot --version
+          ls "$HOME/.local/share/godot/export_templates/"
+
+      # .godot/ is not committed, so a fresh clone has no imported resources. Without this the
+      # export produces a game with missing textures and meshes rather than an error.
+      - name: Import resources
+        run: ~/godot/godot --headless --import --path . || true
+
+      - name: Export
+        run: |
+          set -euo pipefail
+          mkdir -p build/windows build/linux
+          ~/godot/godot --headless --path . --export-release "Windows Desktop" build/windows/TheFirstDay.exe
+          ~/godot/godot --headless --path . --export-release "Linux" build/linux/TheFirstDay.x86_64
+
+      # An export that silently produced nothing would otherwise be published as an empty build.
+      - name: Check the exports are real
+        run: |
+          set -euo pipefail
+          for f in build/windows/TheFirstDay.exe build/linux/TheFirstDay.x86_64; do
+            test -s "$f" || { echo "::error::$f is missing or empty"; exit 1; }
+          done
+          for f in build/windows/data_TheFirstDay_windows_x86_64/TheFirstDay.dll \
+                   build/linux/data_TheFirstDay_linuxbsd_x86_64/TheFirstDay.dll; do
+            test -s "$f" || { echo "::error::$f is missing - the C# assembly did not ship"; exit 1; }
+          done
+          du -sh build/windows build/linux
+
+      - name: Keep the builds on the run, tag or not
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-first-day-${{ steps.v.outputs.version }}
+          path: build/
+          retention-days: 14
+
+      - name: Install butler
+        if: steps.v.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          # broth 307s and rejects HEAD, so -L is required and a HEAD-based check would mislead.
+          curl -fsSL -o /tmp/butler.zip "https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default"
+          unzip -q /tmp/butler.zip -d ~/butler
+          chmod +x ~/butler/butler
+          ~/butler/butler -V
+
+      - name: Publish to itch.io
+        if: steps.v.outputs.publish == 'true'
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUTLER_API_KEY:-}" ]; then
+            echo "::error::BUTLER_API_KEY is not set. Add it at Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          v="${{ steps.v.outputs.version }}"
+          ~/butler/butler push build/windows "${ITCH_TARGET}:windows" --userversion "$v"
+          ~/butler/butler push build/linux   "${ITCH_TARGET}:linux"   --userversion "$v"
+          ~/butler/butler status "${ITCH_TARGET}:windows"
+          ~/butler/butler status "${ITCH_TARGET}:linux"
