@@ -2500,3 +2500,89 @@ check written from the implementation will confirm the implementation. It is now
 direction is asserted to **move focus from a named button to a named button**, plus the ends of the
 column and a horizontal press that must do nothing. Those are statements about what the player can do,
 and the old bug fails every one of them.
+
+## The credits become a scene, and gain a way in
+
+Three changes, all requested rather than inferred, and the first is a real divergence from the
+original.
+
+### It is a roll now, not a timed crawl
+
+Unity's `Credits` scrolled for a fixed duration:
+
+    while (creditsTime > 0f) {
+        creditsTime -= Time.deltaTime;
+        self.anchoredPosition += Vector2.up * Time.deltaTime * scrollspeed;
+        yield return null;
+    }
+
+with `scrollspeed 3` and `creditsTime 10` on the instance in `UI.prefab` — 30 units of travel in ten
+seconds, a text that twitches up by a line or two and then stops wherever it has got to, drawn over
+the level's own last frame. Those numbers are recorded above and are no longer what runs.
+
+The replacement is **distance-driven**: the roll ends when the text has cleared the top edge. That
+choice is not cosmetic. A timed scroll silently truncates — add a name and the last one falls off the
+end, with nothing to tell you. Length now follows content. `ScrollSpeed` is the only knob; the
+geometry comes from `GetViewportRect()` at runtime, which under this project's `canvas_items` stretch
+mode is always the 1920x1080 base size, so the roll is resolution-independent with no scaling maths.
+
+Speed measured, not guessed: the text is 2296 px tall, so the travel is 1080 + 2296 = 3376 px. 100
+px/s ran 34 s, which is a long time to hold someone who has just finished a jam game; **140 px/s**
+reads it out in about 24 s. Revisit if the list grows.
+
+### One implementation, reached two ways
+
+`scenes/credits.tscn` — black `ColorRect`, one centred `Label`, `scripts/UI/Credits.cs`. Both routes
+lead here:
+
+- **The level's ending.** `TimerZone` no longer reveals an in-level Label; it calls
+  `ChangeSceneToFile` on the credits. Everything before that point is untouched and still Unity's —
+  cross the line, lose control, Fortunato cries, confetti, five seconds, fade. The change happens
+  only once the screen is fully black, which is what makes it invisible.
+- **The main menu's Credits button.** Unity had **no menu route to the credits at all**: they existed
+  only inside the level, revealed at the finish line, so nobody who failed to complete the game ever
+  saw who made it. The button leaves through the same fade the Start button does — not for
+  consistency, but because the credits open on solid black, so arriving already black is a
+  transition rather than a cut.
+
+Keeping one implementation is the point. Two copies of a credits roll drift, and the one nobody
+reaches drifts furthest.
+
+**Skip has a guard.** Any key, click or pad button ends the roll, but not within the first 0.4 s. The
+menu's Credits button is activated with the same key that would skip, and although `ChangeSceneToFile`
+is deferred to end-of-frame — so the *press* is consumed by the old scene and only a release can land
+here, which is filtered out anyway — a held key repeating would otherwise skip the credits before a
+line was legible. Mouse *motion* is deliberately not a skip.
+
+### What was added to the text, and what was not
+
+Audio provenance, established from the Unity project rather than assumed. Its `README.md` is one line
+("AsylumJam2016") and there is no credits or licence file anywhere, so filenames were the evidence:
+
+| asset | source | in the credits |
+|---|---|---|
+| `guille_experimental.wav` | Guillermo Rojas | yes, as Music |
+| `robinhood76__looping-hollow-open-air-wind.wav` | robinhood76, freesound | yes — **filename corrected**, the old text said `looping-hollow-air-wind.wav` and dropped the "open" |
+| `susurro_loko.wav` | no author encoded; plausibly the thanvannispen / speedygonzo whispers already listed | those two remain listed |
+| `step.wav` | **nothing** — no author prefix, no readme, no meta | **deliberately uncredited** |
+
+`step.wav` stays off the list on request, and that is the right call over the alternative: inventing a
+plausible freesound attribution would be worse than an omission, because a wrong credit is a claim
+about a real person. If its origin turns up, add it.
+
+Also fixed: `Fernando castillo` in the Concept Art block, lower-case, where the same name is spelled
+correctly eight lines above. Added: an `Asylum Jam 2016` line and `Made with Godot Engine`, both
+factual — remove them if they are not wanted.
+
+`tools/verify_credits.gd` is 14 checks, written against the failure modes rather than the
+implementation: the background is opaque black over the whole viewport, the text **starts off-screen**
+below the bottom edge, the **whole** text clears the top (the assertion a timed scroll fails, and the
+one that catches a newly added name being cut off), the roll stops rather than running on forever, a
+press skips, a press inside the guard does not, and every attributed name is still present —
+freesound's licences require those, so a check keeps an edit from quietly dropping one.
+
+`tools/verify_ending.gd` was rewritten to match: its old assertions about a Label's visibility and
+`creditsTime` counting down are gone, replaced by letting the scene change actually happen and finding
+the credits scene by script path. It is allowed to run rather than blanked out, because it is the last
+thing the chain does and letting it happen is the only way to prove the ending arrives at the credits
+instead of merely intending to. Measured: entry to black 8.00 s as before, black to credits 0.05 s.

@@ -120,9 +120,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -197.0
-offset_top = 126.5
+offset_top = 56.5
 offset_right = 197.0
-offset_bottom = 347.5
+offset_bottom = 415.5
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 55
@@ -144,6 +144,22 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_wu84c")
 theme_override_styles/disabled = SubResource("StyleBoxFlat_8ln24")
 theme_override_styles/focus = SubResource("StyleBoxFlat_rtw2f")
 text = "Start"
+
+[node name="CreditsButton" type="Button" parent="CanvasLayer/MainMenu/MenuArea/UI/Menu"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(394, 83)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_focus_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_fonts/font = ExtResource("3_wu84c")
+theme_override_font_sizes/font_size = 46
+theme_override_styles/normal = SubResource("StyleBoxFlat_oa1go")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tbmy8")
+theme_override_styles/hover = SubResource("StyleBoxFlat_jk1qb")
+theme_override_styles/focus = SubResource("StyleBoxFlat_5dd4i")
+text = "Credits"
 
 [node name="ExitButton" type="Button" parent="CanvasLayer/MainMenu/MenuArea/UI/Menu" unique_id=1764342692]
 unique_name_in_owner = true

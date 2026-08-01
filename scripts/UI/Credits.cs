@@ -3,10 +3,12 @@ using Godot;
 namespace TheFirstDay.UI;
 
 /// <summary>
-/// Port of Credits: scrolls the credits text upward for a fixed time, then returns to
-/// the main menu.
+/// The credits roll, now a scene of its own (<c>res://scenes/credits.tscn</c>) rather than a hidden
+/// Label inside the level: black screen, text rolling up from below the bottom edge until it clears
+/// the top, then back to the main menu. Reached two ways - the level's ending, and the main menu's
+/// Credits button - and there is exactly one of it, so the two cannot drift apart.
 ///
-/// Unity's routine, verbatim:
+/// A DELIBERATE DIVERGENCE, requested rather than inferred. Unity's Credits was a **timed** scroll:
 ///
 ///     while (creditsTime > 0f) {
 ///         creditsTime -= Time.deltaTime;
@@ -15,63 +17,143 @@ namespace TheFirstDay.UI;
 ///     }
 ///     onCreditsEnd.Invoke();
 ///
-/// with scrollspeed 3 and creditsTime 10 on the instance in UI.prefab, and
-/// onCreditsEnd wired to GoToMainMenu.
+/// with scrollspeed 3 and creditsTime 10 on the instance in UI.prefab. That is 30 units of travel in
+/// ten seconds - a text that twitches upward by a couple of lines over a level's ending and then
+/// stops wherever it happens to be, on top of the level's own last frame. The original's numbers are
+/// recorded in docs/level-port-scope.md and are NOT what this does any more.
 ///
-/// Note the two things this does NOT do, both faithful. It is a **timed** scroll, not
-/// a scroll-until-offscreen: after creditsTime the text stops wherever it has reached,
-/// which at 3 units/s for 10 s is only 30 units. That is a slow crawl rather than a
-/// full roll, and it is what the original does - the numbers are the instance's, not
-/// invented. And Unity's `creditsTime` is a serialised field decremented in place, so
-/// a second call would fall straight through the loop and return to the menu at once;
-/// that is preserved by not resetting it.
-///
-/// Godot's Y axis runs the other way from Unity's anchoredPosition: up on screen is
-/// decreasing Position.Y here, increasing anchoredPosition.y there. Hence the
-/// subtraction.
+/// What replaces them is distance-driven, not time-driven: the roll ends when the text has actually
+/// left the screen, so adding a name lengthens the roll instead of truncating it. <see
+/// cref="ScrollSpeed"/> is the only knob, and the geometry comes from the viewport at runtime.
 /// </summary>
 public partial class Credits : Control
 {
+    /// <summary>
+    /// Roll speed in pixels per second, in the project's 1920x1080 canvas space.
+    ///
+    /// Not comparable to Unity's <c>scrollspeed</c> of 3, which was in a different unit over a
+    /// different clock and only ever had to cover 30 of them. Measured: this text is 2296 px tall,
+    /// so the full travel is 1080 + 2296 = 3376 px, and 140 px/s reads it out in about 24 s. 100
+    /// was tried first and ran 34 s, which is a long time to hold a player who has just finished a
+    /// jam game. Adding names lengthens the roll rather than truncating it, so revisit this if the
+    /// list grows much; it is skippable either way.
+    /// </summary>
     [Export]
-    public float ScrollSpeed { get; set; } = 3.0f;
+    public float ScrollSpeed { get; set; } = 140.0f;
 
+    /// <summary>
+    /// How long after the scene opens before a press will skip, in seconds.
+    ///
+    /// Arriving here from the main menu's Credits button means the button was just pressed, and
+    /// arriving from the ending means the player has been holding a direction. ChangeSceneToFile is
+    /// deferred to the end of the frame, so the PRESS is consumed by the old scene and only a
+    /// release can land here - which is already filtered out below - but a held key repeating, or a
+    /// second impatient press, would otherwise skip the credits before a single line is legible.
+    /// </summary>
     [Export]
-    public float CreditsTime { get; set; } = 10.0f;
+    public float SkipGuardSeconds { get; set; } = 0.4f;
 
     [Export]
     public string MainMenuScenePath { get; set; } = "res://scenes/main_menu.tscn";
 
-    private bool _rolling;
+    [Export]
+    public NodePath RollPath { get; set; } = new("Roll");
 
-    public void RollCredits()
+    private Label _roll = null!;
+    private float _endY;
+    private double _elapsed;
+    private bool _finished;
+
+    public override void _Ready()
     {
-        _rolling = true;
+        _roll = GetNode<Label>(RollPath);
+        LayOutRoll();
+    }
+
+    /// <summary>
+    /// Places the text just below the bottom edge and works out where "gone" is.
+    ///
+    /// Both from the viewport rather than hard-coded: under the project's <c>canvas_items</c> stretch
+    /// mode this rect is the 1920x1080 base size whatever the window is doing, so the roll is
+    /// resolution-independent without any scaling maths of its own.
+    /// </summary>
+    private void LayOutRoll()
+    {
+        Vector2 view = GetViewportRect().Size;
+
+        // Full width so the Label's own centring does the horizontal work; the height is whatever
+        // the text needs, which is what makes the roll's length follow its content.
+        float textHeight = _roll.GetMinimumSize().Y;
+        _roll.Size = new Vector2(view.X, textHeight);
+        _roll.Position = new Vector2(0.0f, view.Y);
+
+        // Gone is the last line clearing the TOP edge, not the first line reaching it.
+        _endY = -textHeight;
     }
 
     public override void _Process(double delta)
     {
-        if (!_rolling)
+        _elapsed += delta;
+
+        if (_finished)
         {
             return;
         }
 
-        if (CreditsTime > 0.0f)
+        Vector2 position = _roll.Position;
+        position.Y -= ScrollSpeed * (float)delta;
+        _roll.Position = position;
+
+        if (position.Y <= _endY)
         {
-            CreditsTime -= (float)delta;
-            Position -= new Vector2(0.0f, ScrollSpeed * (float)delta);
+            Finish();
+        }
+    }
+
+    /// <summary>
+    /// Any deliberate press cuts the roll short. Mouse MOTION is excluded on purpose - it is not an
+    /// intent to skip, and a nudged mouse would otherwise end the credits.
+    /// </summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (_finished || _elapsed < SkipGuardSeconds)
+        {
             return;
         }
 
-        _rolling = false;
+        bool pressed = @event switch
+        {
+            InputEventKey key => key.Pressed && !key.Echo,
+            InputEventMouseButton mouse => mouse.Pressed,
+            InputEventJoypadButton pad => pad.Pressed,
+            _ => false,
+        };
+
+        if (!pressed)
+        {
+            return;
+        }
+
+        GetViewport().SetInputAsHandled();
+        Finish();
+    }
+
+    private void Finish()
+    {
+        if (_finished)
+        {
+            return;
+        }
+
+        _finished = true;
         GoToMainMenu();
     }
 
-    /// <summary>Credits.onCreditsEnd, wired in UI.prefab to the UI's GoToMainMenu.</summary>
+    /// <summary>Unity's Credits.onCreditsEnd, wired in UI.prefab to the UI's GoToMainMenu.</summary>
     public void GoToMainMenu()
     {
-        // An empty path means "stay put" rather than an error. Harness scenes that
-        // drive the ending clear it so the tree is not torn down mid-test, and an
-        // export left unset should not spam a resource failure either.
+        // An empty path means "stay put" rather than an error. Harness scenes clear it so the tree is
+        // not torn down mid-test, and an export left unset should not spam a resource failure either.
         if (string.IsNullOrEmpty(MainMenuScenePath))
         {
             GD.Print($"{Name}: credits finished; no MainMenuScenePath set, staying on this scene.");

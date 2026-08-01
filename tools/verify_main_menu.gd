@@ -19,6 +19,7 @@ extends SceneTree
 # The scene root is a plain Node; MainMenu.cs sits on the Control beneath a CanvasLayer.
 var menu: Node
 var start_button: Button
+var credits_button: Button
 var exit_button: Button
 var viewport: Viewport
 var failures := 0
@@ -41,6 +42,7 @@ func _initialize() -> void:
 	await process_frame
 
 	start_button = menu.get_node("%StartButton")
+	credits_button = menu.get_node("%CreditsButton")
 	exit_button = menu.get_node("%ExitButton")
 
 	print("")
@@ -97,11 +99,13 @@ func _initialize() -> void:
 	# only to move_*, never to the ui_* actions Godot navigates on, so they armed the first
 	# button and then did nothing at all - the menu looked wired up but WASD could never reach
 	# the second button. The stick and d-pad were fine throughout, because ui_down carries them.
-	await _navigates("S", KEY_S, start_button, exit_button)
-	await _navigates("W", KEY_W, exit_button, start_button)
-	await _navigates("the down arrow", KEY_DOWN, start_button, exit_button)
-	await _navigates("the up arrow", KEY_UP, exit_button, start_button)
-	await _navigates("the stick", JOY_AXIS_LEFT_Y, start_button, exit_button, true)
+	await _navigates("S", KEY_S, start_button, credits_button)
+	await _navigates("S", KEY_S, credits_button, exit_button)
+	await _navigates("W", KEY_W, exit_button, credits_button)
+	await _navigates("W", KEY_W, credits_button, start_button)
+	await _navigates("the down arrow", KEY_DOWN, start_button, credits_button)
+	await _navigates("the up arrow", KEY_UP, exit_button, credits_button)
+	await _navigates("the stick", JOY_AXIS_LEFT_Y, start_button, credits_button, true)
 
 	# At the end of the column there is nowhere to go, and that must not wrap or clear focus.
 	await _reset()
@@ -122,7 +126,7 @@ func _initialize() -> void:
 	var was_disabled := start_button.disabled
 	start_button.disabled = true
 	await _key(KEY_DOWN)
-	_expect_focus("with Start disabled, the arrow arms Exit instead", exit_button)
+	_expect_focus("with Start disabled, the arrow arms Credits rather than Exit", credits_button)
 	start_button.disabled = was_disabled
 
 	# A key that is not a direction must be ignored, or this becomes "any key focuses".
@@ -146,14 +150,19 @@ func _navigates(label: String, code: int, from: Button, to: Button, is_stick := 
 	from.grab_focus()
 	await process_frame
 	if is_stick:
-		await _stick(code, 1.0 if to == exit_button else -1.0)
+		await _stick(code, 1.0 if _index_of(to) > _index_of(from) else -1.0)
 	else:
 		await _key(code)
 	_expect_focus("%s moves focus %s -> %s" % [label, from.name, to.name], to)
 
 
+## Position in the menu column, so a stick test knows which way to push.
+func _index_of(b: Button) -> int:
+	return b.get_index()
+
+
 func _first_button() -> Button:
-	return exit_button if start_button.disabled else start_button
+	return credits_button if start_button.disabled else start_button
 
 
 func _reset() -> void:

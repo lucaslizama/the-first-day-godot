@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://btqn724jhsjn8" path="res://scripts/UI/Credits.cs" id="1_credits"]
+[ext_resource type="FontFile" uid="uid://iyvfq71j01xd" path="res://font/Galindo-Regular.ttf" id="2_font"]
+
+[node name="Credits" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_credits")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Roll" type="Label" parent="."]
+layout_mode = 0
+offset_right = 1920.0
+theme_override_colors/font_color = Color(0.9019608, 0.9019608, 0.9019608, 1)
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 44
+theme_override_constants/line_spacing = 14
+text = "Credits
+
+
+Programming:
+Lucas Lizama
+
+3D Modeling and Animation:
+Ian Genskowsky
+Kathya Zuñiga
+Fernando Castillo
+
+Concept Art:
+Fernando Castillo
+Kathya Zuñiga
+
+Music:
+Guillermo Rojas
+
+Sounds:
+
+www.freesound.org
+
+whisper1.wav by thanvannispen
+\"small group whispering.wav\" by speedygonzo
+looping-hollow-open-air-wind.wav by robinhood76
+
+
+Asylum Jam 2016
+
+Made with Godot Engine"
+horizontal_alignment = 1

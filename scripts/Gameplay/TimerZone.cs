@@ -48,8 +48,21 @@ public partial class TimerZone : Area3D
     [Export]
     public NodePath FadePath { get; set; } = new();
 
+    /// <summary>
+    /// The credits, which are a SCENE now rather than a hidden Label in this one.
+    ///
+    /// Unity's ending revealed a panel that was already sitting in the level - `Credits
+    /// panel.SetActive(true)` - so the roll played over the level's own last frame. The credits are
+    /// now `res://scenes/credits.tscn`, black-backed and rolling until the text clears the top, and
+    /// the same scene is what the main menu's Credits button opens. One implementation, reached two
+    /// ways, so the ending and the menu cannot drift apart.
+    ///
+    /// Everything BEFORE this point is unchanged and still Unity's: cross the line, lose control,
+    /// Fortunato cries, confetti fires, five seconds later the fade starts, and the scene change
+    /// happens only once the screen is fully black - which is also what makes the change invisible.
+    /// </summary>
     [Export]
-    public NodePath CreditsPath { get; set; } = new();
+    public string CreditsScenePath { get; set; } = "res://scenes/credits.tscn";
 
     /// <summary>
     /// particleSys_conffeti. Optional: the confetti is not ported yet, so an unset or
@@ -61,7 +74,6 @@ public partial class TimerZone : Area3D
 
     private PlayerCharacter? _player;
     private UI.FadeOverlay? _fade;
-    private UI.Credits? _credits;
     private GpuParticles3D? _confetti;
     private bool _triggered;
 
@@ -69,12 +81,11 @@ public partial class TimerZone : Area3D
     {
         _player = GetNodeOrNull<PlayerCharacter>(PlayerPath);
         _fade = GetNodeOrNull<UI.FadeOverlay>(FadePath);
-        _credits = GetNodeOrNull<UI.Credits>(CreditsPath);
         _confetti = ConfettiPath.IsEmpty ? null : GetNodeOrNull<GpuParticles3D>(ConfettiPath);
 
-        if (_player is null || _fade is null || _credits is null)
+        if (_player is null || _fade is null)
         {
-            GD.PushError($"{Name}: PlayerPath, FadePath and CreditsPath must all resolve; the ending will not run.");
+            GD.PushError($"{Name}: PlayerPath and FadePath must both resolve; the ending will not run.");
             return;
         }
 
@@ -116,11 +127,25 @@ public partial class TimerZone : Area3D
         GetTree().CreateTimer(Delay).Timeout += () => _fade!.FadeOut();
     }
 
-    /// <summary>The UnityEventContainer's event: reveal the credits and roll them.</summary>
+    /// <summary>
+    /// The UnityEventContainer's event, which revealed the credits panel and rolled it. Here it is
+    /// the scene change to the credits, made behind a fully black screen.
+    /// </summary>
     private void OnFadeOutCompleted()
     {
         _fade!.FadeOutCompleted -= OnFadeOutCompleted;
-        _credits!.Visible = true;
-        _credits.RollCredits();
+
+        // An empty path means "stay put", so a harness driving the ending is not torn down mid-test.
+        if (string.IsNullOrEmpty(CreditsScenePath))
+        {
+            GD.Print($"{Name}: ending complete; no CreditsScenePath set, staying on this scene.");
+            return;
+        }
+
+        Error error = GetTree().ChangeSceneToFile(CreditsScenePath);
+        if (error != Error.Ok)
+        {
+            GD.PushError($"{Name}: could not load '{CreditsScenePath}': {error}.");
+        }
     }
 }

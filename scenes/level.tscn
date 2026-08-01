@@ -14,7 +14,6 @@
 [ext_resource type="Script" path="res://scripts/UI/FadeOverlay.cs" id="12_fade"]
 [ext_resource type="Script" path="res://scripts/Gameplay/RespawnChain.cs" id="13_chain"]
 [ext_resource type="Sky" path="res://materials/sky_fernandito.tres" id="14_sky"]
-[ext_resource type="Script" path="res://scripts/UI/Credits.cs" id="15_credits"]
 [ext_resource type="Script" path="res://scripts/Gameplay/TimerZone.cs" id="16_timer"]
 [ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
 [ext_resource type="Script" path="res://scripts/UI/PauseMenu.cs" id="18_pause"]
@@ -121,50 +120,6 @@ FadeInDelay = 1.0
 FadeOutDelay = 1.0
 FadeInOnReady = true
 
-[node name="Credits" type="Label" parent="UI"]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-grow_horizontal = 2
-grow_vertical = 2
-horizontal_alignment = 1
-vertical_alignment = 1
-text = "Credits
-
-
-
-
-Programming:
-Lucas Lizama
-
-3D Modeling and Animation:
-Ian Genskowsky
-Kathya Zuñiga
-Fernando Castillo
-
-
-Concept Art:
-Fernando castillo
-Kathya Zuñiga
-
-Music:
-Guillermo Rojas
-
-Sounds:
-
-www.freesound.org
-
-whisper1.wav by thanvannispen
-\"small group whispering.wav\" by speedygonzo
-looping-hollow-air-wind.wav by robinhood76"
-script = ExtResource("15_credits")
-ScrollSpeed = 3.0
-CreditsTime = 10.0
-
 [node name="PausePanel" type="Control" parent="UI"]
 process_mode = 3
 visible = false
@@ -207,7 +162,6 @@ script = ExtResource("16_timer")
 Delay = 5.0
 PlayerPath = NodePath("../Player")
 FadePath = NodePath("../UI/FadeOverlay")
-CreditsPath = NodePath("../UI/Credits")
 ConfettiPath = NodePath("../Confetti")
 
 [node name="Collider" type="CollisionShape3D" parent="TimerZone"]

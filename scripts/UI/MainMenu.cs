@@ -12,6 +12,14 @@ public partial class MainMenu : Control
     public string LevelScenePath { get; set; } = "res://scenes/level.tscn";
 
     /// <summary>
+    /// The credits, which Unity had no menu route to at all - they existed only as a panel inside the
+    /// level, revealed when the player reached the finish line, so nobody who did not complete the
+    /// game ever saw who made it. A DELIBERATE ADDITION, and the reason the credits are now a scene.
+    /// </summary>
+    [Export]
+    public string CreditsScenePath { get; set; } = "res://scenes/credits.tscn";
+
+    /// <summary>
     /// Inputs that count as "the player is reaching for the menu" and so arm the first button.
     ///
     /// Two families, because the two halves of the scheme live in different places. The arrow keys
@@ -33,8 +41,17 @@ public partial class MainMenu : Control
     };
 
     private Button _startButton = null!;
+    private Button _creditsButton = null!;
     private Button _exitButton = null!;
     private FadeOverlay _fade = null!;
+
+    /// <summary>
+    /// Where the fade is taking us. The overlay has one completion signal and there are now two
+    /// destinations behind it, so the button records its choice and the one handler acts on it -
+    /// rather than subscribing and unsubscribing a different handler per press, which leaks a
+    /// connection the first time a player changes their mind.
+    /// </summary>
+    private string _pendingScenePath = string.Empty;
 
     public override void _Ready()
     {
@@ -45,12 +62,14 @@ public partial class MainMenu : Control
         Gameplay.GameManager.Instance?.ReleaseMouse();
 
         _startButton = GetNode<Button>("%StartButton");
+        _creditsButton = GetNode<Button>("%CreditsButton");
         _exitButton = GetNode<Button>("%ExitButton");
         _fade = GetNode<FadeOverlay>("%FadeOverlay");
 
         _startButton.Pressed += OnStartPressed;
+        _creditsButton.Pressed += OnCreditsPressed;
         _exitButton.Pressed += OnExitPressed;
-        _fade.FadeOutCompleted += LoadLevel;
+        _fade.FadeOutCompleted += LoadPendingScene;
 
         // The level scene has not been ported yet.
         _startButton.Disabled = !ResourceLoader.Exists(LevelScenePath);
@@ -100,8 +119,9 @@ public partial class MainMenu : Control
                 continue;
             }
 
-            // Start unless it is disabled, which is what the old GrabFocus pair chose too.
-            Button first = _startButton.Disabled ? _exitButton : _startButton;
+            // Start unless it is disabled - in which case Credits, the next thing that still works.
+            // Falling through to Exit would arm "quit the game" as the menu's opening selection.
+            Button first = _startButton.Disabled ? _creditsButton : _startButton;
             first.GrabFocus();
 
             // CONSUMED DELIBERATELY, so this press only arms the focus and does not also move it.
@@ -173,16 +193,34 @@ public partial class MainMenu : Control
 
     private void OnStartPressed()
     {
-        // Fade to black first; LoadLevel runs when the overlay is opaque.
+        // Fade to black first; LoadPendingScene runs when the overlay is opaque.
+        _pendingScenePath = LevelScenePath;
         _fade.FadeOut();
     }
 
-    private void LoadLevel()
+    /// <summary>
+    /// The credits leave through the same fade the level does, which is not only for consistency:
+    /// the credits scene opens on solid black, so arriving already black makes the transition
+    /// invisible rather than a cut.
+    /// </summary>
+    private void OnCreditsPressed()
     {
-        Error error = GetTree().ChangeSceneToFile(LevelScenePath);
+        _pendingScenePath = CreditsScenePath;
+        _fade.FadeOut();
+    }
+
+    private void LoadPendingScene()
+    {
+        if (string.IsNullOrEmpty(_pendingScenePath))
+        {
+            return;
+        }
+
+        Error error = GetTree().ChangeSceneToFile(_pendingScenePath);
         if (error != Error.Ok)
         {
-            GD.PushError($"Could not load '{LevelScenePath}': {error}");
+            GD.PushError($"Could not load '{_pendingScenePath}': {error}");
+            _pendingScenePath = string.Empty;
             _fade.FadeIn();
         }
     }

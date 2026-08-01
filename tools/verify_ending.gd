@@ -2,43 +2,44 @@
 #
 #   godot-mono --headless --path . --script tools/verify_ending.gd
 #
-# The chain, read out of nivelEscena (TimerZone delay: 5) and UI.prefab
-# (scrollspeed 3, creditsTime 10):
+# The chain, read out of nivelEscena (TimerZone delay: 5):
 #
 #   player enters the volume ->  CanValidateInput = false, Fortunato.Cry(),
 #                                fade's completion armed, confetti played
 #   +5 s                     ->  FadeOut()
-#   fade fully black         ->  credits shown and rolling
-#   +10 s of rolling         ->  back to the main menu
+#   fade fully black         ->  the credits SCENE is loaded
 #
 # What matters here is the ORDER and the TIMING, since the failure modes are a race
-# (arming the fade callback after calling FadeOut) and a wrong delay. The scene change
-# at the end is deliberately not allowed to happen - it would tear down the tree
-# mid-test - so the credits' own countdown reaching zero is checked instead.
+# (arming the fade callback after calling FadeOut) and a wrong delay.
+#
+# THE LAST STEP CHANGED. Unity revealed a credits panel that was already sitting in the
+# level - `Credits panel.SetActive(true)` - and this port did the same until the credits
+# became a scene of their own, shared with the main menu's Credits button. So the old
+# assertions about a Label's visibility and its creditsTime counting down are gone; what is
+# asserted instead is that the scene change actually happens, and happens while black. The
+# roll itself belongs to tools/verify_credits.gd now, which is where it is tested.
+#
+# The scene change is deliberately ALLOWED to happen here rather than blanked out. It is the
+# last thing the chain does, so there is nothing left to tear down, and letting it run is the
+# only way to prove the ending really arrives at the credits rather than merely intending to.
 extends SceneTree
 
 const TIMER_DELAY := 5.0
-const CREDITS_TIME := 10.0
 const TOL := 0.2
 
 var level: Node3D
 var player: Node3D
 var fade: ColorRect
-var credits: Control
 var timer_zone: Area3D
 
 var frame := 0
 var clock := 0.0
 var entered_at := -1.0
-var fade_started_at := -1.0
 var black_at := -1.0
-var credits_shown_at := -1.0
-var credits_start_y := 0.0
-var credits_moved := false
+var credits_at := -1.0
 var input_disabled_at := -1.0
 var done := false
 var failures := 0
-var notes: Array[String] = []
 
 
 func _process(_d: float) -> bool:
@@ -47,21 +48,17 @@ func _process(_d: float) -> bool:
 		root.add_child(level)
 		player = level.get_node("Player")
 		fade = level.get_node("UI/FadeOverlay")
-		credits = level.get_node("UI/Credits")
 		timer_zone = level.get_node("TimerZone")
-		# Check the real destination loads BEFORE blanking it, so the test still
-		# asserts the wiring rather than skipping it. Then blank it, or changing the
-		# scene would tear the tree down mid-test.
-		var menu: String = credits.get("MainMenuScenePath")
-		if ResourceLoader.exists(menu):
-			print("  ok    MainMenuScenePath resolves       %s" % menu)
+
+		var credits_scene: String = timer_zone.get("CreditsScenePath")
+		if ResourceLoader.exists(credits_scene):
+			print("  ok    CreditsScenePath resolves        %s" % credits_scene)
 		else:
-			_fail("MainMenuScenePath '%s' does not exist; the credits would dead-end" % menu)
-		credits.set("MainMenuScenePath", "")
-		# Subscribe rather than sampling color.a. The tween reaches 1.0 on the same
-		# frame the signal fires, so a sampled ">= 0.999" check is a coin flip - it
-		# passed on one run of this script and missed on the next. The signal is the
-		# thing the chain actually depends on, so test that.
+			_fail("CreditsScenePath '%s' does not exist; the ending would dead-end" % credits_scene)
+
+		# Subscribe rather than sampling color.a. The tween reaches 1.0 on the same frame the
+		# signal fires, so a sampled ">= 0.999" check is a coin flip - it passed on one run of
+		# this script and missed on the next. The signal is what the chain depends on.
 		fade.connect("FadeOutCompleted", _on_black)
 	return false
 
@@ -72,6 +69,18 @@ func _on_black() -> void:
 		_note("%5.2fs  fade reported fully black" % clock)
 
 
+## The credits scene, wherever ChangeSceneToFile has put it. Found by script rather than by
+## node name so renaming the root node does not silently turn this check off.
+func _find_credits() -> Node:
+	for child in root.get_children():
+		if child == level:
+			continue
+		var script: Script = child.get_script()
+		if script != null and script.resource_path.ends_with("Credits.cs"):
+			return child
+	return null
+
+
 func _physics_process(delta: float) -> bool:
 	if level == null or done:
 		return false
@@ -80,7 +89,7 @@ func _physics_process(delta: float) -> bool:
 
 	# Let the level settle, then put the player in the finish volume. The zone sits at
 	# (-0.02, 12, -182.32) with its box offset (0, 2, 0), so this is inside it.
-	if frame == 30:
+	if frame == 30 and is_instance_valid(player):
 		_note("%5.2fs  placing the player in the finish volume" % clock)
 		player.global_position = timer_zone.global_position + Vector3(0, 1.0, 0)
 		entered_at = clock
@@ -92,16 +101,9 @@ func _physics_process(delta: float) -> bool:
 		input_disabled_at = clock
 		_note("%5.2fs  input disabled" % clock)
 
-	if credits_shown_at < 0.0 and credits.visible:
-		credits_shown_at = clock
-		credits_start_y = credits.position.y
-		_note("%5.2fs  credits shown and rolling" % clock)
-	elif credits_shown_at >= 0.0 and not credits_moved and credits.position.y < credits_start_y - 1.0:
-		credits_moved = true
-		_note("%5.2fs  credits have scrolled %.1f px upward" % [clock, credits_start_y - credits.position.y])
-
-	if credits_shown_at >= 0.0 and credits.get("CreditsTime") <= 0.0:
-		_note("%5.2fs  credits finished; GoToMainMenu reached" % clock)
+	if credits_at < 0.0 and _find_credits() != null:
+		credits_at = clock
+		_note("%5.2fs  the credits scene is loaded" % clock)
 		done = true
 		_report()
 		quit(1 if failures > 0 else 0)
@@ -117,7 +119,6 @@ func _physics_process(delta: float) -> bool:
 
 
 func _note(message: String) -> void:
-	notes.append(message)
 	print("   ", message)
 
 
@@ -146,21 +147,20 @@ func _report() -> void:
 	if black_at < 0.0:
 		_fail("the screen never went fully black")
 	else:
-		# FadeOut is called delay seconds after entry, then takes FadeOutDelay (1 s)
-		# plus 1/FadeOutSpeed (0.5 alpha/s -> 2 s) to reach black. Same arithmetic
+		# FadeOut is called delay seconds after entry, then takes FadeOutDelay (1 s) plus
+		# 1/FadeOutSpeed (0.5 alpha/s -> 2 s) to reach black. Same arithmetic
 		# verify_respawn.gd checks for the death fade: 1 + 2 = 3 s.
 		_check("entry -> fully black", black_at - entered_at, TIMER_DELAY + 3.0)
 
-	if credits_shown_at < 0.0:
-		_fail("the credits were never shown")
+	if credits_at < 0.0:
+		_fail("the credits scene was never loaded; the ending dead-ends on a black screen")
 	else:
-		_check("black -> credits shown", credits_shown_at - black_at, 0.0)
-		if not credits_moved:
-			_fail("the credits were shown but never scrolled")
-		_check("credits roll duration", clock - credits_shown_at, CREDITS_TIME)
+		# The point of the ordering: the change happens BEHIND the fade, so the player never
+		# sees the level being swapped out. Anything above a frame or two here is a visible cut.
+		_check("black -> credits loaded", credits_at - black_at, 0.0)
 
 	print("")
 	if failures == 0:
-		print("OK - crossed the line, lost control, faded to black, rolled the credits, returned to the menu.")
+		print("OK - crossed the line, lost control, faded to black, arrived at the credits.")
 	else:
 		print("FAIL - %d step(s) wrong" % failures)
