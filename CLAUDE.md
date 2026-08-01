@@ -54,8 +54,20 @@ same facts to **stdout**, which is where per-run output belongs.
   `Fortunato` is deliberately +9.5 dB where Unity's mixer said +20 (which clipped). If the
   whispers need changing, change that bus — not `WhisperEmitter.OnsetVolumeDb`, which was
   tuned by ear. Full reasoning under "The footsteps were clipping" in the ledger.
-- **A change is not done until its verifier passes.** `tools/verify_*.gd` are the port's
-  memory of every bug already fixed; adding to them is part of the work.
+- **A change is not done until its verifier passes** — for the change you were asked to make.
+  `tools/verify_*.gd` are the port's memory of every bug already fixed; adding to them is part of
+  the work.
+- **No absolute paths in `.mcp.json`.** This repo is developed on more than one machine, and the
+  checkout is not at the same place on each, so any hard-coded path is wrong on every machine but
+  one — it was committed wrong once already. `GODOT_MCP_PROJECT_PATH` is **not needed**: the server
+  reads `process.env.GODOT_MCP_PROJECT_PATH ?? process.cwd()`, and Claude Code spawns it with cwd
+  already set to the project root (verified via `/proc/<pid>/cwd`). Leave it out. The file stays
+  tracked and identical everywhere; it needs no `.gitignore` and no `skip-worktree`.
+- **Do not run verifiers on suspicion.** Sweeping `tools/verify_*` because something *looks*
+  wrong costs ten minutes and usually finds nothing. If you suspect a bug, **say so and stop** —
+  the human plays the game and confirms it. Only then are the verifiers worth running, and then
+  the job is to make the check catch it and fix the cause. Run them when: a bug has been
+  reported, or you touched the thing that verifier covers.
 
 ## Commands
 
