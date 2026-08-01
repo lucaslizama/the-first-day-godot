@@ -2736,3 +2736,74 @@ works.
 
 Recorded so the reasoning is not rediscovered and re-argued. If the keyboard ever goes dead with a
 pad plugged in, this is the first place to look.
+
+## Jumping at the first room's back wall pinned the character in mid-air
+
+Reported from play: jump towards the back wall of the first room and you hang there. Gravity has
+no effect, direction can still be changed, and the animation sits on the jump clip's final frame.
+
+Reproduced in a harness, and the log is worth keeping because it rules out the obvious suspect:
+
+    t83   y=0.612  vy=+8.333  wall=true   .../piezaParede_01/piezaParedes/pCube1/StaticBody3D
+    t108  y=0.612  vy=+0.000  wall=true
+    t116  y=0.612  vy=-2.667  wall=true
+
+`Velocity.y` sweeps from +8.3 through zero to −2.7, so **gravity was being applied the whole
+time** and the state machine was fine — `IsJumping` cleared to `IsFalling` on schedule. The
+*position* never moved: y and z both frozen to the millimetre. The animation looked stuck because
+the jump clip is non-looping and 0.17 s long, so it had simply finished and was holding its last
+pose; nothing was wrong with the animation either.
+
+`MoveAndSlide` was resolving nothing. Every tick asked for motion and got exactly none.
+
+### Two wrong theories, both cheap to kill and worth recording
+
+**"The step-up is latching onto the wall."** No: `TryStepUp` and `TryStepDown` both return
+immediately when `IsJumping || IsFalling`, and the log shows one or the other true throughout.
+
+**"The prop should not be solid at all."** This one was seductive. `piezaParede.fbx.meta` says
+`addColliders: 0`, every model meta in the Unity project says the same, and `PropCollision`'s whole
+design is off-by-default with `GenerateCollision` set per instance — and `piezaParede_01` does not
+set it. Its solidity comes instead from `piezaParede.fbx.import` generating trimesh physics on
+7 sub-meshes. That looked exactly like collision the port invented.
+
+**It is load-bearing.** Ray-casting +Z from inside the room, at six heights from 0.2 m to 2.4 m:
+
+    prop ENABLED    every height blocked at z=6.866 by piezaParede_01
+    prop DISABLED   NOTHING within 8 m, at every height
+
+The level shell does not close that wall; this prop is the only thing that does, and Unity's scene
+adds 60 `MeshCollider` components per-instance, so it being solid there is almost certainly
+deliberate. Removing the import physics would have opened the level. **Checking that before acting
+is the only reason this did not ship as a hole in the first room.**
+
+### The cause was the depenetration margin
+
+The capsule catches on the seams of the prop's trimesh collision, and Godot's default
+`safe_margin` of 0.001 is too small to push it clear. Driven under a range of settings:
+
+| setting | result |
+|---|---|
+| `max_slides` 12, then 24 | still pinned — so never slide-budget exhaustion |
+| `safe_margin` 0.001 (default) | pinned |
+| `safe_margin` 0.02, 0.03, 0.04 | pinned |
+| `safe_margin` 0.05 | frees him — but this is the **threshold** |
+| `safe_margin` 0.08 | frees him with room to spare |
+
+`safe_margin = 0.08` on the Player in `scenes/player.tscn`. 0.05 was rejected for the same reason
+`StepSmoothingHalfLife` is 0.25 rather than 0.20: a value sitting exactly on the edge of working is
+the kind that fails one run in three.
+
+**Not a patch for one prop.** 0.001 is small for `ConcavePolygonShape3D`, and this level is trimesh
+throughout — `LevelShell` builds 53 bodies that way and `PropCollision` adds more — so any seam
+could have done the same thing.
+
+Confirmed no cost to the movement that was tuned around the old value: `verify_stairs` 8/8,
+`verify_platforms`, `verify_footsteps`, `verify_respawn`, `verify_ending` and `verify_death_pose`
+all still pass.
+
+`tools/verify_wedge.gd` walks and runs into that wall and jumps, asserting he comes back down. It
+checks the BEHAVIOUR, not the setting: asserting `safe_margin == 0.08` would pass while the player
+was welded to a wall by some other cause. **Verified to fail without the fix** — with the margin
+removed it exits 1 and reports "PINNED - 20 ticks airborne at y=0.612 with no vertical movement,
+while Velocity.y=+2.00", which is the reported bug in one line.

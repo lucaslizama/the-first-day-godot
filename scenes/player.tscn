@@ -9,6 +9,7 @@
 radius = 0.3
 
 [node name="Player" type="CharacterBody3D" unique_id=969548623]
+safe_margin = 0.08
 floor_snap_length = 0.35
 script = ExtResource("1_3vyb7")
 AnimationPlayerPath = NodePath("AnimationPlayer")
