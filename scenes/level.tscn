@@ -17,6 +17,8 @@
 [ext_resource type="Script" path="res://scripts/Gameplay/TimerZone.cs" id="16_timer"]
 [ext_resource type="PackedScene" path="res://scenes/confetti.tscn" id="17_confetti"]
 [ext_resource type="Script" path="res://scripts/UI/PauseMenu.cs" id="18_pause"]
+[ext_resource type="Script" uid="uid://c5qdf5qlwf28n" path="res://scripts/UI/DeathDistortion.cs" id="25_distortion"]
+[ext_resource type="Material" path="res://materials/death_distortion.tres" id="26_distortion_mat"]
 
 [ext_resource type="Material" path="res://materials/level_general.tres" id="19_general"]
 [ext_resource type="Material" path="res://materials/level_transparent.tres" id="20_transparent"]
@@ -105,6 +107,15 @@ TargetPath = NodePath("../Player/CameraTargetParent/CameraTarget")
 IgnoreBodyPath = NodePath("../Player")
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="DeathDistortion" type="ColorRect" parent="UI"]
+material = ExtResource("26_distortion_mat")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("25_distortion")
 
 [node name="FadeOverlay" type="ColorRect" parent="UI"]
 layout_mode = 1

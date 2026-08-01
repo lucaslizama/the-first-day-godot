@@ -313,7 +313,9 @@ The coworkers are **billboarded sprite-sheet animations**, not 3D models. See
 ### 4. Not needed
 
 - `Antialiasing.cs` — Godot has MSAA (already `msaa_3d=2`) and FXAA built in.
-- `VignetteAndChromaticAberration` — **done**, see `shaders/death_distortion.gdshader`.
+- `VignetteAndChromaticAberration` — **done**, see `shaders/death_distortion.gdshader`, and see
+  "The death post-process was written and never plugged in" below: for a long time this line was
+  true about the shader and false about the game.
 - `EventSystem` — the unresolved script guid `f5f67c52…` is Unity's built-in
   `UnityEngine.UI` assembly, not project code. Godot's `Control` system covers it.
 - `Yelena.prefab` — disabled in the scene.
@@ -2607,3 +2609,72 @@ assert the Unity original and the Godot port are both still named.
 the credits scene by script path. It is allowed to run rather than blanked out, because it is the last
 thing the chain does and letting it happen is the only way to prove the ending arrives at the credits
 instead of merely intending to. Measured: entry to black 8.00 s as before, black to credits 0.05 s.
+
+## The death post-process was written and never plugged in
+
+Reported from play as "one detail left from the original", and it was: Unity's level camera
+carries a `VignetteAndChromaticAberration` image effect that worsens with every death, and in
+this port it had never once appeared on screen.
+
+Not because it was unwritten. `shaders/death_distortion.gdshader` existed, correct and carefully
+derived. `scripts/UI/DeathDistortion.cs` existed, wired to `GameManager.DeathConstantChanged`.
+`tools/verify_death_shader.gd` existed and passed. This document recorded the effect as **done**.
+The one thing missing was a node: no scene ever instantiated either file, so the whole apparatus
+sat inert in the repository.
+
+Unity's settings, from `nivelEscena`, on a component with `m_Enabled: 1` — always on, not only
+while dying:
+
+    mode: 0 (Simple)      intensity: 0.1        chromaticAberration: 1
+    axialAberration: 0.5  blur: 0               luminanceDependency: 0.25
+
+`GameManager` drives `0.1 + 0.3 * deathConstant` and `2.0 + 8.0 * deathConstant` over those, so a
+fresh run already carries a faint vignette and 2 px of fringing, reaching 0.4 and 10 px by ten
+deaths. Confirmed on screen at both ends before calling it done this time.
+
+### The fix, and the three details in it
+
+`UI/DeathDistortion`, a full-rect `ColorRect` with `materials/death_distortion.tres`, added to
+`scenes/level.tscn`. Three things about it are not arbitrary:
+
+- **It is the FIRST child of the `UI` layer.** Later children of a `CanvasLayer` draw over earlier
+  ones, so this puts it *under* `FadeOverlay` and `PausePanel`. Above the fade, a fade to black
+  would be a distorted black rather than black; above the pause panel, the menu would be fringed.
+- **`mouse_filter = 2`.** A full-screen `Control` at the default `STOP` swallows every click.
+- **The material is a `.tres`, not a `sub_resource`.** The uniforms are written at runtime by the
+  script, so the file only carries the resting values — but keeping it addressable means the same
+  effect can be dropped into another scene without copying shader wiring into it.
+
+### Why nothing caught it, which is the part worth keeping
+
+`verify_death_shader.gd` renders the shader through a synthetic `SubViewport`. It was never going
+to catch this, for two reasons, and the second is worse than the first.
+
+The first is scope: everything it renders is the shader **in isolation**, so the level not having
+the shader is outside what it could express even in principle.
+
+The second, found while checking the first: **it asserts nothing.** There is no PASS/FAIL, no
+failing exit code, no threshold, and no companion analyser anywhere in `tools/` — it writes
+`death_source.png`, `death_k0.png` and `death_k1.png` to `/tmp` and exits 0. Its header describes
+comparing against an unshaded render, and that comparison is left to a human with an image viewer.
+
+It is therefore not a verifier, despite the name putting it in the same `tools/verify_*` sweep as
+the real ones, where it reports success unconditionally. **A check that cannot fail is worse than
+no check**, because it occupies the space where a real one would be noticed missing. Renaming it
+to `render_death_shader.gd` would be honest; adding the numeric comparison its own header promises
+would be better. Left as it is for now, recorded so it is not mistaken for cover.
+
+That is the same failure as the main menu's W/S two sections above, and the same as the credits'
+first eleven checks: a check written from the implementation confirms the implementation. Twice
+now the missing half has been *is this thing connected to the game at all*.
+
+`tools/verify_death_effect.gd` is the counterpart, and deliberately asserts nothing about the
+shader's arithmetic — that is already covered. It asserts the LEVEL: the node exists, carries the
+script and the material, covers the viewport, draws under the fade and the pause panel, ignores
+the mouse, rests at Unity's baseline, only ever worsens across ten deaths, saturates at 0.4 and
+10 px, and returns to baseline on reset. 13 checks.
+
+**A standing question for anything else marked done in this file.** "Ported" has meant "the code
+exists" more than once now. For every effect, shader or script recorded as done, the thing to ask
+is which scene instantiates it — and if the answer is none, it is not ported, however good the
+file is.

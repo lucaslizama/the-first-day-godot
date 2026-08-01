@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" uid="uid://cw28ggcnoplh3" path="res://shaders/death_distortion.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "death_distortion"
+shader = ExtResource("1_shader")
+shader_parameter/vignette_intensity = 0.1
+shader_parameter/chromatic_aberration = 2.0
