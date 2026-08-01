@@ -15,8 +15,6 @@
 [ext_resource type="Material" path="res://materials/props/lambert4.tres" id="14_y63pk"]
 [ext_resource type="Material" path="res://materials/props/blinn2.tres" id="15_exby2"]
 [ext_resource type="PackedScene" uid="uid://prmjlqeqhd6" path="res://models/props/cake.fbx" id="16_sb1h6"]
-[ext_resource type="Script" uid="uid://dnf3xukdbfrnv" path="res://scripts/UI/PauseMenu.cs" id="16_y63pk"]
-[ext_resource type="Script" uid="uid://d1vu8xbicm11l" path="res://scripts/Gameplay/RespawnChain.cs" id="17_exby2"]
 [ext_resource type="PackedScene" uid="uid://1abgbtshbg7p" path="res://models/props/pc2.fbx" id="17_hosjy"]
 [ext_resource type="PackedScene" uid="uid://bul7u0f1dyajj" path="res://models/props/table.fbx" id="18_f2xcd"]
 [ext_resource type="PackedScene" uid="uid://cw1iyclkeocfj" path="res://models/props/cable.fbx" id="19_joe1v"]
@@ -662,13 +660,6 @@ transform = Transform3D(-0.24671, 0, -0.987837, 0, 1, 0, 1.567301, 0, -0.155496,
 [node name="tablePcs_04" parent="Props" unique_id=1901120858 instance=ExtResource("20_dd6xr")]
 transform = Transform3D(0.644938, 0, -0.125994, 0, 0.65713, 0, 0.125994, 0, 0.644938, 2, 0, 4.933)
 GenerateCollision = true
-
-[node name="PauseMenu" type="Node" parent="." unique_id=1573370882]
-process_mode = 3
-script = ExtResource("16_y63pk")
-
-[node name="RespawnChain" type="Node" parent="." unique_id=791328688]
-script = ExtResource("17_exby2")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1300607135]
 transform = Transform3D(0.99953365, 0.0007993513, 0.03052578, 0, 0.99965733, -0.026177134, -0.030536242, 0.026164927, 0.99919116, -0.5574813, 1.3573115, 2.8189545)

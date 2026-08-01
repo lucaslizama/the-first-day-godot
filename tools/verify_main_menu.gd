@@ -20,6 +20,7 @@ extends SceneTree
 var menu: Node
 var start_button: Button
 var credits_button: Button
+var options_button: Button
 var exit_button: Button
 var viewport: Viewport
 var failures := 0
@@ -43,6 +44,7 @@ func _initialize() -> void:
 
 	start_button = menu.get_node("%StartButton")
 	credits_button = menu.get_node("%CreditsButton")
+	options_button = menu.get_node("%OptionsButton")
 	exit_button = menu.get_node("%ExitButton")
 
 	print("")
@@ -99,13 +101,21 @@ func _initialize() -> void:
 	# only to move_*, never to the ui_* actions Godot navigates on, so they armed the first
 	# button and then did nothing at all - the menu looked wired up but WASD could never reach
 	# the second button. The stick and d-pad were fine throughout, because ui_down carries them.
+	# The column is Start / Credits / Options / Exit. Options went in below Credits deliberately:
+	# MainMenu._Input's fallback arms Credits when Start is disabled, and putting Options above
+	# Credits would have changed which button that is - a behaviour change smuggled in with a
+	# feature. The disabled-Start case further down still asserts Credits for the same reason.
 	await _navigates("S", KEY_S, start_button, credits_button)
-	await _navigates("S", KEY_S, credits_button, exit_button)
-	await _navigates("W", KEY_W, exit_button, credits_button)
+	await _navigates("S", KEY_S, credits_button, options_button)
+	await _navigates("S", KEY_S, options_button, exit_button)
+	await _navigates("W", KEY_W, exit_button, options_button)
+	await _navigates("W", KEY_W, options_button, credits_button)
 	await _navigates("W", KEY_W, credits_button, start_button)
 	await _navigates("the down arrow", KEY_DOWN, start_button, credits_button)
-	await _navigates("the up arrow", KEY_UP, exit_button, credits_button)
+	await _navigates("the down arrow", KEY_DOWN, credits_button, options_button)
+	await _navigates("the up arrow", KEY_UP, exit_button, options_button)
 	await _navigates("the stick", JOY_AXIS_LEFT_Y, start_button, credits_button, true)
+	await _navigates("the stick", JOY_AXIS_LEFT_Y, options_button, credits_button, true)
 
 	# At the end of the column there is nowhere to go, and that must not wrap or clear focus.
 	await _reset()
@@ -134,6 +144,8 @@ func _initialize() -> void:
 	await _key(KEY_P)
 	_expect_focus("a non-directional key is ignored", null)
 
+	await _check_options_is_reachable()
+
 	print("")
 	if failures > 0:
 		print("FAIL: %d of %d checks failed" % [failures, checks])
@@ -141,6 +153,69 @@ func _initialize() -> void:
 	else:
 		print("PASS: %d checks" % checks)
 		quit(0)
+
+
+## The options screen is a DELIBERATE ADDITION reached from here, so "can the player get to it, and
+## back out of it, without a mouse" is this file's business. What the screen itself does once open is
+## verify_options_menu.gd's.
+func _check_options_is_reachable() -> void:
+	checks += 1
+	if options_button.disabled:
+		_fail("the Options button is disabled; the options scene did not load")
+		return
+	if options_button.pressed.get_connections().is_empty():
+		_fail("the Options button has nothing connected to `pressed`")
+		return
+	_ok("the Options button is enabled and wired, and reads \"%s\"" % options_button.text)
+
+	var options: Control = null
+	for child in menu.get_node("CanvasLayer").get_children():
+		if child.name == "OptionsMenu":
+			options = child
+
+	checks += 1
+	if options == null:
+		_fail("no OptionsMenu was mounted under the CanvasLayer")
+		return
+	_ok("the main menu mounts the shared options scene at runtime")
+
+	await _reset()
+	options_button.emit_signal("pressed")
+	await process_frame
+
+	checks += 1
+	if options.visible:
+		_ok("pressing Options opens the screen")
+	else:
+		_fail("pressing Options did not show the screen")
+
+	# THE LEAK THIS GUARDS. MainMenu._Input arms %StartButton whenever nothing owns focus, and
+	# FindValidFocusNeighbor searches the viewport geometrically without caring that a panel is drawn
+	# on top. So a player who cleared focus inside the options screen and pressed W could arm Start
+	# behind it, and Enter would begin the game from the options menu.
+	root.gui_release_focus()
+	await process_frame
+	await _key(KEY_W)
+
+	checks += 1
+	var leaked := root.gui_get_focus_owner()
+	if leaked != start_button and leaked != credits_button and leaked != exit_button:
+		_ok("with the options open, W cannot arm a button behind it (focus: %s)"
+			% ["nothing" if leaked == null else leaked.name])
+	else:
+		_fail("W reached %s behind the open options screen; Enter would start the game from there"
+			% leaked.name)
+
+	# Escape must come back out, or a player without a mouse is stuck on the options screen.
+	await _key(KEY_ESCAPE)
+
+	checks += 1
+	if not options.visible:
+		_ok("Escape closes the options screen and returns to the menu")
+	else:
+		_fail("Escape left the options screen open")
+
+	_expect_focus("and focus lands back on the Options button", options_button)
 
 
 ## Focus starts on `from`, the input fires, and focus must land on `to`. Distinct from arming:

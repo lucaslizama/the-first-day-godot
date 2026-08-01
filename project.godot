@@ -12,7 +12,7 @@ config_version=5
 
 config/name="The First Day"
 config/description="Port to Godot of the Unity game originally made for Asylum Jam 2016."
-config/version="1.0.0"
+config/version="1.1.0"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 MCPRuntimeServer="*res://addons/godot_mcp_toolkit/runtime/mcp_runtime_server.gd"
 PlayerInput="*res://scripts/Gameplay/PlayerInput.cs"
 GameManager="*res://scripts/Gameplay/GameManager.cs"
+GameSettings="*res://scripts/Utils/GameSettings.cs"
 
 [display]
 

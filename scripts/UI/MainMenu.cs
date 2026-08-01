@@ -20,30 +20,20 @@ public partial class MainMenu : Control
     public string CreditsScenePath { get; set; } = "res://scenes/credits.tscn";
 
     /// <summary>
-    /// Inputs that count as "the player is reaching for the menu" and so arm the first button.
-    ///
-    /// Two families, because the two halves of the scheme live in different places. The arrow keys
-    /// and the gamepad's d-pad and left stick arrive through Godot's built-in <c>ui_*</c> actions,
-    /// which this project never redefines. W/A/S/D arrive through the project's own <c>move_*</c>
-    /// actions - the level's movement bindings, which are also bound to the same sticks, so a stick
-    /// push matches in both families and the first match wins.
+    /// The options screen, ALSO A DELIBERATE ADDITION - the original had no settings of any kind.
+    /// Instantiated at runtime rather than instanced in this scene, so the shipped menu file gains
+    /// one button and nothing else: no new ext_resource, no uid for an editor save to invent.
     /// </summary>
-    private static readonly string[] DirectionalActions =
-    {
-        "ui_up",
-        "ui_down",
-        "ui_left",
-        "ui_right",
-        "move_forward",
-        "move_back",
-        "move_left",
-        "move_right",
-    };
+    [Export]
+    public string OptionsScenePath { get; set; } = "res://scenes/options_menu.tscn";
 
     private Button _startButton = null!;
     private Button _creditsButton = null!;
+    private Button _optionsButton = null!;
     private Button _exitButton = null!;
     private FadeOverlay _fade = null!;
+    private OptionsMenu? _options;
+    private Control _menuArea = null!;
 
     /// <summary>
     /// Where the fade is taking us. The overlay has one completion signal and there are now two
@@ -63,13 +53,18 @@ public partial class MainMenu : Control
 
         _startButton = GetNode<Button>("%StartButton");
         _creditsButton = GetNode<Button>("%CreditsButton");
+        _optionsButton = GetNode<Button>("%OptionsButton");
         _exitButton = GetNode<Button>("%ExitButton");
         _fade = GetNode<FadeOverlay>("%FadeOverlay");
+        _menuArea = GetNode<Control>("MenuArea");
 
         _startButton.Pressed += OnStartPressed;
         _creditsButton.Pressed += OnCreditsPressed;
+        _optionsButton.Pressed += OnOptionsPressed;
         _exitButton.Pressed += OnExitPressed;
         _fade.FadeOutCompleted += LoadPendingScene;
+
+        MountOptionsMenu();
 
         // The level scene has not been ported yet.
         _startButton.Disabled = !ResourceLoader.Exists(LevelScenePath);
@@ -101,94 +96,31 @@ public partial class MainMenu : Control
     /// </summary>
     public override void _Input(InputEvent @event)
     {
+        // WHILE THE OPTIONS SCREEN IS OPEN THIS HANDLER MUST STAND DOWN COMPLETELY, and the reason is
+        // specific rather than tidiness. The arming branch below grabs focus for %StartButton
+        // whenever nothing owns focus, and FindValidFocusNeighbor searches the whole viewport
+        // geometrically - neither knows that a panel is drawn on top. So a player who clicked empty
+        // space in the options screen, pressed W and then Enter would start the game from inside the
+        // options menu. Hiding MenuArea (see OnOptionsPressed) makes those buttons unfocusable, and
+        // this makes the outcome independent of that too: two guards, because the failure is silent.
+        if (_options is not null && _options.Visible)
+        {
+            return;
+        }
+
         // Something already has focus, so ordinary navigation applies and this must not drag focus
         // back to the first button - EXCEPT for W/A/S/D, which Godot will not navigate with at all.
         // See NavigateWithMoveKeys.
         if (GetViewport().GuiGetFocusOwner() is Control focused)
         {
-            NavigateWithMoveKeys(@event, focused);
+            MenuNavigation.TryNavigateWithMoveKeys(GetViewport(), @event, focused);
             return;
         }
 
-        foreach (string action in DirectionalActions)
-        {
-            // Echoes are excluded by default, so holding a direction arms once rather than fighting
-            // the navigation that follows.
-            if (!@event.IsActionPressed(action))
-            {
-                continue;
-            }
-
-            // Start unless it is disabled - in which case Credits, the next thing that still works.
-            // Falling through to Exit would arm "quit the game" as the menu's opening selection.
-            Button first = _startButton.Disabled ? _creditsButton : _startButton;
-            first.GrabFocus();
-
-            // CONSUMED DELIBERATELY, so this press only arms the focus and does not also move it.
-            // _Input runs BEFORE the viewport's GUI navigation, so without this the same ui_up or
-            // ui_down would be processed again a moment later - now with a focus owner - and step
-            // straight past the button just landed on. With two buttons that reads as the menu
-            // opening on the wrong one.
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-    }
-
-    /// <summary>
-    /// Moves focus for W/A/S/D, which Godot's own navigation will not do.
-    ///
-    /// THE ASYMMETRY THIS EXISTS TO CLOSE. Godot navigates on the <c>ui_*</c> actions, and their
-    /// bindings are not what you would guess: <c>ui_down</c> is Down, d-pad down AND left stick Y+1,
-    /// so the gamepad navigates a menu out of the box. W and S are bound only to this project's
-    /// <c>move_*</c> actions, which the engine's GUI knows nothing about. The result was a menu where
-    /// the first W armed a button and every W after it did nothing - arming worked, so it looked
-    /// wired up, but WASD could never actually reach the second button.
-    ///
-    /// Only KEY events are handled here. The stick and d-pad match <c>move_*</c> too, but they are
-    /// already on the <c>ui_*</c> actions and navigate correctly on their own; intercepting them
-    /// would be re-implementing working engine behaviour for no gain.
-    /// </summary>
-    private void NavigateWithMoveKeys(InputEvent @event, Control focused)
-    {
-        if (@event is not InputEventKey)
-        {
-            return;
-        }
-
-        Side side;
-        if (@event.IsActionPressed("move_forward"))
-        {
-            side = Side.Top;
-        }
-        else if (@event.IsActionPressed("move_back"))
-        {
-            side = Side.Bottom;
-        }
-        else if (@event.IsActionPressed("move_left"))
-        {
-            side = Side.Left;
-        }
-        else if (@event.IsActionPressed("move_right"))
-        {
-            side = Side.Right;
-        }
-        else
-        {
-            return;
-        }
-
-        // The same walk the arrow keys take, so the buttons' own focus neighbours stay the single
-        // definition of the menu's layout - nothing here hard-codes Start above Exit.
-        Control? next = focused.FindValidFocusNeighbor(side);
-        if (next is null || next == focused)
-        {
-            // No neighbour that way - W at the top of the list, or any horizontal press in a column.
-            // Left unhandled rather than swallowed, so it stays available to anything else.
-            return;
-        }
-
-        next.GrabFocus();
-        GetViewport().SetInputAsHandled();
+        // Start unless it is disabled - in which case Credits, the next thing that still works.
+        // Falling through to Exit would arm "quit the game" as the menu's opening selection.
+        Button first = _startButton.Disabled ? _creditsButton : _startButton;
+        MenuNavigation.TryArm(GetViewport(), @event, first);
     }
 
     private void OnStartPressed()
@@ -225,8 +157,72 @@ public partial class MainMenu : Control
         }
     }
 
+    /// <summary>
+    /// Loads the options scene and parks it, hidden, above this menu.
+    ///
+    /// A sibling of MainMenu under the CanvasLayer rather than a child of it, so the options screen
+    /// draws over the whole menu including the title. That also puts it above this menu's
+    /// FadeOverlay, which is harmless because the two are never visible together: the options screen
+    /// is closed before any scene transition begins.
+    /// </summary>
+    private void MountOptionsMenu()
+    {
+        if (!ResourceLoader.Exists(OptionsScenePath))
+        {
+            _optionsButton.Disabled = true;
+            _optionsButton.TooltipText = "The options scene is missing.";
+            GD.PushWarning($"{Name}: '{OptionsScenePath}' does not exist; the Options button is disabled.");
+            return;
+        }
+
+        if (ResourceLoader.Load<PackedScene>(OptionsScenePath) is not PackedScene packed
+            || packed.Instantiate() is not OptionsMenu options)
+        {
+            _optionsButton.Disabled = true;
+            GD.PushError($"{Name}: '{OptionsScenePath}' is not an OptionsMenu scene.");
+            return;
+        }
+
+        _options = options;
+        _options.Visible = false;
+        _options.Closed += OnOptionsClosed;
+
+        // DEFERRED, because a plain AddChild here fails outright: the CanvasLayer is still
+        // instantiating its own children while this _Ready runs, and Godot refuses with "Parent node
+        // is busy setting up children". It failed silently apart from that one line, leaving the
+        // Options button enabled and wired to a screen that was never in the tree.
+        //
+        // The field is assigned before the deferred call, so the _Input guard is already live; the
+        // node itself joins the tree next frame, hidden, which is a frame before any player could
+        // press the button.
+        GetParent().CallDeferred(Node.MethodName.AddChild, _options);
+    }
+
+    private void OnOptionsPressed()
+    {
+        if (_options is null)
+        {
+            return;
+        }
+
+        // Hidden Controls are skipped by the focus-neighbour walk, so nothing on the options screen
+        // can reach Start, Credits or Exit while it is open. See the note in _Input.
+        _menuArea.Visible = false;
+        _options.Open(_optionsButton);
+    }
+
+    private void OnOptionsClosed()
+    {
+        _menuArea.Visible = true;
+        _optionsButton.GrabFocus();
+    }
+
     private void OnExitPressed()
     {
+        // SceneTree.Quit does not deliver NotificationWMCloseRequest, and relying on teardown order
+        // for a disk write is not worth the risk of losing a setting the player just changed.
+        Utils.GameSettings.Instance?.FlushIfDirty();
+
         GetTree().Quit();
     }
 }

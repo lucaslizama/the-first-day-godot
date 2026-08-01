@@ -1400,6 +1400,224 @@ price of surfaces popping out more abruptly.
 `far` must stay **below** the camera's 2 m minimum distance, or the ground under the player
 starts dissolving; the verifier asserts this.
 
+### The game shipped with no way to change anything
+
+The 2016 original had no options screen at all — no volume control, no sensitivity, no remapping.
+It used no `PlayerPrefs`, and the port had no `ConfigFile` and no `user://` write anywhere in
+`scripts/` before this. So there is nothing here to be faithful to, and everything below is a
+decision rather than a reproduction. `scripts/Utils/GameSettings.cs` owns the state,
+`scenes/options_menu.tscn` plus `scripts/UI/OptionsMenu.cs` are the screen, and it is reached from
+the main menu and from the in-game pause panel.
+
+**Every default reproduces the 1.0.0 build exactly.** That is the rule the rest follows from: a
+machine with no `settings.cfg`, and a player who never opens the screen, must get the game as
+tagged. So the volumes are offsets rather than levels, the sensitivities are multipliers of the
+camera's own exported 2.0, and the video defaults restate `project.godot`.
+
+#### The volume sliders offset the buses; they never set them
+
+`GameSettings` snapshots each bus's dB from `default_bus_layout.tres` at boot, before anything is
+applied, and a slider at value `v` writes `authored + LinearToDb(v)`. At `v == 1` the offset is
+exactly 0 dB, so all five values `tools/verify_music.gd` asserts survive a default install
+untouched. Nothing is ever written back to the layout file — that stays the tuning of record, and
+`Fortunato` stays +9.5 dB where Unity's mixer said +20 and clipped the master by 7.5 dB.
+
+Because the offset can only ever be **≤ 0 dB**, no slider position can push the mix further into
+the master limiter than the shipped build already does. That makes the clipping budget under "The
+footsteps were clipping" permanently valid rather than valid-until-somebody-drags-a-slider-up, and
+`verify_settings.gd` sweeps all 21 slider positions across all five buses to say so.
+
+Five sliders, not three: Master, Music, Ambience, Whispers (`Coworkers`) and Footsteps
+(`Fortunato`). The bus names are the mix's, not the player's, so the screen relabels them.
+
+#### Autoloads DO load under `--script`, and that needed a guard
+
+Measured, not assumed: a probe run of `godot-mono --headless --path . --script …` printed
+`MCPRuntimeServer`, `PlayerInput` and `GameManager` as children of `root`, and reported `--script`
+present in `OS.get_cmdline_args()`.
+
+Which means that without a guard, **every headless verifier would run against whatever the
+developer last set in their own `user://settings.cfg`**. `verify_music.gd` asserts five bus levels
+to the decimal and `verify_gamepad.gd` asserts the joypad axes, so a music slider left at 60% would
+fail them for a reason having nothing to do with the code under test. `GameSettings._Ready`
+therefore snapshots the pristine state and then returns without loading or applying anything when
+`--script` is present. Confirmed by planting a `settings.cfg` with all five buses attenuated and
+`jump` rebound: `verify_music.gd`, `verify_gamepad.gd` and `verify_main_menu.gd` all still passed.
+
+**Saving is a separate path and the guard does not cover it**, which is why `ConfigPath` is a
+settable property. `verify_options_menu.gd` drives the real autoload, so it points `ConfigPath` at
+a scratch file — the first version of that check overwrote the developer's own settings. And it
+must `Save()` *before* deleting the scratch file: `GameSettings` flushes pending changes on
+`_ExitTree`, so deleting while something was still dirty had the file written straight back.
+
+#### Bindings are stored as `key:<physical_keycode>`, never as serialised events
+
+Every binding in `project.godot` is written `"keycode": 0` with `physical_keycode` set. Storing
+only a physical code in a token like `key:87` makes that invariant **structural** — there is
+nowhere for a `keycode` to come from — where a serialised `Object(InputEventKey, …)` is
+engine-version-dependent and carries every field of the event. The *display* goes back through
+`DisplayServer.KeyboardGetKeycodeFromPhysical`, so an AZERTY player sees `Z` on the Move Forward
+row while the binding stays physically W.
+
+That call is **not implemented by the headless display server**: it pushes "Not supported by this
+display server" and returns 0. Unguarded that is one error and a full stack trace per binding row
+every time a verifier builds the screen. It now falls back to the physical code when headless.
+
+Modifier flags are stripped when a capture becomes a binding, because `run` is bare **Shift** — a
+key captured while a finger rests on Shift would otherwise store an unreproducible Shift+W.
+
+#### `ActionEraseEvents`, never `ActionEraseAction` + `ActionAddAction`
+
+The latter resets the action's deadzone to the engine default, silently. This project's deadzones
+are deliberate — 0.2 on the four `move_*` actions, 0.5 on the rest — so the pair would change how
+far a stick must travel before the character moves. `verify_rebind.gd` asserts every deadzone after
+a rebind.
+
+Each family is rebuilt independently, so a keyboard rebind cannot disturb the joypad event beside
+it. That is what keeps `verify_gamepad.gd`'s axis-0/axis-1 assertions true after a remap, and it is
+asserted directly rather than reasoned about.
+
+#### Refused, not swapped — and what cannot be bound at all
+
+A key already held by another listed action is **refused**, naming the row that holds it. Swapping
+leaves a second action bound to something the player never chose and has to discover; clearing
+strands an action unbound. Refusing is also the only policy whose outcome is trivially assertable:
+both bindings are unchanged afterwards.
+
+**The arrow keys, Enter and Escape are refused as gameplay bindings.** Not tidiness:
+`MainMenu.NavigateWithMoveKeys` matches the `move_*` *actions* and consumes the event before
+Godot's own `ui_up` runs, so binding `move_back` to Up would make the Up arrow move focus **down**
+in every menu. Enter would fire its action and activate the focused button on the same press.
+Escape is the capture-cancel key, which also means it can never be captured. Space stays bindable —
+it is already both `jump` and `ui_accept` in the shipped game, so that collision predates this.
+
+No action can end with nothing bound: if both families would be empty the shipped defaults are
+restored and a warning is pushed. `pause` matters most, since losing it means no menu and no route
+back to these settings, but the guard is unconditional rather than special-cased.
+
+Reset restores from a snapshot of `InputMap` taken at boot, so **`project.godot` stays the only
+place the default bindings are written down** — there is no hand-copied table in C# to drift.
+
+#### `attack_alt` has no row, and the tutorial signs still say WASD
+
+`attack_alt` is bound in `project.godot` to right-click and gamepad B, and **no script reads it**.
+A row that rebinds nothing would be a lie, so its bindings are left alone and unlisted.
+
+`scenes/tutorial_keys.tscn` is five `MeshInstance3D`s with WASD/Shift/Space **baked into their
+textures**, which remapping cannot update. Both fixes — re-baking per binding, or hiding the signs
+when bindings differ — are worse than the problem, so the Input section says so on screen instead.
+
+Rebinding `move_*` also changes menu navigation, because `MenuNavigation` reads those actions and
+WASD is bound to nothing else. That is intended: a player who moves with IK navigates with IK. The
+arrows, d-pad and stick stay unconditional, so the menu can never become unreachable, and
+`verify_rebind.gd` asserts exactly that after rebinding movement to I/K.
+
+#### What the Video section leaves out, and why
+
+Window mode, V-Sync, anti-aliasing and a frame cap. Deliberately absent:
+
+- **Resolution.** `window/stretch/mode="canvas_items"` at a 1920×1080 base means the window size
+  *is* the resolution and the UI scales to it. A list would only mean anything in windowed mode.
+- **Shadow quality / SSAO / glow.** The two `WorldEnvironment`s use **inline `SubResource`
+  Environments**, not shared `.tres` files, and they disagree: `level.tscn` has no SSAO, no SSIL
+  and no glow, while `main_menu_background.tscn` has all three. A quality toggle would therefore do
+  nothing in the level, which is where players spend their time. **The prerequisite for ever adding
+  one is extracting both environments to `.tres`** so they can be addressed as resources.
+- **Render scale / FSR.** Nothing sets it and the game is not GPU-bound.
+
+MSAA is applied to `GetTree().Root`, which *is* the viewport every scene renders into — this
+project has no `SubViewport` — so one write survives `ChangeSceneToFile`.
+
+#### The three new knobs
+
+`ThirdPersonCamera.InvertHorizontal` is new; the Unity asset had the field but the scene left it at
+0 and the port never read it. Field of view is new in the sense that nothing set it — both cameras
+run at `Camera3D`'s default 75°, which is what 75 in the settings reproduces. Checked before
+exposing it: `CalculateMaximumDistance` samples fixed metre offsets in camera space, not
+FOV-derived screen corners, so widening the view does not change what the camera treats as an
+occluder. `MouseAxisScale` is deliberately **not** exposed — it is Unity's raw-delta conversion
+constant, not a preference.
+
+Screen Effects scales the **death-driven range only**, never the resting values:
+`0.1 + (VignetteIntensity − 0.1)·k` and `2.0 + (ChromaticAberration − 2.0)·k`. At 1.0 the
+arithmetic collapses to the original two writes exactly, which is why `verify_death_shader.gd` and
+`verify_death_effect.gd` pass unchanged; at 0 the screen keeps the level's look and merely stops
+escalating. A slider rather than a switch, because that escalation *is* the game's central feedback
+loop.
+
+#### Structure decisions worth not relitigating
+
+- **One scene, mounted from code in both hosts.** `main_menu.tscn` gains a single button and
+  `level.tscn` gains a button column — no new `ext_resource`, so no uid for an editor save to
+  invent, and `ProcessMode.Always` is guaranteed in code rather than trusted from a scene property.
+- **`AddChild` must be deferred.** A direct `AddChild` in `_Ready` fails with "Parent node is busy
+  setting up children" — one error line, and then a wired button leading to a screen that is not in
+  the tree. Both hosts use `CallDeferred`.
+- **The options screen handles `pause` in `_Input`, not `_UnhandledInput`.** The engine always runs
+  `_Input` for the whole tree first, so `PauseMenu` provably never sees it while the screen is
+  open — no dependency on node order. Without it, Escape inside the options would resume the game
+  and re-capture the mouse with the panel still drawn. It also checks `ui_cancel`, which is Escape,
+  is built in and is never remappable, so Escape closes the screen whatever else has been rebound.
+- **Nothing on the screen is tweened.** Tweens are bound to a node's process mode and stop under
+  `SceneTree.Paused`, so an animated overlay would work from the main menu and silently not work
+  from the pause menu. If an animation is ever added, its node must be `Always`.
+- **The pause panel opens with nothing focused**, like the title screen, and arms its first button on
+  the first direction. It used to grab focus on Options, which made it the odd one out: Unity's
+  `ToggleMenuPausa` focused nothing either, and `Main Menu.unity`'s EventSystem has `m_FirstSelected`
+  null. The arming and the WASD navigation are now one shared pair of helpers,
+  `MenuNavigation.TryArm` and `TryNavigateWithMoveKeys`, used by both menus — so the asymmetry
+  recorded under "The main menu was reachable only with a mouse" cannot be reintroduced in one place
+  and not the other. `verify_pause_menu.gd` asserts both halves by name, plus that a direction arms
+  **nothing** while the game is running, so a key pressed to move the character cannot drag focus onto
+  a hidden pause button.
+- **The host hides its own buttons while the screen is open**, and `MainMenu._Input` stands down
+  entirely. Two guards, because the failure is silent: `MainMenu._Input` arms `%StartButton`
+  whenever nothing owns focus and `FindValidFocusNeighbor` searches the viewport geometrically,
+  neither caring that a panel is drawn on top — so a cleared focus plus W plus Enter would have
+  started the game from inside the options menu.
+- **Cycling `Button`s, not `OptionButton`s.** An `OptionButton` consumes `ui_up`/`ui_down` to step
+  its own items, which would swallow row-to-row navigation for the whole column, and its `Selected`
+  setter does not emit `item_selected` so the handler would never run. `HSlider` throughout for the
+  same reason — a `VSlider` would eat the vertical navigation.
+- **The active tab is a toggle state, not the focus ring.** With only the focus style marking it,
+  the tab a player had left behind stayed lit over a different section's rows. Every headless check
+  passed while that was true; it took a screenshot to see, and it is now asserted.
+- **Every row is authored in `options_menu.tscn`; `OptionsMenu.cs` only wires it up.** It was the
+  other way round first — the scene carried the chrome and `_Ready` built the rows — and the scene
+  was useless to open: four empty containers, and every metric (label width, slider range, button
+  size) a private C# constant. Reported by opening it in the editor and seeing nothing, which was
+  also the root `visible = false`. **This project is not worked on alone**, and a screen full of
+  tunables only a programmer can reach is the wrong trade; the repetition in the scene file is the
+  cheaper half of it. Controls are found by unique name (`%SensXSlider`), a missing one warns and
+  goes inert rather than taking the screen down, and each row's readout is located as a `Value`
+  Label sibling so a row needs one unique name rather than two.
+- **The scene root is `visible = true`**, and both hosts hide it in code before adding it to the
+  tree. A hidden root means the editor draws nothing at all, which is exactly how the above was
+  found. Nothing flashes on screen, because the host hides it before it enters the tree.
+- **`GameSettings` clamps on write, not only on read.** Consequence of the previous two: the slider
+  ranges now live in the scene, so the UI is no longer what guarantees a sane value. Widening the
+  FOV slider to 500 in the editor yields a clamped 110 rather than a stored 500 that silently
+  became 110 on the next load.
+- **No `Theme` resource beyond one `[sub_resource]` in the options scene.** A project-wide theme
+  would be shadowed by the ~60 `theme_override_*` lines already in `main_menu.tscn`, so it would be
+  all of the diff and none of the benefit until those were stripped — a rewrite of an
+  editor-authored scene, for a shorter file.
+- **The pause panel's buttons were restyled to match the rest of the game.** They had carried only a
+  font colour and `font_size = 40`, so they rendered in Godot's **default font** with Godot's default
+  grey button styling while every other button in the project is Galindo on white with the salmon
+  hover and focus — an inconsistency that predates this work and was the last visible trace of the
+  pause menu being a one-button afterthought. `level.tscn` now declares the font and four shared
+  `StyleBoxFlat`s, and both buttons reference the same four rather than each carrying a copy.
+  Their 331×63 geometry and size-40 text are deliberately unchanged: the panel sits over live
+  gameplay rather than a title card, so it stays smaller than the main menu's 394×83 at 46.
+
+#### `Rebind` returns a message instead of taking an `out` parameter
+
+`bool TryRebind(..., out string)` is the shape a C# reader expects, and Godot cannot marshal it:
+calling such a method through `Object.Call` from GDScript **hangs the engine outright**, with no
+error. It cost a killed process to find. The verifiers drive this method, so it returns
+`string.Empty` on success and the refusal sentence otherwise.
+
 ## Risks and open questions
 
 - **`respawnDelay` is unread.** Confirmed in the Unity source; the actual delay

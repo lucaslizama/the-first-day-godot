@@ -54,6 +54,10 @@ public partial class ThirdPersonCamera : Camera3D
     private Node3D? _target;
     private CollisionObject3D? _ignoreBody;
 
+    /// <summary>The exported sensitivities, captured in _Ready. See <see cref="ApplyGameSettings"/>.</summary>
+    private float _baseSensitivityHorizontal;
+    private float _baseSensitivityVertical;
+
     [Export]
     public float DesiredDistance { get; set; } = 6.0f;
 
@@ -98,6 +102,16 @@ public partial class ThirdPersonCamera : Camera3D
     /// </summary>
     [Export]
     public bool InvertVertical { get; set; }
+
+    /// <summary>
+    /// Whether to flip the horizontal look.
+    ///
+    /// A DELIBERATE ADDITION with no counterpart in the original - the Unity asset had an
+    /// Invert.Horizontal field but the scene left it at 0, and nothing in the port read it. It
+    /// exists so the options screen can offer the setting; false is the shipped behaviour.
+    /// </summary>
+    [Export]
+    public bool InvertHorizontal { get; set; }
 
     /// <summary>
     /// Unity's "Mouse X"/"Mouse Y" axes scaled raw pixel delta by 0.1 before the
@@ -206,7 +220,61 @@ public partial class ThirdPersonCamera : Camera3D
         // caller anywhere in the project.
         GameManager.Instance?.StartGame();
 
+        // The exported sensitivities are the PORTED FEEL - Unity's 2.0 on both axes - and the
+        // player's setting is a multiplier of them, so they stay the single place that number is
+        // written down. Captured before the first apply, or the multiplier would compound every
+        // time a setting changed.
+        _baseSensitivityHorizontal = SensitivityHorizontal;
+        _baseSensitivityVertical = SensitivityVertical;
+
+        ApplyGameSettings();
+
+        // The same shape DeathDistortion already uses for GameManager.DeathConstantChanged: the
+        // per-scene node pulls the global state rather than the autoload reaching into the scene to
+        // find a camera. That is what makes a setting changed on the title screen take effect in a
+        // level loaded afterwards, with nothing to keep in sync.
+        if (Utils.GameSettings.Instance is Utils.GameSettings settings)
+        {
+            settings.SectionChanged += OnSettingsSectionChanged;
+        }
+
         UpdateCamera(0.0);
+    }
+
+    public override void _ExitTree()
+    {
+        if (Utils.GameSettings.Instance is Utils.GameSettings settings)
+        {
+            settings.SectionChanged -= OnSettingsSectionChanged;
+        }
+    }
+
+    private void OnSettingsSectionChanged(int section)
+    {
+        if (section == (int)Utils.GameSettings.Section.Game)
+        {
+            ApplyGameSettings();
+        }
+    }
+
+    /// <summary>
+    /// Applies the player's look settings on top of the ported defaults.
+    ///
+    /// <see cref="MouseAxisScale"/> is deliberately NOT among them: it is Unity's raw-delta
+    /// conversion constant, not a preference, and scaling it would move the same number twice.
+    /// </summary>
+    private void ApplyGameSettings()
+    {
+        if (Utils.GameSettings.Instance is not Utils.GameSettings settings)
+        {
+            return;
+        }
+
+        SensitivityHorizontal = _baseSensitivityHorizontal * settings.LookSensitivityX;
+        SensitivityVertical = _baseSensitivityVertical * settings.LookSensitivityY;
+        InvertVertical = settings.InvertLookY;
+        InvertHorizontal = settings.InvertLookX;
+        Fov = settings.FieldOfView;
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -285,7 +353,8 @@ public partial class ThirdPersonCamera : Camera3D
         float horizontalStep = MouseAxisScale * SensitivityHorizontal;
         float verticalStep = MouseAxisScale * SensitivityVertical;
 
-        _yawDegrees -= _pendingMouseDelta.X * horizontalStep;
+        float horizontal = _pendingMouseDelta.X * horizontalStep;
+        _yawDegrees -= InvertHorizontal ? -horizontal : horizontal;
 
         float vertical = _pendingMouseDelta.Y * verticalStep;
         _pitchDegrees += InvertVertical ? -vertical : vertical;

@@ -1,0 +1,817 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/OptionsMenu.cs" id="1_options"]
+[ext_resource type="FontFile" path="res://font/Galindo-Regular.ttf" id="2_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_normal"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pressed"]
+bg_color = Color(0.78431374, 0.78431374, 0.78431374, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hover"]
+bg_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_disabled"]
+bg_color = Color(0.78431374, 0.78431374, 0.78431374, 0.5019608)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="Theme" id="Theme_options"]
+default_font = ExtResource("2_font")
+default_font_size = 26
+Button/colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+Button/colors/font_disabled_color = Color(0.19607843, 0.19607843, 0.19607843, 0.5019608)
+Button/colors/font_focus_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+Button/colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+Button/colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+Button/styles/disabled = SubResource("StyleBoxFlat_disabled")
+Button/styles/focus = SubResource("StyleBoxFlat_hover")
+Button/styles/hover = SubResource("StyleBoxFlat_hover")
+Button/styles/normal = SubResource("StyleBoxFlat_normal")
+Button/styles/pressed = SubResource("StyleBoxFlat_pressed")
+CheckButton/colors/font_color = Color(0.90196079, 0.90196079, 0.90196079, 1)
+CheckButton/colors/font_focus_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+CheckButton/colors/font_hover_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+CheckButton/colors/font_pressed_color = Color(0.90196079, 0.90196079, 0.90196079, 1)
+Label/colors/font_color = Color(0.90196079, 0.90196079, 0.90196079, 1)
+
+[node name="OptionsMenu" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_options")
+script = ExtResource("1_options")
+
+[node name="Scrim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.78431373)
+
+[node name="Frame" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 180
+theme_override_constants/margin_top = 70
+theme_override_constants/margin_right = 180
+theme_override_constants/margin_bottom = 60
+
+[node name="Body" type="VBoxContainer" parent="Frame"]
+layout_mode = 2
+theme_override_constants/separation = 26
+
+[node name="Heading" type="Label" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 68
+text = "Options"
+
+[node name="Columns" type="HBoxContainer" parent="Frame/Body"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 44
+
+[node name="SectionList" type="VBoxContainer" parent="Frame/Body/Columns"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="GameTab" type="Button" parent="Frame/Body/Columns/SectionList"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 66)
+layout_mode = 2
+text = "Game"
+
+[node name="SoundTab" type="Button" parent="Frame/Body/Columns/SectionList"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 66)
+layout_mode = 2
+text = "Sound"
+
+[node name="VideoTab" type="Button" parent="Frame/Body/Columns/SectionList"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 66)
+layout_mode = 2
+text = "Video"
+
+[node name="InputTab" type="Button" parent="Frame/Body/Columns/SectionList"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 66)
+layout_mode = 2
+text = "Input"
+
+[node name="PanelHost" type="Control" parent="Frame/Body/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="GameSection" type="ScrollContainer" parent="Frame/Body/Columns/PanelHost"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 22
+
+[node name="SoundSection" type="ScrollContainer" parent="Frame/Body/Columns/PanelHost"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 22
+
+[node name="VideoSection" type="ScrollContainer" parent="Frame/Body/Columns/PanelHost"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Frame/Body/Columns/PanelHost/VideoSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 22
+
+[node name="InputSection" type="ScrollContainer" parent="Frame/Body/Columns/PanelHost"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="SensXRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensXRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Look Sensitivity (horizontal)"
+
+[node name="SensXSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensXRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.25
+max_value = 3.0
+step = 0.05
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensXRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "1.00x"
+
+[node name="SensYRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensYRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Look Sensitivity (vertical)"
+
+[node name="SensYSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensYRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.25
+max_value = 3.0
+step = 0.05
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/SensYRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "1.00x"
+
+[node name="InvertYRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/InvertYRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Invert Vertical Look"
+
+[node name="InvertYCheck" type="CheckButton" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/InvertYRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="InvertXRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/InvertXRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Invert Horizontal Look"
+
+[node name="InvertXCheck" type="CheckButton" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/InvertXRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="FovRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/FovRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Field of View"
+
+[node name="FovSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/FovRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 60.0
+max_value = 110.0
+step = 1.0
+value = 75.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/FovRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "75 deg"
+
+[node name="EffectsRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/EffectsRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Screen Effects"
+
+[node name="EffectsSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/EffectsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows/EffectsRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="Note" type="Label" parent="Frame/Body/Columns/PanelHost/GameSection/Rows"]
+custom_minimum_size = Vector2(900, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.62, 0.62, 0.62, 1)
+theme_override_font_sizes/font_size = 20
+autowrap_mode = 3
+text = "Screen Effects dims how much the picture distorts as you die. It does not change the resting look."
+
+[node name="MasterRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MasterRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Master"
+
+[node name="MasterSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MasterRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MasterRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="MusicRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MusicRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Music"
+
+[node name="MusicSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MusicRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/MusicRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="AmbienceRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/AmbienceRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Ambience"
+
+[node name="AmbienceSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/AmbienceRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/AmbienceRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="WhispersRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/WhispersRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Whispers"
+
+[node name="WhispersSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/WhispersRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/WhispersRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="FootstepsRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/FootstepsRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Footsteps"
+
+[node name="FootstepsSlider" type="HSlider" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/FootstepsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="Value" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows/FootstepsRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "100%"
+
+[node name="Note" type="Label" parent="Frame/Body/Columns/PanelHost/SoundSection/Rows"]
+custom_minimum_size = Vector2(900, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.62, 0.62, 0.62, 1)
+theme_override_font_sizes/font_size = 20
+autowrap_mode = 3
+text = "100% is the mix the game was tuned at. The sliders only ever turn things down."
+
+[node name="WindowModeRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/WindowModeRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Window Mode"
+
+[node name="WindowModeButton" type="Button" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/WindowModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Maximised"
+
+[node name="VSyncRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/VSyncRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "V-Sync"
+
+[node name="VSyncButton" type="Button" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/VSyncRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "On"
+
+[node name="MsaaRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/MsaaRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Anti-Aliasing"
+
+[node name="MsaaButton" type="Button" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/MsaaRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "4x"
+
+[node name="MaxFpsRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/MaxFpsRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Frame Rate Cap"
+
+[node name="MaxFpsButton" type="Button" parent="Frame/Body/Columns/PanelHost/VideoSection/Rows/MaxFpsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Unlimited"
+
+[node name="Note" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+custom_minimum_size = Vector2(900, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.62, 0.62, 0.62, 1)
+theme_override_font_sizes/font_size = 20
+autowrap_mode = 3
+text = "The signs in the first room always show the default keys."
+
+[node name="MoveForwardRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveForwardRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Move Forward"
+
+[node name="BindMoveForwardKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveForwardRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "W"
+
+[node name="BindMoveForwardPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveForwardRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Left Stick Up"
+
+[node name="MoveBackRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveBackRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Move Back"
+
+[node name="BindMoveBackKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveBackRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "S"
+
+[node name="BindMoveBackPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveBackRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Left Stick Down"
+
+[node name="MoveLeftRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveLeftRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Move Left"
+
+[node name="BindMoveLeftKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveLeftRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "A"
+
+[node name="BindMoveLeftPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveLeftRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Left Stick Left"
+
+[node name="MoveRightRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveRightRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Move Right"
+
+[node name="BindMoveRightKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveRightRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "D"
+
+[node name="BindMoveRightPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/MoveRightRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Left Stick Right"
+
+[node name="JumpRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/JumpRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Jump"
+
+[node name="BindJumpKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/JumpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Space"
+
+[node name="BindJumpPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/JumpRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "A"
+
+[node name="RunRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/RunRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Run"
+
+[node name="BindRunKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/RunRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Shift"
+
+[node name="BindRunPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/RunRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "X"
+
+[node name="AttackRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/AttackRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Attack"
+
+[node name="BindAttackKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/AttackRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Left Click"
+
+[node name="BindAttackPad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/AttackRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Y"
+
+[node name="PauseRow" type="HBoxContainer" parent="Frame/Body/Columns/PanelHost/InputSection/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Name" type="Label" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/PauseRow"]
+custom_minimum_size = Vector2(430, 0)
+layout_mode = 2
+vertical_alignment = 1
+text = "Pause"
+
+[node name="BindPauseKey" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/PauseRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Escape"
+
+[node name="BindPausePad" type="Button" parent="Frame/Body/Columns/PanelHost/InputSection/Rows/PauseRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+text = "Start"
+
+[node name="Footer" type="HBoxContainer" parent="Frame/Body"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 24
+
+[node name="ResetButton" type="Button" parent="Frame/Body/Footer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 66)
+layout_mode = 2
+text = "Reset This Section"
+
+[node name="BackButton" type="Button" parent="Frame/Body/Footer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 66)
+layout_mode = 2
+text = "Back"
+
+[node name="RebindPrompt" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Shade" type="ColorRect" parent="RebindPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.87843137)
+
+[node name="Middle" type="CenterContainer" parent="RebindPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Stack" type="VBoxContainer" parent="RebindPrompt/Middle"]
+layout_mode = 2
+theme_override_constants/separation = 34
+
+[node name="RebindLabel" type="Label" parent="RebindPrompt/Middle/Stack"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Press an input"
+horizontal_alignment = 1
+
+[node name="RebindHint" type="Label" parent="RebindPrompt/Middle/Stack"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+text = "Escape cancels"
+horizontal_alignment = 1
+
+[node name="RebindCancel" type="Button" parent="RebindPrompt/Middle/Stack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 66)
+layout_mode = 2
+text = "Cancel"

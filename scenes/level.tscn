@@ -29,6 +29,35 @@
 [ext_resource type="AudioStream" path="res://audio/guille_experimental.ogg" id="22_music"]
 
 [ext_resource type="AudioStream" path="res://audio/wind_ambience.ogg" id="23_wind"]
+[ext_resource type="FontFile" uid="uid://iyvfq71j01xd" path="res://font/Galindo-Regular.ttf" id="27_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pause_normal"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pause_pressed"]
+bg_color = Color(0.78431374, 0.78431374, 0.78431374, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pause_hover"]
+bg_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pause_focus"]
+bg_color = Color(0.9852941, 0.39846456, 0.39846456, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_timer"]
 size = Vector3(4, 4, 1)
@@ -148,8 +177,7 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(1, 1, 1, 0.14705883)
 
-[node name="QuitButton" type="Button" parent="UI/PausePanel"]
-unique_name_in_owner = true
+[node name="Buttons" type="VBoxContainer" parent="UI/PausePanel"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -157,13 +185,43 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -165.5
-offset_top = -31.5
+offset_top = -79.0
 offset_right = 165.5
-offset_bottom = 31.5
+offset_bottom = 79.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 32
+
+[node name="OptionsButton" type="Button" parent="UI/PausePanel/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(331, 63)
+layout_mode = 2
 theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_focus_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_fonts/font = ExtResource("27_font")
 theme_override_font_sizes/font_size = 40
+theme_override_styles/normal = SubResource("StyleBoxFlat_pause_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_pause_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_pause_hover")
+theme_override_styles/focus = SubResource("StyleBoxFlat_pause_focus")
+text = "Options"
+
+[node name="QuitButton" type="Button" parent="UI/PausePanel/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(331, 63)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_focus_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_pressed_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_colors/font_hover_color = Color(0.19607843, 0.19607843, 0.19607843, 1)
+theme_override_fonts/font = ExtResource("27_font")
+theme_override_font_sizes/font_size = 40
+theme_override_styles/normal = SubResource("StyleBoxFlat_pause_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_pause_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_pause_hover")
+theme_override_styles/focus = SubResource("StyleBoxFlat_pause_focus")
 text = "Exit"
 
 [node name="TimerZone" type="Area3D" parent="."]

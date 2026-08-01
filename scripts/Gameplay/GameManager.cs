@@ -31,9 +31,17 @@ public partial class GameManager : Node
     /// <summary>Death count at which the effects reach full strength.</summary>
     public const int MaxMeaningfulDeaths = 10;
 
-    private const float ChromaticAberrationBase = 2.0f;
+    /// <summary>
+    /// The resting values, at zero deaths. Public because DeathDistortion needs to scale the
+    /// death-driven RANGE without touching the base, and duplicating these two numbers there would
+    /// fork the curve's definition.
+    /// </summary>
+    public const float ChromaticAberrationBase = 2.0f;
+
+    /// <inheritdoc cref="ChromaticAberrationBase"/>
+    public const float VignetteIntensityBase = 0.1f;
+
     private const float ChromaticAberrationRange = 8.0f;
-    private const float VignetteIntensityBase = 0.1f;
     private const float VignetteIntensityRange = 0.3f;
 
     public static GameManager? Instance { get; private set; }
