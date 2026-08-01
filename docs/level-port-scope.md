@@ -2711,3 +2711,28 @@ the mouse, rests at Unity's baseline, only ever worsens across ten deaths, satur
 exists" more than once now. For every effect, shader or script recorded as done, the thing to ask
 is which scene instantiates it — and if the answer is none, it is not ported, however good the
 file is.
+
+### The gamepad-drift suspicion, closed as not reproduced
+
+Raised from reading `PlayerInput._Input`, which latches `UsingGamepad = true` on **any**
+`InputEventJoypadMotion`, with no magnitude test — so it bypasses the 0.2 deadzone the action map
+applies to `move_*`. The worry was that a stick idling off-centre, or a trigger axis resting at
+something other than zero, would emit motion events continuously, latch gamepad mode and leave the
+keyboard dead: `_analogMagnitude` would be ~0, so `GetAnalogDirection` returns zero and the WASD
+branch is never taken.
+
+**Tested on the real controller and not reproduced.** Reported working: the keyboard keeps working
+with a pad connected. So the latch is not triggered by a pad sitting still on this hardware, and
+this is **not a live bug**.
+
+What it remains is a latent sharp edge, and the distinction is worth keeping straight rather than
+splitting the difference: a worn stick or a pad whose triggers rest away from zero would still trip
+it, because nothing in the code bounds the magnitude. The fix if it ever surfaces is one line —
+require `absf(motion.axis_value) > 0.2` before latching, matching the deadzone the actions already
+use. **Deliberately not applied now.** Writing code against a problem no one has is how the death
+post-process ended up sitting in the repository unused, and a check for it would have to synthesise
+drift events, i.e. assert that a guard that exists does what it says rather than that the game
+works.
+
+Recorded so the reasoning is not rediscovered and re-argued. If the keyboard ever goes dead with a
+pad plugged in, this is the first place to look.
