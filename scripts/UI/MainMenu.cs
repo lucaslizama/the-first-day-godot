@@ -11,6 +11,27 @@ public partial class MainMenu : Control
     [Export]
     public string LevelScenePath { get; set; } = "res://scenes/level.tscn";
 
+    /// <summary>
+    /// Inputs that count as "the player is reaching for the menu" and so arm the first button.
+    ///
+    /// Two families, because the two halves of the scheme live in different places. The arrow keys
+    /// and the gamepad's d-pad and left stick arrive through Godot's built-in <c>ui_*</c> actions,
+    /// which this project never redefines. W/A/S/D arrive through the project's own <c>move_*</c>
+    /// actions - the level's movement bindings, which are also bound to the same sticks, so a stick
+    /// push matches in both families and the first match wins.
+    /// </summary>
+    private static readonly string[] DirectionalActions =
+    {
+        "ui_up",
+        "ui_down",
+        "ui_left",
+        "ui_right",
+        "move_forward",
+        "move_back",
+        "move_left",
+        "move_right",
+    };
+
     private Button _startButton = null!;
     private Button _exitButton = null!;
     private FadeOverlay _fade = null!;
@@ -44,12 +65,110 @@ public partial class MainMenu : Control
         // Unity highlighted no button either. This used to call GrabFocus on Start - or on Exit when
         // Start was disabled - which drew the focus style over the button the moment the menu opened.
         //
-        // Keyboard and gamepad still reach the menu: with no focus owner, ui_focus_next (Tab, and the
-        // gamepad's mapped equivalent) focuses the first control in the container. Note that the ARROW
-        // keys do not, because Control's focus_neighbour walk needs somewhere to start from - so the
-        // first press has to be Tab. Unity had the same shape, sending navigation events with nothing
-        // selected.
+        // WHAT THIS COSTS, AND WHY _Input BELOW EXISTS. An earlier version of this comment claimed
+        // that Tab would still reach the menu because ui_focus_next focuses the first control when
+        // nothing owns focus. IT DOES NOT. Godot's navigation walk starts FROM the focus owner -
+        // Viewport::_gui_navigation_input bails when there is none - so with nothing focused, every
+        // navigation key including Tab is inert, and the menu was reachable only with the mouse.
+        // Measured: three Tab presses, focus owner NOTHING each time; the same probe moved focus
+        // Start -> Exit correctly once something was focused, so it was the engine, not the probe.
         GetViewport().GuiReleaseFocus();
+    }
+
+    /// <summary>
+    /// Arms the first button the moment the player reaches for the menu with a direction - arrows,
+    /// W/A/S/D, d-pad or stick. This is what keeps "nothing focused on entry" from also meaning
+    /// "unreachable without a mouse"; see the note in <see cref="_Ready"/> for why Tab cannot do it.
+    /// </summary>
+    public override void _Input(InputEvent @event)
+    {
+        // Something already has focus, so ordinary navigation applies and this must not drag focus
+        // back to the first button - EXCEPT for W/A/S/D, which Godot will not navigate with at all.
+        // See NavigateWithMoveKeys.
+        if (GetViewport().GuiGetFocusOwner() is Control focused)
+        {
+            NavigateWithMoveKeys(@event, focused);
+            return;
+        }
+
+        foreach (string action in DirectionalActions)
+        {
+            // Echoes are excluded by default, so holding a direction arms once rather than fighting
+            // the navigation that follows.
+            if (!@event.IsActionPressed(action))
+            {
+                continue;
+            }
+
+            // Start unless it is disabled, which is what the old GrabFocus pair chose too.
+            Button first = _startButton.Disabled ? _exitButton : _startButton;
+            first.GrabFocus();
+
+            // CONSUMED DELIBERATELY, so this press only arms the focus and does not also move it.
+            // _Input runs BEFORE the viewport's GUI navigation, so without this the same ui_up or
+            // ui_down would be processed again a moment later - now with a focus owner - and step
+            // straight past the button just landed on. With two buttons that reads as the menu
+            // opening on the wrong one.
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Moves focus for W/A/S/D, which Godot's own navigation will not do.
+    ///
+    /// THE ASYMMETRY THIS EXISTS TO CLOSE. Godot navigates on the <c>ui_*</c> actions, and their
+    /// bindings are not what you would guess: <c>ui_down</c> is Down, d-pad down AND left stick Y+1,
+    /// so the gamepad navigates a menu out of the box. W and S are bound only to this project's
+    /// <c>move_*</c> actions, which the engine's GUI knows nothing about. The result was a menu where
+    /// the first W armed a button and every W after it did nothing - arming worked, so it looked
+    /// wired up, but WASD could never actually reach the second button.
+    ///
+    /// Only KEY events are handled here. The stick and d-pad match <c>move_*</c> too, but they are
+    /// already on the <c>ui_*</c> actions and navigate correctly on their own; intercepting them
+    /// would be re-implementing working engine behaviour for no gain.
+    /// </summary>
+    private void NavigateWithMoveKeys(InputEvent @event, Control focused)
+    {
+        if (@event is not InputEventKey)
+        {
+            return;
+        }
+
+        Side side;
+        if (@event.IsActionPressed("move_forward"))
+        {
+            side = Side.Top;
+        }
+        else if (@event.IsActionPressed("move_back"))
+        {
+            side = Side.Bottom;
+        }
+        else if (@event.IsActionPressed("move_left"))
+        {
+            side = Side.Left;
+        }
+        else if (@event.IsActionPressed("move_right"))
+        {
+            side = Side.Right;
+        }
+        else
+        {
+            return;
+        }
+
+        // The same walk the arrow keys take, so the buttons' own focus neighbours stay the single
+        // definition of the menu's layout - nothing here hard-codes Start above Exit.
+        Control? next = focused.FindValidFocusNeighbor(side);
+        if (next is null || next == focused)
+        {
+            // No neighbour that way - W at the top of the list, or any horizontal press in a column.
+            // Left unhandled rather than swallowed, so it stays available to anything else.
+            return;
+        }
+
+        next.GrabFocus();
+        GetViewport().SetInputAsHandled();
     }
 
     private void OnStartPressed()

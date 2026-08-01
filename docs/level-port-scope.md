@@ -2415,9 +2415,88 @@ physics ticks, and interpolation only changes what is drawn *between* ticks — 
 structurally blind to this setting in both directions. It cannot confirm the improvement and could not
 have caught either compensation being missing. Recorded so nobody reads the green suite as evidence.
 
-**One thing to watch.** The moving platforms' and hammers' `AnimationPlayer`s run on the **idle** clock
-by default — the same fact that made the footsteps check flaky — so their transforms are written per
-rendered frame while `sync_to_physics` writes back from the physics server each tick.
-`tools/verify_platforms.gd` and `tools/verify_hammer.gd` still pass at the physics level (rider carried
-within 3 mm, hammer tracking 0.000 m). If anything looks wrong after this change, look there first, and
-the lever is those players' `callback_mode_process`.
+**One thing to watch — and a correction to what this section first said.** It claimed the moving
+platforms' and hammers' `AnimationPlayer`s run on the idle clock "by default" and to look there first.
+They do not: `scenes/hammer.tscn` and `scenes/moving_platform.tscn` both carry
+`callback_mode_process = 0`, i.e. ANIMATION_PROCESS_PHYSICS. Every node in this project that moves a
+collider is already on the physics clock, which is exactly what interpolation wants, so those two files
+are the wrong place to look and their `callback_mode_process` is not a lever — it is already set.
+
+The one node that genuinely animates a transform on the **idle** clock is the starting door,
+`scenes/puerta_inicio.tscn`: a `rotation_3d` track on a default-mode `AnimationPlayer`, reaching the
+level through `scenes/props.tscn`, with no `physics_interpolation_mode` opt-out. By the reasoning above
+that makes its swing quantised to 60 Hz plus a frame of lag above 60 fps — the very artefact this
+setting was turned on to remove, reintroduced for one prop.
+
+**It is deliberately left alone.** Checked in play on 2026-07-31: the door looks fine, nothing is
+noticeable, and it cannot affect a playthrough — the cost of the fix is not worth spending against an
+artefact nobody can see. If it ever does show, the fix is one line, `physics_interpolation_mode = 2` on
+the animated node, or that player's `callback_mode_process`.
+
+## The main menu was reachable only with a mouse
+
+`MainMenu._Ready` focuses nothing when the menu opens, and that much is faithful: `Main Menu.unity`'s
+EventSystem has `m_FirstSelected: {fileID: 0}`, so Unity highlighted no button either. What came with it
+was a comment asserting that keyboard and gamepad still reached the menu, because `ui_focus_next` focuses
+the first control when nothing owns focus.
+
+**It does not.** Godot's navigation walk starts *from* the focus owner — `Viewport::_gui_navigation_input`
+bails when there is none — so with nothing focused, every navigation input including Tab is inert. The
+menu could be operated only by clicking. Probed directly rather than argued: three Tab presses left the
+focus owner null, and the same probe moved focus `StartButton` → `ExitButton` correctly once something was
+focused, so the engine was answering, not the harness.
+
+Worth naming the shape of this bug. It broke the first thing a player touches, it logged nothing, no check
+covered it, and the code carried a comment stating the opposite of what the engine does — so reading the
+file would have reassured you. A wrong comment is worse than no comment.
+
+### The fix keeps the entry state and adds a way in
+
+Nothing is focused on entry, as before. `MainMenu._Input` then arms the first button the moment the player
+pushes a **direction** — arrows, W/A/S/D, d-pad or stick. Three details carry the weight:
+
+- **Two action families.** Arrows, d-pad and stick arrive through Godot's built-in `ui_*` actions; W/A/S/D
+  arrive through this project's own `move_*` actions, which are also bound to the sticks. A stick push
+  therefore matches in both families, and the first match wins.
+- **The event is consumed** (`SetInputAsHandled`). `_Input` runs *before* the viewport's GUI navigation, so
+  without this the same `ui_down` would be processed again a moment later — now with a focus owner — and
+  step straight past the button just armed. With two buttons that reads as the menu opening on Exit.
+- **Arming is not sticky.** The handler returns immediately when anything already has focus, or every arrow
+  press would drag focus back to the first button.
+
+`tools/verify_main_menu.gd` is 11 checks, and one of them is unusual: it asserts that **Tab alone is
+inert**. That is the false claim above, written down as an assertion so it cannot be believed again — and
+if a future Godot ever makes navigation self-starting, that check fails loudly and the handler can be
+reconsidered. The rest cover each directional family, the non-sticky follow-on press, the disabled-Start
+fallback to Exit, and a non-directional key being ignored.
+
+Two facts the verifier had to be taught, both costing a cycle: `main_menu.tscn`'s root is a plain `Node`
+with `MainMenu.cs` on a `Control` beneath a `CanvasLayer`, so the instance does not cast to `Control`; and
+`root.get_viewport()` returns null early in a `--script` run, before the tree settles — `root` **is** the
+viewport, since `Window` extends it.
+
+### Then W/S still did not work, and the check said PASS
+
+Reported from play immediately after the above shipped green. Arming was never the problem — W and S
+armed the first button correctly. **They just could not move off it.** Godot navigates on the `ui_*`
+actions, and their bindings are not what you would guess:
+
+    ui_down        ["Down", "Joypad Button 12 (D-pad Down)", "Left Stick Y-Axis +1.00"]
+    move_back      ["S - Physical",                          "Left Stick Y-Axis +1.00"]
+
+The d-pad and the stick are *on* `ui_down`, so the gamepad navigated a menu out of the box. W and S live
+only on `move_*`, which the engine's GUI knows nothing about. So the first press armed a button and every
+press after it was inert — the menu looked wired up, which is why it read as "works, but not with W/S".
+
+`MainMenu.NavigateWithMoveKeys` closes it, walking the buttons' own `FindValidFocusNeighbor` so their
+focus neighbours stay the single definition of the layout — nothing hard-codes Start above Exit. It
+handles **key events only**: the stick and d-pad match `move_*` too, but they already navigate correctly
+through `ui_*`, and intercepting them would re-implement working engine behaviour for no gain.
+
+**The lesson is about the check, not the code.** `verify_main_menu.gd` passed 11/11 while the feature was
+half-broken, because every one of those checks asked *does the first press arm the button* — the thing
+just built — and none asked *can the player then reach the other button*, the thing actually wanted. A
+check written from the implementation will confirm the implementation. It is now 18 checks: each
+direction is asserted to **move focus from a named button to a named button**, plus the ends of the
+column and a horizontal press that must do nothing. Those are statements about what the player can do,
+and the old bug fails every one of them.
