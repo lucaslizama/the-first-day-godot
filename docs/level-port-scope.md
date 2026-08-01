@@ -2526,9 +2526,14 @@ end, with nothing to tell you. Length now follows content. `ScrollSpeed` is the 
 geometry comes from `GetViewportRect()` at runtime, which under this project's `canvas_items` stretch
 mode is always the 1920x1080 base size, so the roll is resolution-independent with no scaling maths.
 
-Speed measured, not guessed: the text is 2296 px tall, so the travel is 1080 + 2296 = 3376 px. 100
-px/s ran 34 s, which is a long time to hold someone who has just finished a jam game; **140 px/s**
-reads it out in about 24 s. Revisit if the list grows.
+Speed measured, not guessed: **140 px/s**, which read the text out in about 24 s when it was 2296 px
+tall (travel 1080 + 2296 = 3376 px). 100 px/s ran 34 s, which is a long time to hold someone who has
+just finished a jam game.
+
+**Those numbers already moved, and that is the feature.** Adding the Godot-port block below took the
+text to 2527 px, travel 3607, about 26 s — the roll got *longer* rather than pushing the last name off
+the end, which is exactly what a timed scroll would have done silently. Re-time it if the list grows a
+lot.
 
 ### One implementation, reached two ways
 
@@ -2571,15 +2576,31 @@ plausible freesound attribution would be worse than an omission, because a wrong
 about a real person. If its origin turns up, add it.
 
 Also fixed: `Fernando castillo` in the Concept Art block, lower-case, where the same name is spelled
-correctly eight lines above. Added: an `Asylum Jam 2016` line and `Made with Godot Engine`, both
-factual — remove them if they are not wanted.
+correctly eight lines above.
 
-`tools/verify_credits.gd` is 14 checks, written against the failure modes rather than the
+**And the two-engine history, which the old text never stated.** Every name above credits the 2016
+team; nothing said what that original was built in, or that the thing being played is a different
+program by a partly different pair of hands. The roll now closes with
+
+    Originally made in Unity
+    for Asylum Jam 2016
+
+    Godot port:
+    Lucas Lizama
+    Ian Genskowsky
+
+Ian appears twice on purpose — once under 3D Modeling and Animation for the original, once here for
+the port — because they are two distinct contributions and collapsing them would misstate both. This
+replaced a bare `Asylum Jam 2016` line and a `Made with Godot Engine` line, which between them implied
+the same facts without ever saying either.
+
+`tools/verify_credits.gd` is 16 checks, written against the failure modes rather than the
 implementation: the background is opaque black over the whole viewport, the text **starts off-screen**
 below the bottom edge, the **whole** text clears the top (the assertion a timed scroll fails, and the
 one that catches a newly added name being cut off), the roll stops rather than running on forever, a
 press skips, a press inside the guard does not, and every attributed name is still present —
-freesound's licences require those, so a check keeps an edit from quietly dropping one.
+freesound's licences require those, so a check keeps an edit from quietly dropping one. Two more
+assert the Unity original and the Godot port are both still named.
 
 `tools/verify_ending.gd` was rewritten to match: its old assertions about a Label's visibility and
 `creditsTime` counting down are gone, replaced by letting the scene change actually happen and finding

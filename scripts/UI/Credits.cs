@@ -32,11 +32,15 @@ public partial class Credits : Control
     /// Roll speed in pixels per second, in the project's 1920x1080 canvas space.
     ///
     /// Not comparable to Unity's <c>scrollspeed</c> of 3, which was in a different unit over a
-    /// different clock and only ever had to cover 30 of them. Measured: this text is 2296 px tall,
-    /// so the full travel is 1080 + 2296 = 3376 px, and 140 px/s reads it out in about 24 s. 100
-    /// was tried first and ran 34 s, which is a long time to hold a player who has just finished a
-    /// jam game. Adding names lengthens the roll rather than truncating it, so revisit this if the
-    /// list grows much; it is skippable either way.
+    /// different clock and only ever had to cover 30 of them. Chosen by measurement: at the time of
+    /// writing the text was 2527 px tall, so the travel is 1080 + 2527 = 3607 px and this reads it
+    /// out in about 26 s. 100 px/s was tried first and ran 36 s, which is a long time to hold a
+    /// player who has just finished a jam game.
+    ///
+    /// Those figures date immediately, and that is the design working rather than a defect: the roll
+    /// is distance-driven, so adding a name makes it LONGER instead of pushing the last name off the
+    /// end. Adding the Godot-port block did exactly that, 2296 px to 2527. Re-time it if the list
+    /// grows a lot; it is skippable either way.
     /// </summary>
     [Export]
     public float ScrollSpeed { get; set; } = 140.0f;

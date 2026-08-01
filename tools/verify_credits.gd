@@ -128,6 +128,21 @@ func _initialize() -> void:
 	else:
 		_fail("the wind's filename is wrong or missing; the asset is looping-hollow-open-air-wind.wav")
 
+	# The two-engine history. The names above credit the ORIGINAL team; this block says which
+	# engine that original was, and who did the port - a distinction the old text did not draw
+	# at all, so a reader had no way to tell the 2016 game from the thing they were playing.
+	checks += 1
+	if text.contains("Unity") and text.contains("Asylum Jam 2016"):
+		_ok("the credits say the original was made in Unity, for Asylum Jam 2016")
+	else:
+		_fail("the credits no longer name Unity and the jam the original was built for")
+
+	checks += 1
+	if text.contains("Godot port") and text.contains("Ian Genskowsky"):
+		_ok("the credits name the Godot port and who did it")
+	else:
+		_fail("the credits no longer attribute the Godot port")
+
 	print("")
 	if failures > 0:
 		print("FAIL: %d of %d checks failed" % [failures, checks])
